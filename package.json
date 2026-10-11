@@ -16,10 +16,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "lint:commits": "commitlint --from $(git rev-list --max-parents=0 HEAD) --to HEAD"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.2",
     "@vitest/coverage-v8": "^5.0.3",

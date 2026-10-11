@@ -243,3 +243,173 @@ A memory is an append-only record with **four timestamps**, following Graphiti:
 | Time | `createdAt` (HLC of commit), `expiredAt` (system time it was superseded), `validFrom` / `validTo` (world time the fact held), `logIndex` |
 
 Facts are never overwritten. A newer fact supersedes an older one by setting `validTo` / `expiredAt` from the command's HLC and writing a new version. Deletion is an explicit, audited command.
+
+---
+
+## 6. Write path
+
+Example: an agent calls `remember` (MCP) or `MEM.ADD` (RESP) for scope `acme/alice`.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as Client (agent)
+  participant A as Adapter (MCP/RESP)
+  participant Z as Authorizer
+  participant R as Router
+  participant L as Leader: MemoryService
+  participant M as Model sidecar
+  participant P as Proposer / Raft leader
+  participant F as Followers
+  participant S as State machine (each replica)
+  participant E as EventBus
+  C->>A: remember(scope, text, requestId)
+  A->>Z: principal may write scope?
+  Z-->>A: allowed
+  A->>R: route by scope key
+  R->>L: range leader (forward over :7000 if remote)
+  L->>M: embed, extract facts, NER, NLI (deadline + circuit breaker)
+  M-->>L: model outputs
+  L->>L: link entities, score importance, detect conflicts, assemble MemoryCommit
+  L->>P: propose(Command{requestId, principal, hlc, body})
+  P->>F: AppendEntries (pipelined, batched)
+  F-->>P: ack after fsync
+  P->>S: committed at index i
+  S->>S: idempotency check, one WriteBatch: records + indexes + appliedIndex
+  S->>E: CommandApplied, MemoryCommitted
+  P-->>C: ids, conflicts, degraded flag
+```
+
+- **Fast acknowledgment**: with `async: true`, step 6 is skipped. The raw episode is committed immediately and an `enrich` job finishes the pipeline later, proposing a `MemoryEvolve`.
+- **Degraded mode**: if the sidecar is down, extraction stages are skipped, raw episodic memory is stored, enrichment is queued, and the reply carries `degraded: true`.
+- **Plain KV writes** (`SET`, `HSET`) follow the same path without step 6. `MULTI`/`EXEC` and multi-key writes within one range are a single command.
+- **Batching**: proposals are batched per tick, and all ranges' log appends in one event-loop turn share one LevelDB batch and one fsync (group commit).
+
+---
+
+## 7. Read path and consistency
+
+| Level | Guarantee | Mechanism | Default for |
+|---|---|---|---|
+| `linearizable` | Sees every write acknowledged before the read began | ReadIndex (leader confirms with a heartbeat round) | Admin, `WATCH`/`EXEC` |
+| `lease` | Linearizable assuming bounded clock drift | Leader lease (< election timeout × (1 − drift)), requires CheckQuorum | Redis reads, collections |
+| `bounded_staleness(δ)` | At most δ old | Follower read at its applied index if `now − appliedHlc ≤ δ` | Agent recall (δ = 500 ms) |
+| `snapshot(t)` | Consistent view at a time or index | MVCC read at a version | `ASOF`, exports, backups |
+| `session` | Read-your-writes, monotonic reads | Client carries last-seen index per range | SDKs, embedded replicas |
+
+```mermaid
+flowchart LR
+  q["read request"] --> lvl{"consistency level"}
+  lvl -- lease --> lease["leader: lease valid?"] -- yes --> local["read local state"]
+  lease -- no --> ri["ReadIndex round"] --> wait["wait applied ≥ readIndex"] --> local
+  lvl -- linearizable --> ri
+  lvl -- bounded_staleness --> fol["nearest replica:<br/>applied HLC fresh enough?"] -- yes --> local
+  fol -- no --> ri
+  lvl -- "snapshot(t)" --> mvcc["map HLC→index, MVCC read at ~index"]
+```
+
+Recall reads several indexes. They are all updated inside the same apply, so a recall at index *i* sees one consistent version of records, vectors, postings and edges.
+
+---
+
+## 8. Replication and cluster management
+
+### 8.1 Raft core
+
+`@mindlog/raft` is a **pure state machine** modelled on etcd raft: inputs are `tick`, `step(msg)`, `propose`, `readIndex`; the output is a `Ready` batch. The host performs I/O in a fixed order, which is what makes Raft testable in a deterministic simulator.
+
+```mermaid
+flowchart LR
+  tick["tick / step / propose"] --> core["Raft core (pure)"] --> ready["Ready{hardState, entries,<br/>snapshot, messages, committed}"]
+  ready --> persist["1. persist hardState + entries<br/>(fsync, one batch for all ranges)"]
+  persist --> send["2. send messages"]
+  send --> apply["3. apply committed entries in order"]
+  apply --> adv["4. advance()"] --> core
+```
+
+Features: PreVote, CheckQuorum, pipelined AppendEntries with flow control (Probe / Replicate / Snapshot progress states), ReadIndex, leader leases, follower reads, chunked snapshots, learners, single-server membership changes (ADR-006), leadership transfer, proposal forwarding. Election timeouts come from the seeded `Random` port, not a global RNG.
+
+| Timing | Default |
+|---|---|
+| Tick | 100 ms |
+| Election timeout | random 10–20 ticks |
+| Lease | 9 ticks |
+| Max in-flight AppendEntries / follower | 256 |
+| Snapshot threshold | 10,000 entries or 64 MiB |
+
+Invariants are asserted in tests and debug builds: election safety, leader append-only, log matching, leader completeness, state machine safety, and `applied ≤ committed` with commit never decreasing.
+
+### 8.2 Multi-Raft ranges
+
+A **range** is a contiguous key span with its own Raft group (3 replicas by default), described by `{rangeId, startKey, endKey, epoch, replicas, placement}`.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Active
+  Active --> Quiescent: idle (stop ticking)
+  Quiescent --> Active: proposal arrives
+  Active --> Splitting: > 64 MiB or hot for 60 s
+  Splitting --> Active: SplitTrigger applied (two ranges)
+  Active --> Merging: adjacent ranges < 16 MiB and cold
+  Merging --> Active: MergeTrigger applied
+  Active --> Moving: PD operator (add learner → promote → transfer leader → remove)
+  Moving --> Active
+```
+
+- **One `Store` per node** drives all replicas: one Ready loop, one fsync per turn across ranges, and **coalesced heartbeats** per node pair (10,000 ranges ≠ 10,000 heartbeats).
+- **Placement modes**: *key range* for Redis data and collections; *scope* for memory, where the key starts with (tenant, user) so one user's memory lives in one range and recall is single-range; *semantic split* for a scope that outgrows a range (k-means on embeddings, and recall fans out to the nearest 2 clusters).
+- A stale range epoch in a request returns `RANGE_MOVED` with the new descriptor.
+
+### 8.3 Placement driver (PD)
+
+PD is its own 3-member Raft group. It owns the range directory, id allocation, a batched **timestamp oracle**, store heartbeats (capacity, load, model health) and **schedulers**: balance replicas and leaders, split hot ranges, merge cold ones, repair under-replication, and evacuate draining nodes. Scheduling decisions are **operators made of idempotent steps**, executed by range leaders. Each comes with an explanation plan that the dashboard shows (pattern from TiKV PD). PD is off the data path except for TSO, so the data path keeps running with a cached range map if PD loses quorum.
+
+### 8.4 Routing
+
+The router encodes the key or scope, finds the range in its cache, and sends the request to the cached leader. On `NOT_LEADER{hint}` it retries the hinted leader. On `RANGE_MOVED` it refreshes from PD. Retries use exponential backoff with jitter under the request deadline. Multi-key commands are split by range, run in parallel, and merged back in input order.
+
+### 8.5 Time
+
+Every node runs a **hybrid logical clock** (48-bit ms + 16-bit counter in one `uint64`). Every RPC carries the sender's HLC, and every command carries the proposer's. HLC gives the cluster a causally consistent time for `ASOF`, TTL, validity windows and audit. A node whose clock is more than 500 ms ahead of a peer gets `CLOCK_OFFSET_EXCEEDED`, refuses leases and alerts. Correctness is preserved because leases are simply turned off.
+
+### 8.6 Transactions
+
+- **Single range**: `MULTI`/`EXEC` and `WATCH` become one command; watched versions are preconditions checked in apply.
+- **Cross range**: Percolator-style 2PC with TSO timestamps. The primary lock is the commit point, secondaries commit asynchronously, and readers resolve abandoned locks. It is used first for unique indexes in collections, behind a feature flag.
+
+---
+
+## 9. Storage engine
+
+```mermaid
+flowchart TB
+  subgraph node["Per node"]
+    rl["LevelDB #1 — Raft logs + hard state<br/>sync: true (fsync before acks)"]
+    st["LevelDB #2 — state machine data (MVCC)<br/>no fsync per write; appliedIndex in same batch"]
+    mem["In-memory indexes (HNSW per scope)<br/>checkpointed to v/ segments"]
+    blob["Blob store — files, cold tier, backups"]
+  end
+  rl -- "replay from appliedIndex+1 on restart" --> st
+  st --> mem
+  st -- "low-retention memories" --> blob
+```
+
+- **Two LevelDB instances** (classic-level, behind the `KvStore` port; ADR-005). The log instance fsyncs. The state instance can skip fsync because it can be rebuilt from the log: `appliedIndex` is written in the same batch, and a restart re-applies from `appliedIndex + 1`. Therefore **the log is never compacted past an index until the state store has been flushed with `sync` at or beyond it** (CLAUDE.md rule 7).
+- **MVCC**: the version is the commit index, stored inverted after the `0x40` marker. A read at version V seeks to `key@~V`. Deletes write tombstones. GC is a replicated `GcThreshold` command (7 days for KV, 30 for memory by default), and branch fork points pin their versions.
+- **Snapshots** are LevelDB snapshots of a range's span, streamed in 1 MiB chunks. The receiver stages them and swaps atomically, then rebuilds in-memory indexes from segments plus newer records.
+- **Tiering**: memories whose forgetting-curve retention drops below a threshold move to the blob store as compressed segments. A stub with the summary and entity links stays hot, so graph walks still work.
+- **Backups**: consistent per-range snapshots at a TSO timestamp plus incremental log segments, which allows point-in-time restore. Backups are verified by scheduled restores.
+- **Encryption at rest** (phase 10): per-tenant AES-256-GCM data keys wrapped by a master key. Values are encrypted; keys stay plaintext so they remain ordered (ADR-014).
+
+---
+
+## 10. Indexes
+
+All indexes are updated inside apply, so they never disagree with committed data, and each can be rebuilt from records by a durable job.
+
+| Index | Structure | Details |
+|---|---|---|
+| Vector | HNSW per (scope, main) via hnswlib-node | M 16, efConstruction 200, efSearch 64, cosine, 384-d. Filters are pushed into search where the binding allows, otherwise over-fetch ×4. Rebuilt in a worker when > 20% deleted. Replicas may build slightly different graphs over identical records (ADR-008) |
+| Keyword | BM25 postings `t/(scope, term, id)` | `Intl.Segmenter` tokenizer, stop words, light stemming; k1 = 1.2, b = 0.75; per-scope N, avgdl and df updated in apply |
+| Graph | Edges in both directions (`g/out`, `g/in`) | Entity resolution: exact name → alias → embedding ≥ 0.88. Personalized PageRank over entity + memory nodes (HippoRAG settings: damping 0.5, entity seeds normalised by mention count, memory seeds × 0.05), in a worker with a 5,000-node cap |
+| Secondary / unique | `x/(index, value, pk)`, `u/(collection, field, value)` | Unique checks happen in the same command (one range) or via 2PC |

@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../dist-test/root",
+    "tsBuildInfoFile": "../dist-test/root/.tsbuildinfo"
+  },
+  "include": ["architecture"]
+}

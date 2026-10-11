@@ -53,6 +53,8 @@ export default defineConfig(
       '**/gen/**',
       'references/**',
       'python/**',
+      // Deliberately broken; linted only by test/architecture/boundaries.test.ts.
+      'test/lint-fixtures/**',
     ],
   },
   js.configs.recommended,

@@ -9,3 +9,7 @@ export type { ErrorCodeSpec, McpErrorKind } from './errors/error-codes.js';
 export { ERROR_CODES, GrpcStatus, MindlogErrorCode, problemType } from './errors/error-codes.js';
 export type { ErrorDetailView, MindlogError, MindlogErrorOptions } from './errors/mindlog-error.js';
 export { errorSpec, isRetryable, mindlogError, toErrorDetail } from './errors/mindlog-error.js';
+
+export type { Clock } from './clock/clock.js';
+export { ManualClock } from './clock/manual-clock.js';
+export { SystemClock } from './clock/system-clock.js';

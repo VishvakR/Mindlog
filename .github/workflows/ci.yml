@@ -1,0 +1,96 @@
+# CI pipeline steps 1-4 (PLAN 22.5): install, lint/typecheck/boundaries/cycles,
+# unit + property tests, protobuf checks. Later phases add integration,
+# simulation, builds and supply-chain steps.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript (lint, typecheck, test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Lint (ESLint + boundaries, madge cycles, Prettier)
+        run: pnpm lint
+      - name: Typecheck (sources and tests)
+        run: pnpm typecheck
+      - name: Unit, property and architecture tests
+        run: pnpm test
+
+  python:
+    name: Python (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - name: Install
+        run: uv sync --frozen
+      - name: Lint and format
+        run: |
+          uv run ruff check
+          uv run ruff format --check
+      - name: Typecheck
+        run: uv run mypy model_service mindlog_proto/tests
+      - name: Tests
+        run: uv run pytest
+
+  protobuf:
+    name: Protobuf (lint, generated code, breaking changes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - name: Install
+        run: |
+          pnpm install --frozen-lockfile
+          (cd python && uv sync --frozen)
+      - name: Generated code is up to date
+        run: |
+          scripts/gen-proto.sh
+          git diff --exit-code -- packages/proto/src/gen python/mindlog_proto/src
+      - name: No breaking changes against main
+        if: github.event_name == 'pull_request'
+        run: |
+          base="refs/remotes/origin/${{ github.base_ref }}"
+          if git cat-file -e "$base:proto" 2>/dev/null; then
+            pnpm exec buf breaking --against ".git#ref=$base"
+          else
+            echo "Base branch has no proto/ yet; nothing to compare."
+          fi

@@ -1,5 +1,6 @@
+import fc from 'fast-check';
 import { expect } from 'vitest';
-import type { Result } from '@mindlog/core';
+import type { Result, TupleElement } from '@mindlog/core';
 
 export function hex(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join(' ');
@@ -19,3 +20,17 @@ export function compareBytes(a: Uint8Array, b: Uint8Array): number {
   }
   return a.length === b.length ? 0 : a.length < b.length ? -1 : 1;
 }
+
+/** Arbitrary tuple element covering every supported type and edge values. */
+export const tupleElement: fc.Arbitrary<TupleElement> = fc.oneof(
+  fc.constant(null),
+  fc.uint8Array({ maxLength: 12 }),
+  fc.string({ unit: 'grapheme', maxLength: 12 }),
+  fc.constantFrom('', '\u0000', 'a\u0000', 'a', '\u{10ffff}'),
+  fc.bigInt({ min: -(2n ** 64n - 1n), max: 2n ** 64n - 1n }),
+  fc.bigInt({ min: -300n, max: 300n }),
+  fc.double(),
+  fc.boolean(),
+);
+
+export const tuple = fc.array(tupleElement, { maxLength: 6 });

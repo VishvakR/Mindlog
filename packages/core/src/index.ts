@@ -44,3 +44,10 @@ export type { ConfigOverrides, LogLevel, MindlogConfig } from './config/config-s
 export { configSchema } from './config/config-schema.js';
 export type { ConfigSources } from './config/resolve-config.js';
 export { resolveConfig } from './config/resolve-config.js';
+
+export type { LogFields, Logger } from './logging/logger.js';
+export { LOG_LEVELS } from './logging/logger.js';
+export type { LogEntry } from './logging/memory-logger.js';
+export { MemoryLogger } from './logging/memory-logger.js';
+export type { LoggerOptions } from './logging/pino-logger.js';
+export { createLogger } from './logging/pino-logger.js';

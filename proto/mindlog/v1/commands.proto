@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+// Envelope of every replicated command in a range's Raft log (PLAN 6.1,
+// ADR-0003). Everything non-deterministic (ids, HLC, model outputs) is decided
+// by the proposer and carried here, so apply() is a pure function of the log.
+message Command {
+  // Idempotency key: apply skips a command whose request_id it has seen.
+  bytes request_id = 1;
+  // Principal that issued the command, for audit and provenance.
+  string principal = 2;
+  // Proposer's HLC timestamp (Hlc.value packing); apply uses it instead of a clock.
+  uint64 hlc = 3;
+  // Memory branch the command targets; empty means "main".
+  string branch = 4;
+
+  // Field numbers 10-99 belong to the `body` oneof (PLAN 6.1 numbering):
+  // kv 10-12, memory 20-25, branches 30-32, cache 40-41, collections 50-52,
+  // transactions 60-62, jobs 70-72, ranges 80-82, admin 90. Each body is
+  // un-reserved in the commit that adds it, behind a cluster version (PLAN 19.5).
+  reserved 10 to 99;
+}

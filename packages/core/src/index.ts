@@ -30,3 +30,12 @@ export { appendTuple, encodeTuple } from './keys/tuple.js';
 export { VERSION_SUFFIX_LENGTH, appendVersion } from './keys/version.js';
 export type { DecodedTuple } from './keys/decode-tuple.js';
 export { decodeTuple } from './keys/decode-tuple.js';
+export type { KeyParts, KeyRange } from './keys/key.js';
+export {
+  KeyFamily,
+  decodeKey,
+  encodeKey,
+  keyPrefix,
+  prefixRange,
+  versionsRange,
+} from './keys/key.js';

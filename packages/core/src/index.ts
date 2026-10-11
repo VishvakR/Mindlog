@@ -39,3 +39,8 @@ export {
   prefixRange,
   versionsRange,
 } from './keys/key.js';
+
+export type { ConfigOverrides, LogLevel, MindlogConfig } from './config/config-schema.js';
+export { configSchema } from './config/config-schema.js';
+export type { ConfigSources } from './config/resolve-config.js';
+export { resolveConfig } from './config/resolve-config.js';

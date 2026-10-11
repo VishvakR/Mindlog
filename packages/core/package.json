@@ -17,5 +17,9 @@
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run --root ../.. --dir packages/core"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1",
+    "zod": "^4.6.6"
   }
 }

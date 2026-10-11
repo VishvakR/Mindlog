@@ -1,4 +1,4 @@
-import client from 'prom-client';
+import client from '@prometheus-io/client';
 import type {
   Counter,
   Gauge,
@@ -10,7 +10,7 @@ import type {
 } from './metrics.js';
 import { MetricCache } from './registry-base.js';
 
-/** Production Metrics backed by an isolated prom-client registry (PLAN 19.1). */
+/** Production Metrics backed by an isolated @prometheus-io/client registry (PLAN 19.1). */
 export class PromMetrics implements Metrics {
   readonly registry = new client.Registry();
   readonly #cache = new MetricCache();

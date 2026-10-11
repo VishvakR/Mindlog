@@ -1,0 +1,37 @@
+# Cloned reference repos (scripts/clone-references.sh); may be a symlink
+/references
+
+# Local-only AI assistant files
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.md
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Node / TypeScript
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.eslintcache
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Runtime data
+/data/
+/blobs/
+*.log
+.env
+.env.*
+!.env.example

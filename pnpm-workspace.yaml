@@ -1,2 +1,7 @@
 packages:
   - packages/*
+
+# Packages whose install scripts we never run. unrs-resolver ships prebuilt
+# N-API bindings; its postinstall is only a fallback.
+ignoredBuiltDependencies:
+  - unrs-resolver

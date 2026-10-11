@@ -12,3 +12,16 @@ ignoredBuiltDependencies:
 peerDependencyRules:
   allowedVersions:
     madge>typescript: '6'
+
+# Security overrides for transitive dev dependencies (pnpm audit).
+overrides:
+  # eslint-plugin-boundaries pins 4.7.9; 4.7.10 fixes GHSA-8r5x-fm3f-whwj,
+  # GHSA-p8wg-vrv2-v86f and GHSA-xw65-4hp5-5hc7.
+  handlebars: ^4.7.10
+
+auditConfig:
+  ignoreGhsas:
+    # braces (via eslint-plugin-boundaries > micromatch) has no patched
+    # release. The DoS needs attacker-controlled glob patterns; here braces only
+    # sees our own lint config, at lint time. Revisit when a fix ships.
+    - GHSA-vfj7-8cjw-p6xm

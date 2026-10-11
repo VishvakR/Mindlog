@@ -413,3 +413,79 @@ All indexes are updated inside apply, so they never disagree with committed data
 | Keyword | BM25 postings `t/(scope, term, id)` | `Intl.Segmenter` tokenizer, stop words, light stemming; k1 = 1.2, b = 0.75; per-scope N, avgdl and df updated in apply |
 | Graph | Edges in both directions (`g/out`, `g/in`) | Entity resolution: exact name → alias → embedding ≥ 0.88. Personalized PageRank over entity + memory nodes (HippoRAG settings: damping 0.5, entity seeds normalised by mention count, memory seeds × 0.05), in a worker with a 5,000-node cap |
 | Secondary / unique | `x/(index, value, pk)`, `u/(collection, field, value)` | Unique checks happen in the same command (one range) or via 2PC |
+
+---
+
+## 11. Memory engine
+
+The memory engine is a set of small components behind ports. It knows nothing about RESP, MCP or HTTP, nor which model runs behind a port. `MemoryService` is a thin facade (validate, authorize, choose sync or async). Work happens in **declarative pipelines** of stages, each in its own file, built from per-tenant configuration (pattern from Cognee). The engine writes only through the `Proposer`.
+
+### 11.1 Ingestion (`remember`)
+
+```mermaid
+flowchart LR
+  n["Normalize"] --> r["Redact (PII, optional)"] --> ch["Chunk"] --> ex["ExtractFacts<br/>(local LLM, JSON schema,<br/>add-only)"]
+  ex --> ner["RecognizeEntities<br/>(GLiNER)"] --> le["LinkEntities"] --> em["Embed"] --> imp["ScoreImportance"]
+  imp --> ln["LinkNotes<br/>(top-5 ≥ 0.75)"] --> dc["DetectConflicts<br/>(NLI)"] --> tr["ClassifyTrust"] --> as["AssembleCommit"] --> pr["Propose"]
+```
+
+- Stages declare `needsModel`, `optional`, `timeoutMs` and `batchSize`, and return `Result<O, StageError>`. A **retryable** error is retried, a **skippable** one falls back to the stage's declared output, and a **fatal** one aborts.
+- All outputs (facts, vectors, entities, links, conflicts) go into **one `MemoryCommit` command**, so followers never re-run models.
+- Long work runs as **durable jobs** (`queued → leased → done | failed → dead`). Jobs live in the scope's range, leases are replicated commands held by the range leader with an epoch that fences stale workers, there are at most 5 retries, then the dead-letter queue, and queue depth limits return `BUSY`.
+
+### 11.2 Recall
+
+```mermaid
+flowchart LR
+  pq["ParseQuery<br/>(entities, time, breadth)"] --> cc{"CheckCache"}
+  cc -- hit, deps unchanged --> out["answer"]
+  cc -- miss --> ret
+  subgraph ret["Retrieve (parallel)"]
+    v["vector k=50"]; k["BM25 k=50"]; e["entity"]; p["PPR"]; t["theme"]
+  end
+  ret --> fu["Fuse (RRF, k=60,<br/>weighted)"] --> fi["Filter (scope, branch,<br/>trust, ASOF, validity)"] --> rr["Rerank (optional)"]
+  rr --> sc["Score"] --> dv["Diversify (MMR λ=0.7)"] --> pk["Pack (token budget)"] --> out
+  pk -.-> rs["RecordRecall (batched)"]
+```
+
+Final score (per-tenant weights, tuned on evals):
+
+```
+score = 0.60 · relevance(fused or reranked)
+      + 0.15 · recency      (0.995 ^ hours since last access)        — Generative Agents
+      + 0.15 · importance
+      + 0.10 · retention    (e^(−t/S), S grows with spaced recall)   — MemoryBank
+      − trust penalty       (quarantined excluded unless requested)
+```
+
+An optional `Explain` stage returns the score from each signal, which the dashboard's Recall Playground shows.
+
+### 11.3 Consolidation
+
+Leader-only background workers run per scope under per-tenant model-time budgets. All of them write through normal commands, are idempotent per `(worker, scope, inputVersion)`, and are checkpointed so a leader change resumes them.
+
+| Worker | Trigger | Output |
+|---|---|---|
+| SleepTimeConsolidator | Scope idle ≥ 10 min after ≥ 20 new memories | Distils sessions on a `sleep/<ts>` **branch**, merged through the normal conflict-checked path |
+| EvolutionWorker (A-MEM) | New memory linked to older ones | New versions of neighbours (never overwrites) |
+| Deduplicator | Nightly | `supersedes` links, lower weight, never deletes |
+| ThemeBuilder | Graph changed > 5% | `theme` memories from community detection |
+| ForgettingWorker | Hourly | Tier changes by retention |
+| ReembedWorker | Embedding model changed | New index generation, switched atomically by command |
+
+---
+
+## 12. Log-native features
+
+These follow directly from the replicated log. Prior art exists for each one on its own; Mindlog's contribution is doing them **inside a replicated multi-agent database with decisions made at commit time**.
+
+| Feature | Design |
+|---|---|
+| **Branches** | Metadata `{forkIndex, forkHlc, parent, status}`. Branch writes use `branch = name`; reads overlay branch keys on `main@forkIndex`. A merge runs on the leader: CRDT rules for structured fields (OR-set, PN-counter, LWW by HLC) and NLI conflict checks for text facts, with policy `abort / raise / prefer_branch / prefer_main` |
+| **Conflict detection** | For each new fact, compare against the top-5 similar facts and facts sharing entities. Run NLI both ways. `p_contradict ≥ 0.80` → conflict record + new fact quarantined (default policy). `p_entail ≥ 0.90` → duplicate. Non-overlapping validity windows are history, not conflict. Resolution sets `validTo`, never deletes |
+| **Point-in-time recall** | `ASOF index` is an MVCC read. `ASOF time` maps HLC → index through a per-second index-time table. Vector search over-fetches and then filters to records that existed at that version. `VALID_AT` filters on world time independently |
+| **Provenance and quarantine** | Every record has `source` and `principal`, and derived records have `derived_from`. Untrusted sources are quarantined and passed to models only as quoted data. `FORGET SOURCE` cascades through derivations |
+| **Change streams** | Every applied command yields `{rangeId, index, hlc, principal, keys, op}`. Subscribers (SSE, MCP, SDK, cache invalidator) resume from `(rangeId, index)`. A subscriber that fell behind compaction gets `ResyncRequired` |
+| **Semantic cache** | Two-stage lookup (ANN, then a pluggable evaluator), with an L1 exact-hash cache and an L2 replicated cache. Entries record the memories they depend on, and the change stream invalidates them when those memories change |
+| **Token-budget packing** | Greedy by score per token with an MMR penalty and one improvement pass; per-group caps (facts, episodes, themes, procedures) |
+| **Embedded replicas** | The SDK keeps a local LevelDB of subscribed scopes: a snapshot plus the change stream, session consistency, and an offline write queue with request ids |

@@ -489,3 +489,132 @@ These follow directly from the replicated log. Prior art exists for each one on 
 | **Semantic cache** | Two-stage lookup (ANN, then a pluggable evaluator), with an L1 exact-hash cache and an L2 replicated cache. Entries record the memories they depend on, and the change stream invalidates them when those memories change |
 | **Token-budget packing** | Greedy by score per token with an MMR penalty and one improvement pass; per-group caps (facts, episodes, themes, procedures) |
 | **Embedded replicas** | The SDK keeps a local LevelDB of subscribed scopes: a snapshot plus the change stream, session consistency, and an offline write queue with request ids |
+
+---
+
+## 13. Interfaces and errors
+
+| Interface | Shape | Notes |
+|---|---|---|
+| RESP3 | Redis commands plus `MEM.*`, `CACHE.*`, `IDX.*` | Command table generated from Valkey-shaped JSON specs (arity, flags, key specs, ACL categories). `HELLO` negotiation, RESP2 downgrade, push frames for invalidation |
+| MCP | Tools: remember, recall, improve, forget, branch, resolve, cache_store … | `@modelcontextprotocol/server` over Streamable HTTP (:8765) and stdio. Zod v4 schemas shared with REST. Structured content plus a short text summary, with size-bounded outputs |
+| REST + SSE | `/api/…`, `/api/realtime` | Fastify. OpenAPI generated from the same Zod schemas. RFC 9457 problem details |
+| gRPC | Public services + SDKs | Protobuf in `proto/`, checked by buf lint and breaking-change detection |
+| Dashboard | SvelteKit static app at `/_/` | Uses only the public API, with the same authorization and audit as any client. No CDN calls |
+
+Adapters are thin: parse → validate → call an application service → serialise. **Errors come from one table** in `@mindlog/core` (implemented). Each `MindlogErrorCode` maps to exactly one reply per interface, so adapters never invent errors:
+
+| Code (examples) | RESP | HTTP | gRPC | Retryable |
+|---|---|---|---|---|
+| `INVALID_ARGUMENT` | `-ERR` | 400 | INVALID_ARGUMENT | no |
+| `WRONG_TYPE` | `-WRONGTYPE` | 409 | FAILED_PRECONDITION | no |
+| `BUSY` | `-BUSY` | 503 | RESOURCE_EXHAUSTED | yes |
+| `NOT_LEADER` | `-TRYAGAIN` | 503 | UNAVAILABLE | yes |
+| `RANGE_MOVED` | `-MOVED` | 421 | UNAVAILABLE | yes |
+| `CLOCK_OFFSET_EXCEEDED` | `-TRYAGAIN` | 503 | UNAVAILABLE | yes |
+
+Public error details never carry internal causes; those go to logs only.
+
+---
+
+## 14. Security and multi-tenancy
+
+- **Tenant isolation by construction**: no API reaches storage without a resolved tenant, and the tenant is the first element of every key.
+- **Authorization in the application layer** for every request (RESP, MCP, REST, gRPC, dashboard): roles × actions × ownership × tenant, tested as a matrix. Agents never hold admin roles, and delegated tokens record both principal and actor.
+- **Transport**: TLS for client protocols, mTLS between nodes and to PD. The `production` profile forces TLS, auth and mTLS.
+- **Untrusted content**: quarantined, and passed to models only as quoted data with a fixed instruction (prompt-injection defense).
+- **Secrets**: never in logs, errors, traces or fixtures. The logger redacts secret fields (implemented).
+- **Audit**: data-affecting decisions (conflict, quarantine, eviction, merge rejection, scheduling) write audit or explain records.
+- **Supply chain**: lockfiles, `pnpm audit` and `pip-audit`, pinned CI actions.
+
+---
+
+## 15. Observability
+
+| Signal | Design |
+|---|---|
+| Metrics | Prometheus at `/metrics`. Names follow `mindlog_<area>_<thing>_<unit>`, which the registry enforces at registration (implemented). Every request path and worker gets a latency histogram and an error counter. `event_loop_lag` is mandatory |
+| Traces | OpenTelemetry spans from adapter → router → leader → propose → apply → model call. W3C context is propagated to the Python sidecar. Parent-based ratio sampling. Off unless an OTLP endpoint is configured (implemented) |
+| Logs | JSON lines (pino) with `traceId`, `tenant` and `rangeId` bindings, secrets redacted, and bigints logged exactly as strings (implemented) |
+| Health | `/health` (process alive); `/ready` (storage open, ranges caught up, PD reachable; a degraded model service is allowed) |
+| Alerts | Leader churn, follower lag > 10k entries, event-loop lag p99 > 100 ms, disk > 85%, model service down > 5 min, dead-letter jobs > 0, clock offset > 250 ms |
+
+---
+
+## 16. Failure handling
+
+| Failure | Detected by | Behaviour |
+|---|---|---|
+| Follower crash | Missed heartbeats | Writes continue on the majority; PD re-replicates after 5 min |
+| Leader crash | Election timeout | New leader in 1–3 s; router retries; lease reads pause until a new lease |
+| Partition | CheckQuorum, PreVote | The minority stops serving writes and linearizable reads; bounded-staleness reads may continue |
+| Slow follower | Lag metric | Leader throttles in-flight messages; sends a snapshot if the follower is behind the compacted log |
+| Disk full / corruption | Write error / CRC32C mismatch | Fail-stop the affected ranges; corrupt replicas drop local data and re-fetch a snapshot |
+| Clock skew | HLC offset check | Node refuses leases and alerts; correctness preserved |
+| PD quorum loss | RPC failures | Data path continues on the cached range map; splits, moves and TSO pause |
+| Model sidecar down or hung | Health checks, deadlines, circuit breaker | **Degraded mode**: raw episodic storage, queued enrichment, recall with the retrievers that still work (BM25 only if the embedder is down), `degraded: true` |
+| Bad command (bug) | Apply exception | Deterministic validation errors are stored as the result; unexpected exceptions fail-stop the replica, and an entry is never skipped |
+| Runaway tenant | Quotas | `BUSY` / quota errors for that tenant only; background work is shed first |
+
+Every new failure path gets a simulator scenario.
+
+---
+
+## 17. Scalability
+
+- **Horizontal**: data scales by ranges. Adding a node triggers rebalancing, and memory scales by scope placement and semantic splits.
+- **Range-local hot paths**: a user's memory lives in one range, so recall touches one range. Cross-range work goes through the router or 2PC, and there are no cross-range scans on request paths.
+- **Batching at every boundary**: proposals per tick, one fsync per Ready cycle across ranges, coalesced heartbeats, micro-batched model calls (≤ 5 ms or 32 items), and chunked fan-out for the change stream.
+- **Keep the event loop free**: CPU work over ~1 ms (large vector searches, PPR, BM25 over many candidates, packing, snapshot encoding) runs in a bounded `worker_threads` pool (Piscina).
+- **Backpressure everywhere**: bounded proposal queues (`BUSY`), per-connection output limits, job-queue depth limits, per-tenant quotas. Cursors and pagination everywhere; no unbounded scans.
+- **Quiescence**: idle ranges stop ticking.
+- **Memory caps**: indexes respect the node RSS budget, and eviction uses retention scores rather than LRU.
+- **Reads scale out** through follower and bounded-staleness reads, and through SDK embedded replicas.
+
+---
+
+## 18. Testing strategy and implementation status
+
+### 18.1 Test pyramid
+
+| Level | Tooling | Gate |
+|---|---|---|
+| Unit + property | Vitest, fast-check | Every PR; ≥ 85% line coverage on domain packages |
+| Contract | Shared suites per port; buf breaking; TS ↔ Python golden bytes | Every PR |
+| Architecture | Lint fixtures proving boundary and determinism rules fire | Every PR |
+| Deterministic simulation | Whole cluster in one process with simulated network, disk, clock and RNG; fault schedules; invariants | 1,000 seeds per PR, 100,000 nightly; failing seeds become regression tests |
+| Linearizability | Jepsen Maelstrom `lin-kv`, `txn-list-append` | Nightly from phase 3 |
+| Compatibility, fuzzing, chaos, load | Redis client suites, parser fuzzers, Docker + `tc`/iptables, redis-benchmark/memtier | Nightly / weekly / per release |
+| AI evaluation | LongMemEval, LoCoMo, ablations, conflict F1, cache hit/false-hit | Per change to the memory engine |
+
+### 18.2 What exists today (phase 0)
+
+| Area | Status |
+|---|---|
+| Tooling | pnpm workspace (TypeScript 6, strict), ESLint with layer boundaries, madge, Prettier, Vitest + fast-check, changesets, commitlint, uv workspace (ruff, mypy --strict, pytest), buf |
+| `@mindlog/core` | Result, error table, Clock/Random ports (+ fakes), ULID, HLC, order-preserving key encoding and decoder, layered config, logger, metrics, tracing, ScopePath |
+| `@mindlog/eventbus` | Typed domain events, EventBus port, in-memory bus |
+| `@mindlog/proto` / `mindlog-proto` | `common.proto`, `Command` envelope (body numbers reserved), generated TS and Python, golden-byte compatibility tests |
+| Python | `model_service` skeleton |
+| CI | Lint, typecheck, tests (TS + Python), protobuf drift and breaking checks, Conventional Commits |
+| Gates | Boundary rules proven by fixtures; key order verified for 100k random tuples |
+
+Everything else in this document is designed but not built yet; it arrives phase by phase (PLAN 24).
+
+---
+
+## 19. Key decisions and trade-offs
+
+| Decision | Why | Cost | Record |
+|---|---|---|---|
+| TypeScript server + Python model sidecar | MCP and dashboard ecosystem in TS; local-model ecosystem in Python | Two toolchains; CPU work must leave the event loop | ADR-0001 |
+| Hexagonal, package-per-module, enforced boundaries | Testability, deterministic simulation, no god objects | Per-package setup overhead | ADR-0002 |
+| Raft log as the single source of truth; deterministic apply | Branching, time travel, change streams and catch-up all follow from it | Larger commands (embedded model outputs) | ADR-0003 |
+| Protobuf for commands and internal RPCs | Schema evolution checks across TS and Python | Codegen step (committed, drift-checked) | ADR-0004 |
+| FDB tuple encoding with variable-length integers | Compact, proven order-preserving keys | Strict decoder needed to keep one encoding per key | PLAN 5.1 |
+| Two LevelDB instances, state without fsync | Log fsyncs don't contend with compaction | Strict compaction-after-flush rule | ADR-005 |
+| Models only on the leader, outputs in the command | Replicas never diverge from model nondeterminism | Leader does all inference | ADR-016 |
+| HNSW graphs may differ across replicas | Use the stock binding in v1 | Tiny recall differences between replicas | ADR-008 |
+| Offline-first, tracing off by default | Runs with no network | Operators must opt in to export | ADR-020 |
+
+ADRs 0005 and later are written in the phase that needs them (PLAN 25).

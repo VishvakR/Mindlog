@@ -2,21 +2,9 @@ import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import type { TupleElement } from '@mindlog/core';
 import { encodeTuple } from '@mindlog/core';
-import { compareBytes, hex, unwrap } from './helpers.js';
+import { compareBytes, compareDoubles, hex, unwrap } from './helpers.js';
 
 const enc = (v: TupleElement) => unwrap(encodeTuple([v]));
-
-/** IEEE total order with one canonical (positive) NaN. */
-function compareDoubles(a: number, b: number): number {
-  const rank = (x: number) => (Number.isNaN(x) ? 2 : 1);
-  if (rank(a) !== rank(b)) return rank(a) < rank(b) ? -1 : 1;
-  if (Number.isNaN(a)) return 0;
-  if (a === b) {
-    const negZero = (x: number) => Object.is(x, -0);
-    return negZero(a) === negZero(b) ? 0 : negZero(a) ? -1 : 1;
-  }
-  return a < b ? -1 : 1;
-}
 
 describe('encodeTuple: booleans and doubles', () => {
   test('booleans encode as FDB false/true codes', () => {

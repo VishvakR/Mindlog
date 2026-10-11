@@ -1,7 +1,8 @@
 packages:
   - packages/*
 
-# Packages whose install scripts we never run. unrs-resolver ships prebuilt
-# N-API bindings; its postinstall is only a fallback.
+# Packages whose install scripts we never run: both ship prebuilt platform
+# binaries as optional dependencies, so their postinstall is only a fallback.
 ignoredBuiltDependencies:
+  - '@bufbuild/buf'
   - unrs-resolver

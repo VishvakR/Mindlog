@@ -51,3 +51,17 @@ export type { LogEntry } from './logging/memory-logger.js';
 export { MemoryLogger } from './logging/memory-logger.js';
 export type { LoggerOptions } from './logging/pino-logger.js';
 export { createLogger } from './logging/pino-logger.js';
+
+export type {
+  Counter,
+  Gauge,
+  Histogram,
+  HistogramOptions,
+  Labels,
+  MetricKind,
+  MetricOptions,
+  Metrics,
+} from './metrics/metrics.js';
+export { assertMetricName } from './metrics/metrics.js';
+export { MemoryMetrics } from './metrics/memory-metrics.js';
+export { PromMetrics } from './metrics/prom-metrics.js';

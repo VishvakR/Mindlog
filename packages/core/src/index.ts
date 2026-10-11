@@ -65,3 +65,8 @@ export type {
 export { assertMetricName } from './metrics/metrics.js';
 export { MemoryMetrics } from './metrics/memory-metrics.js';
 export { PromMetrics } from './metrics/prom-metrics.js';
+
+export type { SpanAttributeValue, SpanAttributes, SpanHandle, Tracer } from './tracing/tracer.js';
+export { OtelTracer } from './tracing/otel-tracer.js';
+export type { TracingHandle, TracingOptions } from './tracing/init-tracing.js';
+export { initTracing } from './tracing/init-tracing.js';

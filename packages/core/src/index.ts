@@ -27,3 +27,4 @@ export { ByteWriter } from './keys/byte-writer.js';
 export { TupleCode } from './keys/tuple-codes.js';
 export type { Tuple, TupleElement } from './keys/tuple.js';
 export { appendTuple, encodeTuple } from './keys/tuple.js';
+export { VERSION_SUFFIX_LENGTH, appendVersion } from './keys/version.js';

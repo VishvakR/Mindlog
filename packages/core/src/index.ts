@@ -19,3 +19,6 @@ export { SeededRandom } from './random/seeded-random.js';
 export { SystemRandom } from './random/system-random.js';
 
 export { UlidGenerator, isUlid, ulidTime } from './ids/ulid.js';
+
+export type { Hlc, HlcOptions } from './hlc/hlc.js';
+export { HybridLogicalClock, hlcLogical, hlcPhysical, packHlc } from './hlc/hlc.js';

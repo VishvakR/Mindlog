@@ -25,10 +25,8 @@ export default defineConfig(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
-      '@typescript-eslint/restrict-template-expressions': [
-        'error',
-        { allowNumber: true, allowBigInt: true },
-      ],
+      // allowNumber also covers bigint.
+      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
       'no-restricted-syntax': [
         'error',
         {

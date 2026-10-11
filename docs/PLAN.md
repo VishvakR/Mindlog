@@ -359,12 +359,16 @@ Events decouple producers from consumers inside a node. They are **not** a repli
 
 ### 5.1 Key encoding
 
-All data shares one ordered keyspace per node. Keys are byte strings built with an order-preserving tuple encoding (similar to FoundationDB's tuple layer): each element is type-tagged, strings are escaped and null-terminated, integers are big-endian with a sign-flipped high bit so byte order equals numeric order.
+All data shares one ordered keyspace per node. Keys are byte strings built with an order-preserving tuple encoding that uses FoundationDB's tuple-layer typecodes (analysis: `docs/references/fdb-tuple.md`). Each element is type-tagged and self-delimiting. Strings and bytes escape `0x00` as `0x00 0xFF` and end with `0x00`. Integers use variable-length typecodes `0x0c`–`0x1c` (sign and byte length in the tag, big-endian payload, one's complement for negatives), so byte order equals numeric order. Doubles use the IEEE sign-flip transform.
 
 ```
-key      := tenant prefix '/' family '/' family-specific tuple '@' version
-version  := 8 bytes, bitwise-NOT of the commit index (newest version sorts first)
+key      := element(tenant) element(family) element(e1) … element(en) [ '@' version ]
+element  := typecode payload             (self-delimiting; no separator bytes)
+'@'      := 0x40, a typecode from the FDB user range, above every element code
+version  := 8 bytes big-endian, bitwise-NOT of the commit index (newest version sorts first)
 ```
+
+The `/` in prose such as `k/(key, 'h', field)` is notation for consecutive elements, not a stored byte. Because `0x40` is greater than every element typecode, all versions of one logical key are contiguous and sort before the keys of longer tuples that extend it.
 
 | Family | Tuple | Holds |
 |---|---|---|

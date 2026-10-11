@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run --root ../.. --dir packages/core"
+    "test": "vitest run --root ../.. packages/core/"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

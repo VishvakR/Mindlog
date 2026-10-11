@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run --root ../.. --dir packages/eventbus"
+    "test": "vitest run --root ../.. packages/eventbus/"
   },
   "dependencies": {
     "@mindlog/core": "workspace:*",

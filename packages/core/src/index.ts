@@ -70,3 +70,5 @@ export type { SpanAttributeValue, SpanAttributes, SpanHandle, Tracer } from './t
 export { OtelTracer } from './tracing/otel-tracer.js';
 export type { TracingHandle, TracingOptions } from './tracing/init-tracing.js';
 export { initTracing } from './tracing/init-tracing.js';
+
+export type { ScopePath } from './scope/scope-path.js';

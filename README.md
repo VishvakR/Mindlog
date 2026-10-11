@@ -6,6 +6,8 @@ Mindlog is a Redis-compatible, Raft-replicated database that also serves as long
 
 ## Design in one paragraph
 
+The full system design, with diagrams, is in [`docs/design.md`](docs/design.md).
+
 Every state change is a command in a Raft log. Key-value data, memory records, indexes and caches are deterministic projections of committed commands (ADR-0003). The code is split into one package per module, in layers: interfaces → application → domain → replication → storage → core. Imports only point downward, and lint and tests enforce that (ADR-0002). Anything non-deterministic (time, randomness, model inference) enters through ports and is decided before a command is proposed.
 
 ## Repository layout
@@ -49,6 +51,7 @@ cd python && uv sync && uv run pytest && uv run ruff check && uv run mypy model_
 
 ## Documentation
 
+- [`docs/design.md`](docs/design.md) is the system design: topology, components, request flows, replication, storage, the memory engine, failure handling and scaling, with diagrams.
 - [`docs/PLAN.md`](docs/PLAN.md) holds scope, specifications, phases and exit gates.
 - [`docs/adr/`](docs/adr) holds the architecture decision records (ADR-0001 to ADR-0004 so far).
 - Each package has a README with its purpose, public API, invariants and the metrics it emits.

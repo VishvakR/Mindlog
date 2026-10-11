@@ -1,5 +1,6 @@
-# Cloned reference repos (scripts/clone-references.sh); may be a symlink
+# Reference material stays local: cloned repos (may be a symlink) and their analyses
 /references
+/docs/references/
 
 # Local-only AI assistant files
 CLAUDE.md

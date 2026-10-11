@@ -6,3 +6,4 @@ references
 python/
 docs/
 *.md
+dist-test/

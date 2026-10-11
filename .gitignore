@@ -17,6 +17,7 @@ AGENTS.md
 # Node / TypeScript
 node_modules/
 dist/
+dist-test/
 coverage/
 *.tsbuildinfo
 .eslintcache

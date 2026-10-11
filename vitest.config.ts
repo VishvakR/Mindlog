@@ -9,7 +9,7 @@ export default defineConfig({
   ssr: { resolve: { conditions, externalConditions: conditions } },
   test: {
     include: ['packages/*/test/**/*.test.ts', 'test/**/*.test.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', 'test/lint-fixtures/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/dist-test/**', 'test/lint-fixtures/**'],
     environment: 'node',
     restoreMocks: true,
     coverage: {

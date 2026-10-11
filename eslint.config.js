@@ -46,7 +46,14 @@ const NONDETERMINISM = 'is non-deterministic; use cmd.hlc or a seed derived from
 
 export default defineConfig(
   {
-    ignores: ['**/dist/**', '**/coverage/**', '**/gen/**', 'references/**', 'python/**'],
+    ignores: [
+      '**/dist/**',
+      '**/dist-test/**',
+      '**/coverage/**',
+      '**/gen/**',
+      'references/**',
+      'python/**',
+    ],
   },
   js.configs.recommended,
   {

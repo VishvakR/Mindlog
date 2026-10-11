@@ -13,3 +13,7 @@ export { errorSpec, isRetryable, mindlogError, toErrorDetail } from './errors/mi
 export type { Clock } from './clock/clock.js';
 export { ManualClock } from './clock/manual-clock.js';
 export { SystemClock } from './clock/system-clock.js';
+
+export type { Random } from './random/random.js';
+export { SeededRandom } from './random/seeded-random.js';
+export { SystemRandom } from './random/system-random.js';

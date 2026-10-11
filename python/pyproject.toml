@@ -6,7 +6,7 @@ name = "mindlog-python"
 version = "0.0.0"
 description = "Mindlog Python workspace root"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["mindlog-model-service"]
 
 [dependency-groups]
 dev = [
@@ -19,7 +19,10 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = []
+members = ["model_service"]
+
+[tool.uv.sources]
+mindlog-model-service = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -35,5 +38,5 @@ strict = true
 warn_unreachable = true
 
 [tool.pytest.ini_options]
-addopts = ["--strict-markers", "--import-mode=importlib"]
+addopts = ["--strict-markers"]
 markers = ["integration: needs real models or services; excluded from the fast suite"]

@@ -6,6 +6,12 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 
+[manifest]
+members = [
+    "mindlog-model-service",
+    "mindlog-python",
+]
+
 [[package]]
 name = "ast-serialize"
 version = "0.12.1"
@@ -190,9 +196,17 @@ wheels = [
 ]
 
 [[package]]
+name = "mindlog-model-service"
+version = "0.0.0"
+source = { editable = "model_service" }
+
+[[package]]
 name = "mindlog-python"
 version = "0.0.0"
 source = { virtual = "." }
+dependencies = [
+    { name = "mindlog-model-service" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -202,6 +216,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "mindlog-model-service", editable = "model_service" }]
 
 [package.metadata.requires-dev]
 dev = [

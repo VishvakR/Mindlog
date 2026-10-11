@@ -6,3 +6,9 @@ packages:
 ignoredBuiltDependencies:
   - '@bufbuild/buf'
   - unrs-resolver
+
+# madge declares typescript ^5 but only uses its parser API, which is
+# unchanged in 6.0; the cycle check is covered by a manual fixture run.
+peerDependencyRules:
+  allowedVersions:
+    madge>typescript: '6'

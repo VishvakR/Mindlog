@@ -1,0 +1,4 @@
+{
+  "files": [],
+  "references": [{ "path": "packages/proto" }, { "path": "packages/proto/test" }]
+}

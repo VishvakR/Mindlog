@@ -20,7 +20,9 @@
     "lint:commits": "commitlint --from $(git rev-list --max-parents=0 HEAD) --to HEAD",
     "proto:lint": "buf lint",
     "proto:gen": "scripts/gen-proto.sh",
-    "proto:breaking": "buf breaking --against \".git#branch=main\""
+    "proto:breaking": "buf breaking --against \".git#branch=main\"",
+    "build": "tsc -b",
+    "typecheck": "tsc -b tsconfig.check.json"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.73.0",

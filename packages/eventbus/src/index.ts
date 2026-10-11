@@ -16,3 +16,5 @@ export type {
   RecordChanged,
 } from './events.js';
 export { DOMAIN_EVENT_TYPES } from './events.js';
+export type { InMemoryEventBusDeps } from './in-memory-event-bus.js';
+export { InMemoryEventBus } from './in-memory-event-bus.js';

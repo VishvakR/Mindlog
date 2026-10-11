@@ -7,14 +7,17 @@ import { ESCAPE, TupleCode } from './tuple-codes.js';
 
 /**
  * A value that can appear in an order-preserving key tuple. Integers are
- * `bigint` (CLAUDE.md rule 4) in the range ±(2^64 − 1).
+ * `bigint` (CLAUDE.md rule 4) in the range ±(2^64 − 1); a `number` is always
+ * an IEEE-754 double. Cross-type order: null < bytes < string < integer <
+ * double < false < true.
  */
-export type TupleElement = null | Uint8Array | string | bigint;
+export type TupleElement = null | Uint8Array | string | bigint | number | boolean;
 
 export type Tuple = readonly TupleElement[];
 
 const utf8 = new TextEncoder();
 const MAX_INT_MAGNITUDE = (1n << 64n) - 1n;
+const doubleView = new DataView(new ArrayBuffer(8));
 
 /**
  * Encodes a tuple so that byte-wise order equals tuple order (PLAN 5.1).
@@ -40,6 +43,10 @@ function appendElement(writer: ByteWriter, element: TupleElement): Result<void, 
     writer.byte(TupleCode.NULL);
   } else if (typeof element === 'bigint') {
     return appendInt(writer, element);
+  } else if (typeof element === 'number') {
+    appendDouble(writer, element);
+  } else if (typeof element === 'boolean') {
+    writer.byte(element ? TupleCode.TRUE : TupleCode.FALSE);
   } else if (element instanceof Uint8Array) {
     writer.byte(TupleCode.BYTES);
     appendEscaped(writer, element);
@@ -75,6 +82,26 @@ function appendInt(writer: ByteWriter, value: bigint): Result<void, MindlogError
     writer.byte(Number((payload >> BigInt(shift)) & 0xffn));
   }
   return ok(undefined);
+}
+
+/**
+ * IEEE-754 big-endian with the FDB transform: flip every bit of negatives,
+ * only the sign bit of positives. NaN is canonicalised so equal values encode
+ * equally. Resulting order: -inf < … < -0 < 0 < … < +inf < NaN.
+ */
+function appendDouble(writer: ByteWriter, value: number): void {
+  writer.byte(TupleCode.DOUBLE);
+  if (Number.isNaN(value)) {
+    doubleView.setUint32(0, 0x7ff80000);
+    doubleView.setUint32(4, 0);
+  } else {
+    doubleView.setFloat64(0, value);
+  }
+  const negative = (doubleView.getUint8(0) & 0x80) !== 0;
+  for (let i = 0; i < 8; i++) {
+    const byte = doubleView.getUint8(i);
+    writer.byte(negative ? byte ^ 0xff : i === 0 ? byte ^ 0x80 : byte);
+  }
 }
 
 function byteLength(magnitude: bigint): number {

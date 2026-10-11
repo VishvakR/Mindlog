@@ -1,9 +1,23 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/core" },
-    { "path": "packages/core/test" },
-    { "path": "packages/proto" },
-    { "path": "packages/proto/test" }
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/core/test"
+    },
+    {
+      "path": "packages/eventbus"
+    },
+    {
+      "path": "packages/eventbus/test"
+    },
+    {
+      "path": "packages/proto"
+    },
+    {
+      "path": "packages/proto/test"
+    }
   ]
 }

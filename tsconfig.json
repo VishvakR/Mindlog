@@ -1,4 +1,14 @@
 {
   "files": [],
-  "references": [{ "path": "packages/core" }, { "path": "packages/proto" }]
+  "references": [
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/eventbus"
+    },
+    {
+      "path": "packages/proto"
+    }
+  ]
 }

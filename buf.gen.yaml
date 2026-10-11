@@ -1,0 +1,12 @@
+# TypeScript codegen (protobuf-es v2). Python codegen runs via grpcio-tools in
+# scripts/gen-proto.sh because it lives in the uv workspace.
+version: v2
+inputs:
+  - directory: proto
+clean: true
+plugins:
+  - local: protoc-gen-es
+    out: packages/proto/src/gen
+    opt:
+      - target=ts
+      - import_extension=js

@@ -20,6 +20,8 @@
     "lint:commits": "commitlint --from $(git rev-list --max-parents=0 HEAD) --to HEAD"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.73.0",
+    "@bufbuild/protoc-gen-es": "^2.16.0",
     "@changesets/cli": "^3.0.3",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",

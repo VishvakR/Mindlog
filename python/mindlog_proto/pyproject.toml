@@ -1,0 +1,14 @@
+[project]
+name = "mindlog-proto"
+version = "0.0.0"
+description = "Generated protobuf types for Mindlog commands and internal RPCs"
+requires-python = ">=3.12"
+dependencies = ["protobuf>=7.35.1,<8"]
+
+[build-system]
+requires = ["uv_build>=0.9.27,<0.10"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# `mindlog` is a namespace package so the generated `mindlog.v1.*` imports work.
+module-name = "mindlog.v1"

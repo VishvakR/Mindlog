@@ -51,6 +51,18 @@ describe('recover', () => {
     expect(await read(node.stateStore, 'n')).toBe('7');
   });
 
+  test('restart after compacting every entry replays nothing and continues the index', async () => {
+    const node = await startNode();
+    for (let i = 0; i < 3; i++) await node.proposer.propose(writeCommand(['INCR', 'n']));
+    await node.proposer.checkpoint();
+    expect([node.log.firstIndex, node.log.lastIndex]).toEqual([4n, 3n]);
+    const restarted = await startNode(node.logStore, node.stateStore);
+    expect(await recover(restarted.log, restarted.machine)).toBe(0);
+    const next = await restarted.proposer.propose(writeCommand(['INCR', 'n']));
+    expect(next.ok && next.value.index).toBe(4n);
+    expect(await read(node.stateStore, 'n')).toBe('4');
+  });
+
   test('missing entries below the log start are detected', async () => {
     const node = await startNode(undefined, undefined, { checkpointEvery: 2 });
     for (let i = 0; i < 4; i++) await node.proposer.propose(writeCommand(['INCR', 'n']));

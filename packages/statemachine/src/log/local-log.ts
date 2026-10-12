@@ -3,7 +3,7 @@ import { crc32c, decodeKey } from '@mindlog/core';
 import type { Command } from '@mindlog/proto';
 import { CommandSchema } from '@mindlog/proto';
 import type { KvStore } from '@mindlog/storage';
-import { logEntryKey, logPrefix } from '../system/system-keys.js';
+import { logEntryKey, logPrefix, logTruncatedKey } from '../system/system-keys.js';
 
 const CHECKSUM_BYTES = 4;
 
@@ -25,6 +25,17 @@ function unframe(index: bigint, stored: Uint8Array): Command {
   }
   return fromBinary(CommandSchema, payload);
 }
+
+const encodeIndex = (index: bigint): Uint8Array => {
+  const out = new Uint8Array(8);
+  new DataView(out.buffer).setBigUint64(0, index);
+  return out;
+};
+
+const decodeIndex = (bytes: Uint8Array): bigint => {
+  if (bytes.length !== 8) throw new Error('log truncation record is corrupt');
+  return new DataView(bytes.buffer, bytes.byteOffset, 8).getBigUint64(0);
+};
 
 function indexOf(key: Uint8Array): bigint {
   const decoded = decodeKey(key);
@@ -54,12 +65,14 @@ export class LocalLog {
   static async open(store: KvStore, rangeId = 1n): Promise<LocalLog> {
     const prefix = logPrefix(rangeId);
     const range = { start: prefix, end: new Uint8Array([...prefix, 0xff]) };
-    let first = 0n;
-    let last = 0n;
+    const stored = await store.get(logTruncatedKey(rangeId));
+    const truncated = stored === undefined ? 0n : decodeIndex(stored);
+    let first = truncated + 1n;
+    let last = truncated;
     for await (const [key] of store.iterate(range, { limit: 1 })) first = indexOf(key);
     for await (const [key] of store.iterate(range, { limit: 1, reverse: true }))
       last = indexOf(key);
-    return new LocalLog(store, rangeId, first === 0n ? last + 1n : first, last);
+    return new LocalLog(store, rangeId, first, last);
   }
 
   /** Index of the first retained entry (last + 1 when empty). */
@@ -101,12 +114,16 @@ export class LocalLog {
     if (expected <= to) throw new Error(`log entries ${expected}..${to} are missing`);
   }
 
-  /** Deletes entries up to and including `upTo`; callers ensure state is durable first. */
+  /**
+   * Deletes entries up to and including `upTo` and records the truncation
+   * point in the same batch; callers ensure state is durable first.
+   */
   async compact(upTo: bigint): Promise<void> {
     const end = upTo > this.#last ? this.#last : upTo;
     if (end < this.#first) return;
     const batch = this.#store.batch();
     for (let i = this.#first; i <= end; i++) batch.del(logEntryKey(this.#rangeId, i));
+    batch.put(logTruncatedKey(this.#rangeId), encodeIndex(end));
     await batch.write({ sync: true });
     this.#first = end + 1n;
   }

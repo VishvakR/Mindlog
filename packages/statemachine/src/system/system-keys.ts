@@ -39,3 +39,11 @@ export function logPrefix(rangeId: bigint): Uint8Array {
   if (!prefix.ok) throw new RangeError(prefix.error.message);
   return prefix.value;
 }
+
+/**
+ * Last index removed by log compaction (ADR-0005), so an empty log still
+ * knows where it ends; the role of Raft's truncated state.
+ */
+export function logTruncatedKey(rangeId: bigint): Uint8Array {
+  return systemKey(['raftlog-truncated', rangeId]);
+}

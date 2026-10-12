@@ -41,6 +41,18 @@ describe('LocalLog', () => {
     expect((await collect(reopened, 3n)).map(([i]) => i)).toEqual([3n, 4n, 5n]);
   });
 
+  test('a fully compacted log keeps its last index across reopening', async () => {
+    const store = new MemoryStore();
+    const log = await LocalLog.open(store);
+    await log.append([writeCommand(['INCR', 'a'], 'r1'), writeCommand(['INCR', 'a'], 'r2')]);
+    await log.compact(2n);
+    expect([log.firstIndex, log.lastIndex]).toEqual([3n, 2n]);
+    const reopened = await LocalLog.open(store);
+    expect([reopened.firstIndex, reopened.lastIndex]).toEqual([3n, 2n]);
+    expect(await reopened.append([writeCommand(['INCR', 'a'], 'r3')])).toEqual([3n]);
+    expect(await collect(reopened, 3n)).toEqual([[3n, 'r3']]);
+  });
+
   test('reading compacted entries is an error', async () => {
     const log = await LocalLog.open(new MemoryStore());
     await log.append([writeCommand(['INCR', 'a']), writeCommand(['INCR', 'a'])]);

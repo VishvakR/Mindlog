@@ -587,23 +587,26 @@ Every new failure path gets a simulator scenario.
 | Compatibility, fuzzing, chaos, load | Redis client suites, parser fuzzers, Docker + `tc`/iptables, redis-benchmark/memtier | Nightly / weekly / per release |
 | AI evaluation | LongMemEval, LoCoMo, ablations, conflict F1, cache hit/false-hit | Per change to the memory engine |
 
-### 18.2 What exists today (phase 1)
+### 18.2 What exists today (phase 2)
 
 | Area | Status |
 |---|---|
 | Tooling | pnpm workspace (TypeScript 6, strict), ESLint with layer boundaries, madge, Prettier, Vitest + fast-check, changesets, commitlint, uv workspace (ruff, mypy --strict, pytest), buf |
-| `@mindlog/core` | Result, error table, Clock/Random ports (+ fakes), ULID, HLC, order-preserving key encoding and decoder, layered config (with `limits` and `auth`), logger, metrics, tracing, ScopePath, CRC-32C |
+| `@mindlog/core` | Result, error table, Clock/Random ports (+ fakes), ULID, HLC, order-preserving key encoding and decoder, layered config (with `limits` and `auth`), logger, metrics (with process and event-loop series), tracing, ScopePath, CRC-32C |
 | `@mindlog/eventbus` | Typed domain events, EventBus port, in-memory bus |
 | `@mindlog/proto` / `mindlog-proto` | `Command` envelope with `KvWrite`, `KvBatch`, `Expire`, `GcThreshold` bodies, `CommandResult`, `KvReply`; generated TS and Python; golden-byte tests |
 | `@mindlog/storage` | `KvStore` port, `LevelDbStore` and `MemoryStore` (one contract suite), MVCC versions, tombstones, scans at a version, version GC |
-| `@mindlog/statemachine` | `Proposer` port, `StateMachine` with an apply-handler registry, idempotency table, `appliedIndex`, `LocalLog` (CRC-32C, fsync, truncation record), `LocalProposer` (group commit, BUSY), recovery replay |
+| `@mindlog/statemachine` | `Proposer` port, `StateMachine` with an apply-handler registry, idempotency table, `appliedIndex`, `LocalLog` (CRC-32C, fsync, truncation record), `LocalProposer` (group commit, BUSY, `storage.write` and `statemachine.apply` spans), recovery replay |
 | `@mindlog/kv` | 100 Redis commands over generations (strings, keys, expiry, hashes, lists, sets, sorted sets, JSON subset), SCAN cursors, replicated expiry and GC jobs |
-| `@mindlog/services` | `KvService`: sessions, static AUTH, reads on applied state, writes through the Proposer, MULTI/EXEC/WATCH, spans and metrics |
-| `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server |
-| `@mindlog/server` | Composition root, `mindlog-server --single-node`, graceful shutdown |
-| Python | `model_service` skeleton; redis-py compatibility suite |
-| CI | Lint, typecheck, tests (TS + Python), protobuf drift and breaking checks, Conventional Commits, phase 1 gate job (redis-py, kill -9 durability, redis-benchmark) |
-| Gates | Phase 0 (`docs/phases/phase-0.md`) and phase 1 (`docs/phases/phase-1.md`) |
+| `@mindlog/services` | `KvService`: sessions, static AUTH, reads on applied state, writes through the Proposer, MULTI/EXEC/WATCH, spans and metrics. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
+| `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server, `resp.command` spans, preauthenticated connections for the console |
+| `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
+| `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, data browser with typed editors, console, settings |
+| `@mindlog/server` | Composition root, `mindlog-server --single-node` (RESP + HTTP), `superuser upsert`, graceful shutdown |
+| Python | `model_service` placeholder process; redis-py compatibility suite |
+| Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger), Grafana dashboard in `deploy/grafana/` |
+| CI | Lint, typecheck, tests (TS, web, Python), protobuf drift and breaking checks, Conventional Commits, gate job (redis-py, kill -9 durability, redis-benchmark) |
+| Gates | Phase 0, 1 and 2 (`docs/phases/phase-N.md`) |
 
 Everything else in this document is designed but not built yet; it arrives phase by phase (PLAN 24).
 
@@ -622,5 +625,7 @@ Everything else in this document is designed but not built yet; it arrives phase
 | Models only on the leader, outputs in the command | Replicas never diverge from model nondeterminism | Leader does all inference | ADR-016 |
 | HNSW graphs may differ across replicas | Use the stock binding in v1 | Tiny recall differences between replicas | ADR-008 |
 | Offline-first, tracing off by default | Runs with no network | Operators must opt in to export | ADR-020 |
+| Dashboard in React + shadcn/ui, served at `/_/` | Rich component ecosystem for later pages | Larger bundle than SvelteKit | ADR-0023 |
+| Superusers as argv-written hashes in `$system`, HMAC bearer tokens | No new command type or format; no CSRF surface | Login rate limiting and MFA come later | ADR-0024 |
 
 ADRs 0005 and later are written in the phase that needs them (PLAN 25).

@@ -2,6 +2,12 @@
   "files": [],
   "references": [
     {
+      "path": "packages/adapter-resp"
+    },
+    {
+      "path": "packages/adapter-resp/test"
+    },
+    {
       "path": "packages/core"
     },
     {

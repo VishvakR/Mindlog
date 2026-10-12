@@ -69,6 +69,34 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/coverage-v8@5.0.3)(vite@8.3.4(@types/node@24.19.2)(jiti@2.6.1)(yaml@2.9.1))
 
+  packages/adapter-resp:
+    dependencies:
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/kv':
+        specifier: workspace:*
+        version: link:../kv
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
+      '@mindlog/services':
+        specifier: workspace:*
+        version: link:../services
+    devDependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
+      '@mindlog/statemachine':
+        specifier: workspace:*
+        version: link:../statemachine
+      '@mindlog/storage':
+        specifier: workspace:*
+        version: link:../storage
+
   packages/core:
     dependencies:
       '@opentelemetry/api':

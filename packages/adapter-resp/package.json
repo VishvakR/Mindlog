@@ -1,0 +1,33 @@
+{
+  "name": "@mindlog/adapter-resp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RESP2/RESP3 protocol adapter: parser, writer, connections and the TCP server",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/adapter-resp/"
+  },
+  "dependencies": {
+    "@mindlog/core": "workspace:*",
+    "@mindlog/kv": "workspace:*",
+    "@mindlog/proto": "workspace:*",
+    "@mindlog/services": "workspace:*"
+  },
+  "devDependencies": {
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/statemachine": "workspace:*",
+    "@mindlog/storage": "workspace:*",
+    "@bufbuild/protobuf": "^2.16.0"
+  }
+}

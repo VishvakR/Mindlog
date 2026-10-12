@@ -57,6 +57,7 @@ export default {
         'sim',
         'compat',
         'deps',
+        'deploy',
       ],
     ],
   },

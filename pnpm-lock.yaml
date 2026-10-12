@@ -136,6 +136,31 @@ importers:
         specifier: ^2.16.0
         version: 2.16.0
 
+  packages/services:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/kv':
+        specifier: workspace:*
+        version: link:../kv
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
+      '@mindlog/statemachine':
+        specifier: workspace:*
+        version: link:../statemachine
+      '@mindlog/storage':
+        specifier: workspace:*
+        version: link:../storage
+    devDependencies:
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
+
   packages/statemachine:
     dependencies:
       '@bufbuild/protobuf':

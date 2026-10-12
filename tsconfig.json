@@ -14,6 +14,9 @@
       "path": "packages/proto"
     },
     {
+      "path": "packages/services"
+    },
+    {
       "path": "packages/statemachine"
     },
     {

@@ -2,7 +2,7 @@
 
 - Date: 2026-10-12
 - PLAN: §24 Phase 0
-- Status: **gate criteria met; awaiting sign-off before phase 1 starts**
+- Status: **complete** (gate met; CI validated locally; signed off 2026-10-12)
 
 ## Exit gate
 
@@ -51,3 +51,16 @@
 
 - Write `docs/references/` analyses for Valkey before the RESP command table (analyses stay local).
 - Add `KvStore` port, contract suite and LevelDB adapter; add a "next key" helper for exclusive scan bounds (see the CockroachDB analysis).
+
+## CI validation (2026-10-12)
+
+The repository has no GitHub remote yet, so the workflows were validated locally:
+
+- **actionlint 1.7.12** over `.github/workflows/ci.yml` and `commits.yml`: no findings.
+- **Clean-checkout run** of every CI step in a fresh `git clone` of `main`:
+  - `pnpm install --frozen-lockfile`, `pnpm lint` (no cycles, Prettier clean), `pnpm typecheck` (0 errors), `pnpm test` (21 files, 180 tests);
+  - `uv sync --frozen`, ruff check and format, `mypy --strict`, pytest (5 tests);
+  - `scripts/gen-proto.sh` followed by `git diff --exit-code`: no drift.
+- **Docs skeleton** completed (`docs/runbooks`, `docs/evals`, `docs/api`).
+
+Phase 0 is complete. Phase 1 starts next.

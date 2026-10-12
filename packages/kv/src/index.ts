@@ -31,3 +31,5 @@ export type { ExpiryJobDeps } from './jobs/expiry-job.js';
 export { ExpiryJob } from './jobs/expiry-job.js';
 export type { LiveKey } from './model/key-iterator.js';
 export { liveKeys } from './model/key-iterator.js';
+export { globMatch } from './model/glob.js';
+export { decodeCursor, encodeCursor } from './model/scan-cursor.js';

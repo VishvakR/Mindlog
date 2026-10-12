@@ -1,5 +1,6 @@
 import { expiryCommands } from './keys/expiry.js';
 import { keyCommands } from './keys/key-commands.js';
+import { scanCommands } from './keys/scan.js';
 import type { KvCommand } from './kv-command.js';
 import { KvCommandRegistry } from './registry.js';
 import { counterCommands } from './strings/counters.js';
@@ -13,6 +14,7 @@ export const allKvCommands = (): KvCommand[] => [
   ...rangeCommands,
   ...expiryCommands,
   ...keyCommands,
+  ...scanCommands,
 ];
 
 /** A registry with every supported command. */

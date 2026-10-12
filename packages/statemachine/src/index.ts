@@ -10,3 +10,4 @@ export { appliedIndexKey, idempotencyKey, logEntryKey, logPrefix } from './syste
 export { errorResult } from './apply/command-results.js';
 export type { StateMachineDeps } from './apply/state-machine.js';
 export { StateMachine } from './apply/state-machine.js';
+export { LocalLog } from './log/local-log.js';

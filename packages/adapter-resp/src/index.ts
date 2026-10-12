@@ -27,3 +27,4 @@ export {
   resetCommand,
   selectCommand,
 } from './connection/handlers/session-commands.js';
+export { clientCommand } from './connection/handlers/client.js';

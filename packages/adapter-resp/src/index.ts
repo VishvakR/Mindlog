@@ -10,3 +10,4 @@ export { RespWriter } from './protocol/resp-writer.js';
 export type { CommandArgument, CommandSpec, KeyRange } from './commands/command-spec.js';
 export { loadCommandSpecs } from './commands/command-spec.js';
 export { CommandTable } from './commands/command-table.js';
+export { ClientRegistry, ClientState } from './connection/client-state.js';

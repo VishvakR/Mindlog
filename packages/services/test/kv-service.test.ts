@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { Session } from '@mindlog/services';
 import { serviceNode } from './support/service-node.js';
 
 describe('KvService', () => {
@@ -81,5 +82,19 @@ describe('KvService', () => {
     const s = node.open();
     const results = await Promise.all([1, 2, 3].map((i) => node.run(s, 'SET', `k${i}`, 'v')));
     expect(results).toContainEqual({ error: 'BUSY too many pending writes' });
+  });
+});
+
+describe('reserved tenants', () => {
+  test('writes reach the system tenant but never the raw node tenant', async () => {
+    const node = await serviceNode();
+    const system = new Session('s', '$system', true);
+    expect(await node.run(system, 'SET', 'k', 'v')).toBe('OK');
+    expect(await node.run(system, 'GET', 'k')).toBe('v');
+    expect(await node.run(node.open(), 'GET', 'k')).toBeNull();
+    const raw = new Session('n', '$node', true);
+    expect(await node.run(raw, 'SET', 'k', 'v')).toEqual({
+      error: 'INVALID_ARGUMENT invalid tenant',
+    });
   });
 });

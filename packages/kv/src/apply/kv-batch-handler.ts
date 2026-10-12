@@ -1,4 +1,4 @@
-import { isUserTenant } from '@mindlog/core';
+import { isKvTenant } from './kv-tenant.js';
 import type { KvReply } from '@mindlog/proto';
 import type { ApplyHandler } from '@mindlog/statemachine';
 import { errorResult } from '@mindlog/statemachine';
@@ -19,7 +19,7 @@ export function kvBatchHandler(registry: KvCommandRegistry): ApplyHandler {
     async apply({ command, txn, index, nowMs, random }) {
       if (command.body.case !== 'kvBatch')
         return errorResult('INTERNAL', 'expected a kvBatch body');
-      if (!isUserTenant(command.tenant)) return errorResult('INVALID_ARGUMENT', 'invalid tenant');
+      if (!isKvTenant(command.tenant)) return errorResult('INVALID_ARGUMENT', 'invalid tenant');
       const batch = command.body.value;
       for (const watched of batch.watches) {
         if ((await watchVersion(txn, command.tenant, watched.key)) !== watched.version) {

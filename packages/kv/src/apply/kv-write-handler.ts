@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import { isUserTenant } from '@mindlog/core';
+import { isKvTenant } from './kv-tenant.js';
 import type { KvReply } from '@mindlog/proto';
 import { CommandResultSchema } from '@mindlog/proto';
 import type { ApplyHandler } from '@mindlog/statemachine';
@@ -20,7 +20,7 @@ export function kvWriteHandler(registry: KvCommandRegistry): ApplyHandler {
     async apply({ command, txn, index, nowMs, random }) {
       if (command.body.case !== 'kvWrite')
         return errorResult('INTERNAL', 'expected a kvWrite body');
-      if (!isUserTenant(command.tenant)) return errorResult('INVALID_ARGUMENT', 'invalid tenant');
+      if (!isKvTenant(command.tenant)) return errorResult('INVALID_ARGUMENT', 'invalid tenant');
       const keyspace = new Keyspace({
         tenant: command.tenant,
         nowMs,

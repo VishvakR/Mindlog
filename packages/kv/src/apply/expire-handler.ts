@@ -1,4 +1,4 @@
-import { isUserTenant } from '@mindlog/core';
+import { isKvTenant } from './kv-tenant.js';
 import type { ApplyHandler } from '@mindlog/statemachine';
 import { errorResult } from '@mindlog/statemachine';
 import { expiryIndexKey } from '../model/kv-keys.js';
@@ -15,7 +15,7 @@ export const expireHandler: ApplyHandler = {
   body: 'expire',
   async apply({ command, txn, index, nowMs }) {
     if (command.body.case !== 'expire') return errorResult('INTERNAL', 'expected an expire body');
-    if (!isUserTenant(command.tenant)) return errorResult('INVALID_ARGUMENT', 'invalid tenant');
+    if (!isKvTenant(command.tenant)) return errorResult('INVALID_ARGUMENT', 'invalid tenant');
     const keyspace = new Keyspace({ tenant: command.tenant, nowMs, view: txn, writer: txn, index });
     let expired = 0;
     for (const { key, expireAtMs } of command.body.value.keys) {

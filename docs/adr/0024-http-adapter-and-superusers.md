@@ -25,8 +25,9 @@ survive a restart and agree across replicas lives in the replicated log (ADR-000
   `created`, `updated`. A node-wide `authSecret` lives in the hash `settings:auth`. They are
   written with ordinary argv commands (ADR-0021) proposed by `AdminService`, so no new command
   type or on-disk format is needed. Random values (salt, `tokenKey`, secret) are generated on the
-  proposer before proposing, so apply stays deterministic. RESP sessions use the default tenant
-  and cannot reach `$system`.
+  proposer before proposing, so apply stays deterministic. KV apply accepts argv writes in `$system`
+  (user tenants plus `$system`; `$node` stays refused). RESP sessions use the default tenant and
+  cannot reach `$system`.
 - **Tokens** are `base64url(payload).base64url(HMAC-SHA256(authSecret + tokenKey, payload))`,
   payload `{sub: email, exp}`. Changing a password rotates `tokenKey`, revoking old tokens. The
   dashboard sends `Authorization: Bearer`; there are no cookies, so no CSRF surface. The

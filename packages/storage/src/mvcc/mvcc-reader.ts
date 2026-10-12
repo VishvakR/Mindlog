@@ -64,6 +64,18 @@ export class MvccReader {
     return undefined;
   }
 
+  /**
+   * Index of the newest version of `logical`, tombstones included (0 if it was
+   * never written). Any write or delete changes it, which is what WATCH needs.
+   */
+  async latestIndex(logical: Uint8Array): Promise<bigint> {
+    const range = { start: versionStart(logical), end: keyAfter(logical) };
+    for await (const [raw] of this.#reader.iterate(range, { limit: 1 })) {
+      return parseVersionedKey(raw)?.index ?? 0n;
+    }
+    return 0n;
+  }
+
   async get(logical: Uint8Array, at?: bigint): Promise<Uint8Array | undefined> {
     return (await this.getVersioned(logical, at))?.value;
   }

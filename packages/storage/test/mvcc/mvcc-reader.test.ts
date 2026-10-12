@@ -43,6 +43,16 @@ describe('MvccReader.get', () => {
     expect(text(await reader.get(k('h', 'a')))).toBe('v4');
     expect(await reader.get(k('h', 'a'), 0n)).toBeUndefined();
     expect((await reader.getVersioned(k('h', 'a')))?.index).toBe(4n);
+    expect(await reader.latestIndex(k('h', 'a'))).toBe(4n);
+    expect(await reader.latestIndex(k('h', 'never'))).toBe(0n);
+  });
+
+  test('latestIndex counts deletes as changes', async () => {
+    const store = new MemoryStore();
+    await history(store, [[['a', 'v1']], [['a', null]]]);
+    const reader = new MvccReader(store);
+    expect(await reader.get(k('h', 'a'))).toBeUndefined();
+    expect(await reader.latestIndex(k('h', 'a'))).toBe(2n);
   });
 
   test('ignores versions of keys that extend the requested key', async () => {

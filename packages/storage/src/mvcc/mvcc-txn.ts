@@ -46,6 +46,11 @@ export class MvccTxn {
     return this.#reader.get(key);
   }
 
+  /** Newest committed version index of `key` (pending changes are not counted). */
+  latestIndex(key: Uint8Array): Promise<bigint> {
+    return this.#reader.latestIndex(key);
+  }
+
   put(key: Uint8Array, value: Uint8Array): void {
     this.#pending.set(hex(key), { key: key.slice(), value: value.slice() });
   }

@@ -1,4 +1,5 @@
 import { create, fromBinary, toBinary } from '@bufbuild/protobuf';
+import type { Random } from '@mindlog/core';
 import type { KvHeader } from '@mindlog/proto';
 import { KvHeaderSchema, KvType } from '@mindlog/proto';
 import { deadGenerationKey, expiryIndexKey, headerKey } from './kv-keys.js';
@@ -14,6 +15,8 @@ export interface KeyspaceContext {
   readonly writer?: KvWriter;
   /** Commit index of the applying command (0 outside apply). */
   readonly index: bigint;
+  /** Index-seeded randomness, only inside apply (SPOP, SRANDMEMBER). */
+  readonly random?: Random;
 }
 
 const isCollection = (type: KvType): boolean =>
@@ -29,6 +32,11 @@ export class Keyspace {
 
   get tenant(): string {
     return this.context.tenant;
+  }
+
+  get random(): Random {
+    if (!this.context.random) throw new Error('randomness outside apply');
+    return this.context.random;
   }
 
   get writer(): KvWriter {

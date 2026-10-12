@@ -20,3 +20,6 @@ export type { KeyspaceContext } from './model/keyspace.js';
 export { Keyspace } from './model/keyspace.js';
 export { formatDouble, parseFloat64, parseInteger } from './model/numbers.js';
 export * as replies from './model/replies.js';
+export type { CommandFlag, KeyPositions, KvCommand } from './commands/kv-command.js';
+export { isWrite } from './commands/kv-command.js';
+export { KvCommandRegistry } from './commands/registry.js';

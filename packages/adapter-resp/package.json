@@ -12,7 +12,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "commands"
   ],
   "scripts": {
     "build": "tsc -b",
@@ -22,7 +23,8 @@
     "@mindlog/core": "workspace:*",
     "@mindlog/kv": "workspace:*",
     "@mindlog/proto": "workspace:*",
-    "@mindlog/services": "workspace:*"
+    "@mindlog/services": "workspace:*",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@mindlog/eventbus": "workspace:*",

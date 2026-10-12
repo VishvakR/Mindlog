@@ -1,0 +1,468 @@
+{
+  "EXPIRE": {
+    "summary": "Sets the expiry of a key in seconds.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "1.0.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "seconds",
+        "type": "integer"
+      },
+      {
+        "name": "condition",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "nx",
+            "type": "pure-token",
+            "token": "NX"
+          },
+          {
+            "name": "xx",
+            "type": "pure-token",
+            "token": "XX"
+          },
+          {
+            "name": "gt",
+            "type": "pure-token",
+            "token": "GT"
+          },
+          {
+            "name": "lt",
+            "type": "pure-token",
+            "token": "LT"
+          }
+        ],
+        "optional": true
+      }
+    ]
+  },
+  "PEXPIRE": {
+    "summary": "Sets the expiry of a key in milliseconds.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "2.6.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "milliseconds",
+        "type": "integer"
+      },
+      {
+        "name": "condition",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "nx",
+            "type": "pure-token",
+            "token": "NX"
+          },
+          {
+            "name": "xx",
+            "type": "pure-token",
+            "token": "XX"
+          },
+          {
+            "name": "gt",
+            "type": "pure-token",
+            "token": "GT"
+          },
+          {
+            "name": "lt",
+            "type": "pure-token",
+            "token": "LT"
+          }
+        ],
+        "optional": true
+      }
+    ]
+  },
+  "EXPIREAT": {
+    "summary": "Sets the expiry of a key to a Unix time in seconds.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "1.2.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "unix-time-seconds",
+        "type": "unix-time"
+      },
+      {
+        "name": "condition",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "nx",
+            "type": "pure-token",
+            "token": "NX"
+          },
+          {
+            "name": "xx",
+            "type": "pure-token",
+            "token": "XX"
+          },
+          {
+            "name": "gt",
+            "type": "pure-token",
+            "token": "GT"
+          },
+          {
+            "name": "lt",
+            "type": "pure-token",
+            "token": "LT"
+          }
+        ],
+        "optional": true
+      }
+    ]
+  },
+  "PEXPIREAT": {
+    "summary": "Sets the expiry of a key to a Unix time in milliseconds.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "2.6.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "unix-time-milliseconds",
+        "type": "unix-time"
+      },
+      {
+        "name": "condition",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "nx",
+            "type": "pure-token",
+            "token": "NX"
+          },
+          {
+            "name": "xx",
+            "type": "pure-token",
+            "token": "XX"
+          },
+          {
+            "name": "gt",
+            "type": "pure-token",
+            "token": "GT"
+          },
+          {
+            "name": "lt",
+            "type": "pure-token",
+            "token": "LT"
+          }
+        ],
+        "optional": true
+      }
+    ]
+  },
+  "TTL": {
+    "summary": "Returns the time to live of a key in seconds.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "PTTL": {
+    "summary": "Returns the time to live of a key in milliseconds.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "2.6.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "EXPIRETIME": {
+    "summary": "Returns the expiry of a key as a Unix time in seconds.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "7.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "PEXPIRETIME": {
+    "summary": "Returns the expiry of a key as a Unix time in milliseconds.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "7.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "PERSIST": {
+    "summary": "Removes the expiry of a key.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "2.2.0",
+    "arity": 2,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "DEL": {
+    "summary": "Deletes one or more keys.",
+    "complexity": "O(N) where N is the number of keys; collection elements are reclaimed later by replicated GC",
+    "group": "generic",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["WRITE"],
+    "key_range": {
+      "first": 1,
+      "last": -1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key",
+        "multiple": true
+      }
+    ]
+  },
+  "UNLINK": {
+    "summary": "Deletes one or more keys; identical to DEL because deletion is always O(1) per key.",
+    "complexity": "O(N) where N is the number of keys",
+    "group": "generic",
+    "since": "4.0.0",
+    "arity": -2,
+    "command_flags": ["WRITE"],
+    "key_range": {
+      "first": 1,
+      "last": -1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key",
+        "multiple": true
+      }
+    ]
+  },
+  "EXISTS": {
+    "summary": "Counts how many of the given keys exist.",
+    "complexity": "O(N) where N is the number of keys",
+    "group": "generic",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": -1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key",
+        "multiple": true
+      }
+    ]
+  },
+  "TYPE": {
+    "summary": "Returns the type of the value stored at a key.",
+    "complexity": "O(1)",
+    "group": "generic",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "RENAME": {
+    "summary": "Renames a key, overwriting the destination.",
+    "complexity": "O(N) where N is the number of elements moved",
+    "group": "generic",
+    "since": "1.0.0",
+    "arity": 3,
+    "command_flags": ["WRITE"],
+    "key_range": {
+      "first": 1,
+      "last": 2,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "newkey",
+        "type": "key"
+      }
+    ]
+  },
+  "RENAMENX": {
+    "summary": "Renames a key only when the destination does not exist.",
+    "complexity": "O(N) where N is the number of elements moved",
+    "group": "generic",
+    "since": "1.0.0",
+    "arity": 3,
+    "command_flags": ["WRITE"],
+    "key_range": {
+      "first": 1,
+      "last": 2,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "newkey",
+        "type": "key"
+      }
+    ]
+  },
+  "SCAN": {
+    "summary": "Iterates over the keys of the database with a stateless cursor.",
+    "complexity": "O(1) per call, O(N) for a full iteration",
+    "group": "generic",
+    "since": "2.8.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      {
+        "name": "cursor",
+        "type": "integer"
+      },
+      {
+        "name": "pattern",
+        "type": "pattern",
+        "token": "MATCH",
+        "optional": true
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "token": "COUNT",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "token": "TYPE",
+        "optional": true
+      }
+    ]
+  },
+  "KEYS": {
+    "summary": "Returns the keys matching a glob pattern; refuses to walk more than 100,000 keys.",
+    "complexity": "O(N) where N is the number of keys",
+    "group": "generic",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      {
+        "name": "pattern",
+        "type": "pattern"
+      }
+    ]
+  }
+}

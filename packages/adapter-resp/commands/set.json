@@ -1,0 +1,278 @@
+{
+  "SADD": {
+    "summary": "Adds one or more members to a set.",
+    "complexity": "O(N) where N is the number of members",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "member",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "SREM": {
+    "summary": "Removes one or more members from a set.",
+    "complexity": "O(N) where N is the number of members",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "member",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "SMEMBERS": {
+    "summary": "Returns every member of a set.",
+    "complexity": "O(N) where N is the size of the set",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "SISMEMBER": {
+    "summary": "Reports whether a value is a member of a set.",
+    "complexity": "O(1)",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": 3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "member",
+        "type": "string"
+      }
+    ]
+  },
+  "SMISMEMBER": {
+    "summary": "Reports whether each of several values is a member of a set.",
+    "complexity": "O(N) where N is the number of values",
+    "group": "set",
+    "since": "6.2.0",
+    "arity": -3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "member",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "SCARD": {
+    "summary": "Returns the number of members of a set.",
+    "complexity": "O(1)",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "SPOP": {
+    "summary": "Removes and returns random members of a set, seeded by the log index.",
+    "complexity": "O(N) where N is the size of the set",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "optional": true
+      }
+    ]
+  },
+  "SRANDMEMBER": {
+    "summary": "Returns random members of a set without removing them.",
+    "complexity": "O(N) where N is the size of the set",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "optional": true
+      }
+    ]
+  },
+  "SINTER": {
+    "summary": "Returns the intersection of sets.",
+    "complexity": "O(N*M) worst case",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": -1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key",
+        "multiple": true
+      }
+    ]
+  },
+  "SUNION": {
+    "summary": "Returns the union of sets.",
+    "complexity": "O(N) where N is the total number of members",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": -1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key",
+        "multiple": true
+      }
+    ]
+  },
+  "SDIFF": {
+    "summary": "Returns the difference between the first set and the others.",
+    "complexity": "O(N) where N is the total number of members",
+    "group": "set",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": -1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key",
+        "multiple": true
+      }
+    ]
+  },
+  "SSCAN": {
+    "summary": "Iterates over the members of a set.",
+    "complexity": "O(1) per call, O(N) for a full iteration",
+    "group": "set",
+    "since": "2.8.0",
+    "arity": -3,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "cursor",
+        "type": "integer"
+      },
+      {
+        "name": "pattern",
+        "type": "pattern",
+        "token": "MATCH",
+        "optional": true
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "token": "COUNT",
+        "optional": true
+      }
+    ]
+  }
+}

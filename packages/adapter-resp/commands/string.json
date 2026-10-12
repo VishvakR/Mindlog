@@ -1,0 +1,296 @@
+{
+  "GET": {
+    "summary": "Returns the string value of a key.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [{ "name": "key", "type": "key" }]
+  },
+  "SET": {
+    "summary": "Sets the string value of a key, with optional conditions and expiry.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "1.0.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "DENYOOM"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "value", "type": "string" },
+      {
+        "name": "condition",
+        "type": "oneof",
+        "optional": true,
+        "arguments": [
+          { "name": "nx", "type": "pure-token", "token": "NX" },
+          { "name": "xx", "type": "pure-token", "token": "XX" }
+        ]
+      },
+      { "name": "get", "type": "pure-token", "token": "GET", "optional": true },
+      {
+        "name": "expiration",
+        "type": "oneof",
+        "optional": true,
+        "arguments": [
+          { "name": "seconds", "type": "integer", "token": "EX" },
+          { "name": "milliseconds", "type": "integer", "token": "PX" },
+          { "name": "unix-time-seconds", "type": "unix-time", "token": "EXAT" },
+          { "name": "unix-time-milliseconds", "type": "unix-time", "token": "PXAT" },
+          { "name": "keepttl", "type": "pure-token", "token": "KEEPTTL" }
+        ]
+      }
+    ]
+  },
+  "SETNX": {
+    "summary": "Sets the string value of a key only when the key does not exist.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "1.0.0",
+    "arity": 3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "value", "type": "string" }
+    ]
+  },
+  "SETEX": {
+    "summary": "Sets the string value and the expiry, in seconds, of a key.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "2.0.0",
+    "arity": 4,
+    "command_flags": ["WRITE", "DENYOOM"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "seconds", "type": "integer" },
+      { "name": "value", "type": "string" }
+    ]
+  },
+  "PSETEX": {
+    "summary": "Sets the string value and the expiry, in milliseconds, of a key.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "2.6.0",
+    "arity": 4,
+    "command_flags": ["WRITE", "DENYOOM"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "milliseconds", "type": "integer" },
+      { "name": "value", "type": "string" }
+    ]
+  },
+  "GETDEL": {
+    "summary": "Returns the string value of a key and deletes the key.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "6.2.0",
+    "arity": 2,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [{ "name": "key", "type": "key" }]
+  },
+  "GETEX": {
+    "summary": "Returns the string value of a key and optionally changes its expiry.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "6.2.0",
+    "arity": -2,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      {
+        "name": "expiration",
+        "type": "oneof",
+        "optional": true,
+        "arguments": [
+          { "name": "seconds", "type": "integer", "token": "EX" },
+          { "name": "milliseconds", "type": "integer", "token": "PX" },
+          { "name": "unix-time-seconds", "type": "unix-time", "token": "EXAT" },
+          { "name": "unix-time-milliseconds", "type": "unix-time", "token": "PXAT" },
+          { "name": "persist", "type": "pure-token", "token": "PERSIST" }
+        ]
+      }
+    ]
+  },
+  "MGET": {
+    "summary": "Returns the string values of one or more keys.",
+    "complexity": "O(N) where N is the number of keys",
+    "group": "string",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": { "first": 1, "last": -1, "step": 1 },
+    "arguments": [{ "name": "key", "type": "key", "multiple": true }]
+  },
+  "MSET": {
+    "summary": "Sets the string values of one or more keys in one atomic step.",
+    "complexity": "O(N) where N is the number of keys",
+    "group": "string",
+    "since": "1.0.1",
+    "arity": -3,
+    "command_flags": ["WRITE", "DENYOOM"],
+    "key_range": { "first": 1, "last": -1, "step": 2 },
+    "arguments": [
+      {
+        "name": "data",
+        "type": "block",
+        "multiple": true,
+        "arguments": [
+          { "name": "key", "type": "key" },
+          { "name": "value", "type": "string" }
+        ]
+      }
+    ]
+  },
+  "MSETNX": {
+    "summary": "Sets the string values of one or more keys only when none of them exist.",
+    "complexity": "O(N) where N is the number of keys",
+    "group": "string",
+    "since": "1.0.1",
+    "arity": -3,
+    "command_flags": ["WRITE", "DENYOOM"],
+    "key_range": { "first": 1, "last": -1, "step": 2 },
+    "arguments": [
+      {
+        "name": "data",
+        "type": "block",
+        "multiple": true,
+        "arguments": [
+          { "name": "key", "type": "key" },
+          { "name": "value", "type": "string" }
+        ]
+      }
+    ]
+  },
+  "INCR": {
+    "summary": "Increments the integer value of a key by one.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [{ "name": "key", "type": "key" }]
+  },
+  "DECR": {
+    "summary": "Decrements the integer value of a key by one.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [{ "name": "key", "type": "key" }]
+  },
+  "INCRBY": {
+    "summary": "Increments the integer value of a key by a number.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "1.0.0",
+    "arity": 3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "increment", "type": "integer" }
+    ]
+  },
+  "DECRBY": {
+    "summary": "Decrements the integer value of a key by a number.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "1.0.0",
+    "arity": 3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "decrement", "type": "integer" }
+    ]
+  },
+  "INCRBYFLOAT": {
+    "summary": "Increments the floating point value of a key by a number.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "2.6.0",
+    "arity": 3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "increment", "type": "double" }
+    ]
+  },
+  "APPEND": {
+    "summary": "Appends a string to the value of a key, creating the key if needed.",
+    "complexity": "O(N) where N is the length of the new value",
+    "group": "string",
+    "since": "2.0.0",
+    "arity": 3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "value", "type": "string" }
+    ]
+  },
+  "STRLEN": {
+    "summary": "Returns the length of a string value.",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "2.2.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [{ "name": "key", "type": "key" }]
+  },
+  "GETRANGE": {
+    "summary": "Returns a substring of a string value, by byte offsets.",
+    "complexity": "O(N) where N is the length of the returned string",
+    "group": "string",
+    "since": "2.4.0",
+    "arity": 4,
+    "command_flags": ["READONLY"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "start", "type": "integer" },
+      { "name": "end", "type": "integer" }
+    ]
+  },
+  "SUBSTR": {
+    "summary": "Returns a substring of a string value (old name of GETRANGE).",
+    "complexity": "O(N) where N is the length of the returned string",
+    "group": "string",
+    "since": "1.0.0",
+    "arity": 4,
+    "command_flags": ["READONLY"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "start", "type": "integer" },
+      { "name": "end", "type": "integer" }
+    ]
+  },
+  "SETRANGE": {
+    "summary": "Overwrites part of a string value from a byte offset, padding with zero bytes.",
+    "complexity": "O(N) where N is the length of the new value",
+    "group": "string",
+    "since": "2.2.0",
+    "arity": 4,
+    "command_flags": ["WRITE", "DENYOOM"],
+    "key_range": { "first": 1, "last": 1, "step": 1 },
+    "arguments": [
+      { "name": "key", "type": "key" },
+      { "name": "offset", "type": "integer" },
+      { "name": "value", "type": "string" }
+    ]
+  }
+}

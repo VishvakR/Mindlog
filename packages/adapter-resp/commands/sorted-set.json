@@ -1,0 +1,656 @@
+{
+  "ZADD": {
+    "summary": "Adds members to a sorted set or updates their scores.",
+    "complexity": "O(N log N) where N is the number of members given",
+    "group": "sorted-set",
+    "since": "1.2.0",
+    "arity": -4,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "condition",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "nx",
+            "type": "pure-token",
+            "token": "NX"
+          },
+          {
+            "name": "xx",
+            "type": "pure-token",
+            "token": "XX"
+          }
+        ],
+        "optional": true
+      },
+      {
+        "name": "comparison",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "gt",
+            "type": "pure-token",
+            "token": "GT"
+          },
+          {
+            "name": "lt",
+            "type": "pure-token",
+            "token": "LT"
+          }
+        ],
+        "optional": true
+      },
+      {
+        "name": "ch",
+        "type": "pure-token",
+        "token": "CH",
+        "optional": true
+      },
+      {
+        "name": "incr",
+        "type": "pure-token",
+        "token": "INCR",
+        "optional": true
+      },
+      {
+        "name": "data",
+        "type": "block",
+        "arguments": [
+          {
+            "name": "score",
+            "type": "double"
+          },
+          {
+            "name": "member",
+            "type": "string"
+          }
+        ],
+        "multiple": true
+      }
+    ]
+  },
+  "ZINCRBY": {
+    "summary": "Increments the score of a sorted set member.",
+    "complexity": "O(log N)",
+    "group": "sorted-set",
+    "since": "1.2.0",
+    "arity": 4,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "increment",
+        "type": "double"
+      },
+      {
+        "name": "member",
+        "type": "string"
+      }
+    ]
+  },
+  "ZREM": {
+    "summary": "Removes one or more members from a sorted set.",
+    "complexity": "O(M log N) where M is the number of members removed",
+    "group": "sorted-set",
+    "since": "1.2.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "member",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "ZPOPMIN": {
+    "summary": "Removes and returns the members with the lowest scores.",
+    "complexity": "O(M log N) where M is the number of members popped",
+    "group": "sorted-set",
+    "since": "5.0.0",
+    "arity": -2,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "optional": true
+      }
+    ]
+  },
+  "ZPOPMAX": {
+    "summary": "Removes and returns the members with the highest scores.",
+    "complexity": "O(M log N) where M is the number of members popped",
+    "group": "sorted-set",
+    "since": "5.0.0",
+    "arity": -2,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "optional": true
+      }
+    ]
+  },
+  "ZRANGE": {
+    "summary": "Returns members of a sorted set by rank, score or lexical range.",
+    "complexity": "O(start + M) by rank, O(log N + M) by score or lex",
+    "group": "sorted-set",
+    "since": "1.2.0",
+    "arity": -4,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "start",
+        "type": "string"
+      },
+      {
+        "name": "stop",
+        "type": "string"
+      },
+      {
+        "name": "sortby",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "byscore",
+            "type": "pure-token",
+            "token": "BYSCORE"
+          },
+          {
+            "name": "bylex",
+            "type": "pure-token",
+            "token": "BYLEX"
+          }
+        ],
+        "optional": true
+      },
+      {
+        "name": "rev",
+        "type": "pure-token",
+        "token": "REV",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "type": "block",
+        "arguments": [
+          {
+            "name": "offset",
+            "type": "integer"
+          },
+          {
+            "name": "count",
+            "type": "integer"
+          }
+        ],
+        "token": "LIMIT",
+        "optional": true
+      },
+      {
+        "name": "withscores",
+        "type": "pure-token",
+        "token": "WITHSCORES",
+        "optional": true
+      }
+    ]
+  },
+  "ZREVRANGE": {
+    "summary": "Returns members of a sorted set by rank, highest score first.",
+    "complexity": "O(start + M)",
+    "group": "sorted-set",
+    "since": "1.2.0",
+    "arity": -4,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "start",
+        "type": "integer"
+      },
+      {
+        "name": "stop",
+        "type": "integer"
+      },
+      {
+        "name": "withscores",
+        "type": "pure-token",
+        "token": "WITHSCORES",
+        "optional": true
+      }
+    ]
+  },
+  "ZRANGEBYSCORE": {
+    "summary": "Returns members of a sorted set within a score range.",
+    "complexity": "O(log N + M)",
+    "group": "sorted-set",
+    "since": "1.0.5",
+    "arity": -4,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "min",
+        "type": "double"
+      },
+      {
+        "name": "max",
+        "type": "double"
+      },
+      {
+        "name": "withscores",
+        "type": "pure-token",
+        "token": "WITHSCORES",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "type": "block",
+        "arguments": [
+          {
+            "name": "offset",
+            "type": "integer"
+          },
+          {
+            "name": "count",
+            "type": "integer"
+          }
+        ],
+        "token": "LIMIT",
+        "optional": true
+      }
+    ]
+  },
+  "ZREVRANGEBYSCORE": {
+    "summary": "Returns members of a sorted set within a score range, highest first.",
+    "complexity": "O(log N + M)",
+    "group": "sorted-set",
+    "since": "2.2.0",
+    "arity": -4,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "max",
+        "type": "double"
+      },
+      {
+        "name": "min",
+        "type": "double"
+      },
+      {
+        "name": "withscores",
+        "type": "pure-token",
+        "token": "WITHSCORES",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "type": "block",
+        "arguments": [
+          {
+            "name": "offset",
+            "type": "integer"
+          },
+          {
+            "name": "count",
+            "type": "integer"
+          }
+        ],
+        "token": "LIMIT",
+        "optional": true
+      }
+    ]
+  },
+  "ZRANGEBYLEX": {
+    "summary": "Returns members of a sorted set within a lexical range.",
+    "complexity": "O(log N + M)",
+    "group": "sorted-set",
+    "since": "2.8.9",
+    "arity": -4,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "min",
+        "type": "string"
+      },
+      {
+        "name": "max",
+        "type": "string"
+      },
+      {
+        "name": "limit",
+        "type": "block",
+        "arguments": [
+          {
+            "name": "offset",
+            "type": "integer"
+          },
+          {
+            "name": "count",
+            "type": "integer"
+          }
+        ],
+        "token": "LIMIT",
+        "optional": true
+      }
+    ]
+  },
+  "ZREVRANGEBYLEX": {
+    "summary": "Returns members of a sorted set within a lexical range, in reverse order.",
+    "complexity": "O(log N + M)",
+    "group": "sorted-set",
+    "since": "2.8.9",
+    "arity": -4,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "max",
+        "type": "string"
+      },
+      {
+        "name": "min",
+        "type": "string"
+      },
+      {
+        "name": "limit",
+        "type": "block",
+        "arguments": [
+          {
+            "name": "offset",
+            "type": "integer"
+          },
+          {
+            "name": "count",
+            "type": "integer"
+          }
+        ],
+        "token": "LIMIT",
+        "optional": true
+      }
+    ]
+  },
+  "ZSCORE": {
+    "summary": "Returns the score of a sorted set member.",
+    "complexity": "O(1)",
+    "group": "sorted-set",
+    "since": "1.2.0",
+    "arity": 3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "member",
+        "type": "string"
+      }
+    ]
+  },
+  "ZMSCORE": {
+    "summary": "Returns the scores of one or more sorted set members.",
+    "complexity": "O(N) where N is the number of members",
+    "group": "sorted-set",
+    "since": "6.2.0",
+    "arity": -3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "member",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "ZCARD": {
+    "summary": "Returns the number of members of a sorted set.",
+    "complexity": "O(1)",
+    "group": "sorted-set",
+    "since": "1.2.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "ZCOUNT": {
+    "summary": "Counts the members of a sorted set within a score range.",
+    "complexity": "O(log N + M)",
+    "group": "sorted-set",
+    "since": "2.0.0",
+    "arity": 4,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "min",
+        "type": "double"
+      },
+      {
+        "name": "max",
+        "type": "double"
+      }
+    ]
+  },
+  "ZRANK": {
+    "summary": "Returns the rank of a member, lowest score first.",
+    "complexity": "O(rank)",
+    "group": "sorted-set",
+    "since": "2.0.0",
+    "arity": -3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "member",
+        "type": "string"
+      },
+      {
+        "name": "withscore",
+        "type": "pure-token",
+        "token": "WITHSCORE",
+        "optional": true
+      }
+    ]
+  },
+  "ZREVRANK": {
+    "summary": "Returns the rank of a member, highest score first.",
+    "complexity": "O(rank)",
+    "group": "sorted-set",
+    "since": "2.0.0",
+    "arity": -3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "member",
+        "type": "string"
+      },
+      {
+        "name": "withscore",
+        "type": "pure-token",
+        "token": "WITHSCORE",
+        "optional": true
+      }
+    ]
+  },
+  "ZSCAN": {
+    "summary": "Iterates over the members and scores of a sorted set.",
+    "complexity": "O(1) per call, O(N) for a full iteration",
+    "group": "sorted-set",
+    "since": "2.8.0",
+    "arity": -3,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "cursor",
+        "type": "integer"
+      },
+      {
+        "name": "pattern",
+        "type": "pattern",
+        "token": "MATCH",
+        "optional": true
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "token": "COUNT",
+        "optional": true
+      }
+    ]
+  }
+}

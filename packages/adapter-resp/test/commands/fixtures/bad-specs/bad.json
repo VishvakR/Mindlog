@@ -1,0 +1,10 @@
+{
+  "GET": {
+    "summary": "x",
+    "complexity": "O(1)",
+    "group": "string",
+    "since": "1.0",
+    "arity": 0,
+    "command_flags": ["NOPE"]
+  }
+}

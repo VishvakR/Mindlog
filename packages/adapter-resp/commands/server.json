@@ -1,0 +1,117 @@
+{
+  "DBSIZE": {
+    "summary": "Returns the number of keys in the database.",
+    "complexity": "O(N) where N is the number of keys",
+    "group": "server",
+    "since": "1.0.0",
+    "arity": 1,
+    "command_flags": ["READONLY", "FAST"]
+  },
+  "TIME": {
+    "summary": "Returns the server time as seconds and microseconds.",
+    "complexity": "O(1)",
+    "group": "server",
+    "since": "2.6.0",
+    "arity": 1,
+    "command_flags": ["READONLY", "FAST"]
+  },
+  "INFO": {
+    "summary": "Returns server information and statistics.",
+    "complexity": "O(1)",
+    "group": "server",
+    "since": "1.0.0",
+    "arity": -1,
+    "command_flags": ["LOADING", "STALE"],
+    "arguments": [
+      {
+        "name": "section",
+        "type": "string",
+        "multiple": true,
+        "optional": true
+      }
+    ]
+  },
+  "CONFIG": {
+    "summary": "A container for configuration commands.",
+    "complexity": "Depends on subcommand",
+    "group": "server",
+    "since": "2.0.0",
+    "arity": -2,
+    "command_flags": [],
+    "subcommands": {
+      "GET": {
+        "summary": "Returns the values of configuration parameters, read only.",
+        "complexity": "O(N) where N is the number of parameters",
+        "group": "server",
+        "since": "2.0.0",
+        "arity": -3,
+        "command_flags": ["NOSCRIPT", "LOADING", "STALE"],
+        "arguments": [
+          {
+            "name": "parameter",
+            "type": "pattern",
+            "multiple": true
+          }
+        ]
+      }
+    }
+  },
+  "COMMAND": {
+    "summary": "Returns details about every command.",
+    "complexity": "O(N) where N is the number of commands",
+    "group": "server",
+    "since": "2.8.13",
+    "arity": -1,
+    "command_flags": ["LOADING", "STALE"],
+    "subcommands": {
+      "COUNT": {
+        "summary": "Returns the number of commands.",
+        "complexity": "O(1)",
+        "group": "server",
+        "since": "2.8.13",
+        "arity": 2,
+        "command_flags": ["LOADING", "STALE"]
+      },
+      "INFO": {
+        "summary": "Returns details about one or more commands.",
+        "complexity": "O(N) where N is the number of commands",
+        "group": "server",
+        "since": "2.8.13",
+        "arity": -2,
+        "command_flags": ["LOADING", "STALE"],
+        "arguments": [
+          {
+            "name": "command-name",
+            "type": "string",
+            "multiple": true,
+            "optional": true
+          }
+        ]
+      },
+      "DOCS": {
+        "summary": "Returns documentary information about one or more commands.",
+        "complexity": "O(N) where N is the number of commands",
+        "group": "server",
+        "since": "7.0.0",
+        "arity": -2,
+        "command_flags": ["LOADING", "STALE"],
+        "arguments": [
+          {
+            "name": "command-name",
+            "type": "string",
+            "multiple": true,
+            "optional": true
+          }
+        ]
+      },
+      "LIST": {
+        "summary": "Returns the names of every command.",
+        "complexity": "O(N) where N is the number of commands",
+        "group": "server",
+        "since": "7.0.0",
+        "arity": -2,
+        "command_flags": ["LOADING", "STALE"]
+      }
+    }
+  }
+}

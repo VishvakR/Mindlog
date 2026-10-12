@@ -1,0 +1,205 @@
+{
+  "PING": {
+    "summary": "Replies PONG, or echoes the message.",
+    "complexity": "O(1)",
+    "group": "connection",
+    "since": "1.0.0",
+    "arity": -1,
+    "command_flags": ["READONLY", "FAST"],
+    "arguments": [
+      {
+        "name": "message",
+        "type": "string",
+        "optional": true
+      }
+    ]
+  },
+  "ECHO": {
+    "summary": "Returns the given string.",
+    "complexity": "O(1)",
+    "group": "connection",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "arguments": [
+      {
+        "name": "message",
+        "type": "string"
+      }
+    ]
+  },
+  "AUTH": {
+    "summary": "Authenticates the connection.",
+    "complexity": "O(N) where N is the password length",
+    "group": "connection",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["NOSCRIPT", "LOADING", "STALE", "FAST", "NO_AUTH"],
+    "arguments": [
+      {
+        "name": "username",
+        "type": "string",
+        "optional": true
+      },
+      {
+        "name": "password",
+        "type": "string"
+      }
+    ]
+  },
+  "HELLO": {
+    "summary": "Chooses the protocol version, optionally authenticates, and returns server information.",
+    "complexity": "O(1)",
+    "group": "connection",
+    "since": "6.0.0",
+    "arity": -1,
+    "command_flags": ["NOSCRIPT", "LOADING", "STALE", "FAST", "NO_AUTH"],
+    "arguments": [
+      {
+        "name": "arguments",
+        "type": "block",
+        "arguments": [
+          {
+            "name": "protover",
+            "type": "integer"
+          },
+          {
+            "name": "auth",
+            "type": "block",
+            "arguments": [
+              {
+                "name": "username",
+                "type": "string"
+              },
+              {
+                "name": "password",
+                "type": "string"
+              }
+            ],
+            "token": "AUTH",
+            "optional": true
+          },
+          {
+            "name": "clientname",
+            "type": "string",
+            "token": "SETNAME",
+            "optional": true
+          }
+        ],
+        "optional": true
+      }
+    ]
+  },
+  "SELECT": {
+    "summary": "Selects a database; only database 0 exists.",
+    "complexity": "O(1)",
+    "group": "connection",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["LOADING", "STALE", "FAST"],
+    "arguments": [
+      {
+        "name": "index",
+        "type": "integer"
+      }
+    ]
+  },
+  "QUIT": {
+    "summary": "Closes the connection after replying OK.",
+    "complexity": "O(1)",
+    "group": "connection",
+    "since": "1.0.0",
+    "arity": -1,
+    "command_flags": ["NOSCRIPT", "LOADING", "STALE", "FAST", "NO_AUTH"]
+  },
+  "RESET": {
+    "summary": "Resets the connection: discards transactions, unwatches keys, returns to RESP2 and drops authentication.",
+    "complexity": "O(1)",
+    "group": "connection",
+    "since": "6.2.0",
+    "arity": 1,
+    "command_flags": ["NOSCRIPT", "LOADING", "STALE", "FAST", "NO_AUTH"]
+  },
+  "CLIENT": {
+    "summary": "A container for client connection commands.",
+    "complexity": "Depends on subcommand",
+    "group": "connection",
+    "since": "2.4.0",
+    "arity": -2,
+    "command_flags": [],
+    "subcommands": {
+      "ID": {
+        "summary": "Returns the unique ID of the connection.",
+        "complexity": "O(1)",
+        "group": "connection",
+        "since": "5.0.0",
+        "arity": 2,
+        "command_flags": ["NOSCRIPT", "LOADING", "STALE"]
+      },
+      "GETNAME": {
+        "summary": "Returns the name of the connection.",
+        "complexity": "O(1)",
+        "group": "connection",
+        "since": "2.6.9",
+        "arity": 2,
+        "command_flags": ["NOSCRIPT", "LOADING", "STALE"]
+      },
+      "SETNAME": {
+        "summary": "Sets the name of the connection.",
+        "complexity": "O(1)",
+        "group": "connection",
+        "since": "2.6.9",
+        "arity": 3,
+        "command_flags": ["NOSCRIPT", "LOADING", "STALE"],
+        "arguments": [
+          {
+            "name": "connection-name",
+            "type": "string"
+          }
+        ]
+      },
+      "SETINFO": {
+        "summary": "Records the client library name or version.",
+        "complexity": "O(1)",
+        "group": "connection",
+        "since": "7.2.0",
+        "arity": 4,
+        "command_flags": ["NOSCRIPT", "LOADING", "STALE"],
+        "arguments": [
+          {
+            "name": "attr",
+            "type": "oneof",
+            "arguments": [
+              {
+                "name": "libname",
+                "type": "string",
+                "token": "LIB-NAME"
+              },
+              {
+                "name": "libver",
+                "type": "string",
+                "token": "LIB-VER"
+              }
+            ]
+          }
+        ]
+      },
+      "INFO": {
+        "summary": "Returns information about the connection.",
+        "complexity": "O(1)",
+        "group": "connection",
+        "since": "6.2.0",
+        "arity": 2,
+        "command_flags": ["NOSCRIPT", "LOADING", "STALE"]
+      },
+      "LIST": {
+        "summary": "Lists the open connections.",
+        "complexity": "O(N) where N is the number of connections",
+        "group": "connection",
+        "since": "2.4.0",
+        "arity": -2,
+        "command_flags": ["NOSCRIPT", "LOADING", "STALE"]
+      }
+    }
+  }
+}

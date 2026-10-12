@@ -1,0 +1,54 @@
+{
+  "MULTI": {
+    "summary": "Starts a transaction.",
+    "complexity": "O(1)",
+    "group": "transactions",
+    "since": "1.2.0",
+    "arity": 1,
+    "command_flags": ["NOSCRIPT", "LOADING", "STALE", "FAST"]
+  },
+  "EXEC": {
+    "summary": "Commits the queued commands as one replicated batch, checking WATCHed keys.",
+    "complexity": "Depends on the queued commands",
+    "group": "transactions",
+    "since": "1.2.0",
+    "arity": 1,
+    "command_flags": ["NOSCRIPT", "LOADING", "STALE"]
+  },
+  "DISCARD": {
+    "summary": "Discards the queued commands of a transaction.",
+    "complexity": "O(N) where N is the number of queued commands",
+    "group": "transactions",
+    "since": "2.0.0",
+    "arity": 1,
+    "command_flags": ["NOSCRIPT", "LOADING", "STALE", "FAST"]
+  },
+  "WATCH": {
+    "summary": "Watches keys so EXEC fails if any of them changes.",
+    "complexity": "O(1) per key",
+    "group": "transactions",
+    "since": "2.2.0",
+    "arity": -2,
+    "command_flags": ["NOSCRIPT", "LOADING", "STALE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": -1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key",
+        "multiple": true
+      }
+    ]
+  },
+  "UNWATCH": {
+    "summary": "Forgets every watched key.",
+    "complexity": "O(1)",
+    "group": "transactions",
+    "since": "2.2.0",
+    "arity": 1,
+    "command_flags": ["NOSCRIPT", "LOADING", "STALE", "FAST"]
+  }
+}

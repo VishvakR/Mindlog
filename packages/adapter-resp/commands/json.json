@@ -1,0 +1,119 @@
+{
+  "JSON.SET": {
+    "summary": "Sets a JSON value at a path.",
+    "complexity": "O(M + N) where M is the document size and N the value size",
+    "group": "json",
+    "since": "1.0.0",
+    "arity": -4,
+    "command_flags": ["WRITE", "DENYOOM"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "path",
+        "type": "string"
+      },
+      {
+        "name": "value",
+        "type": "string"
+      },
+      {
+        "name": "condition",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "nx",
+            "type": "pure-token",
+            "token": "NX"
+          },
+          {
+            "name": "xx",
+            "type": "pure-token",
+            "token": "XX"
+          }
+        ],
+        "optional": true
+      }
+    ]
+  },
+  "JSON.GET": {
+    "summary": "Returns the JSON values at one or more paths.",
+    "complexity": "O(N) where N is the document size",
+    "group": "json",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "multiple": true,
+        "optional": true
+      }
+    ]
+  },
+  "JSON.DEL": {
+    "summary": "Deletes the JSON value at a path.",
+    "complexity": "O(N) where N is the document size",
+    "group": "json",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["WRITE"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "optional": true
+      }
+    ]
+  },
+  "JSON.MGET": {
+    "summary": "Returns the JSON value at a path from several keys.",
+    "complexity": "O(M * N) for M keys of size N",
+    "group": "json",
+    "since": "1.0.0",
+    "arity": -3,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": -2,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key",
+        "multiple": true
+      },
+      {
+        "name": "path",
+        "type": "string"
+      }
+    ]
+  }
+}

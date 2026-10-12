@@ -1,0 +1,269 @@
+{
+  "LPUSH": {
+    "summary": "Prepends one or more elements to a list.",
+    "complexity": "O(N) where N is the number of elements pushed",
+    "group": "list",
+    "since": "1.0.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "element",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "RPUSH": {
+    "summary": "Appends one or more elements to a list.",
+    "complexity": "O(N) where N is the number of elements pushed",
+    "group": "list",
+    "since": "1.0.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "element",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "LPUSHX": {
+    "summary": "Prepends elements to a list only when the list exists.",
+    "complexity": "O(N) where N is the number of elements pushed",
+    "group": "list",
+    "since": "2.2.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "element",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "RPUSHX": {
+    "summary": "Appends elements to a list only when the list exists.",
+    "complexity": "O(N) where N is the number of elements pushed",
+    "group": "list",
+    "since": "2.2.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "element",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "LPOP": {
+    "summary": "Removes and returns the first elements of a list.",
+    "complexity": "O(N) where N is the number of elements returned",
+    "group": "list",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "optional": true
+      }
+    ]
+  },
+  "RPOP": {
+    "summary": "Removes and returns the last elements of a list.",
+    "complexity": "O(N) where N is the number of elements returned",
+    "group": "list",
+    "since": "1.0.0",
+    "arity": -2,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "optional": true
+      }
+    ]
+  },
+  "LRANGE": {
+    "summary": "Returns a range of elements of a list.",
+    "complexity": "O(N) where N is the number of elements returned",
+    "group": "list",
+    "since": "1.0.0",
+    "arity": 4,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "start",
+        "type": "integer"
+      },
+      {
+        "name": "stop",
+        "type": "integer"
+      }
+    ]
+  },
+  "LLEN": {
+    "summary": "Returns the length of a list.",
+    "complexity": "O(1)",
+    "group": "list",
+    "since": "1.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "LINDEX": {
+    "summary": "Returns an element of a list by its index.",
+    "complexity": "O(1)",
+    "group": "list",
+    "since": "1.0.0",
+    "arity": 3,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "index",
+        "type": "integer"
+      }
+    ]
+  },
+  "LSET": {
+    "summary": "Sets the value of a list element by its index.",
+    "complexity": "O(1)",
+    "group": "list",
+    "since": "1.0.0",
+    "arity": 4,
+    "command_flags": ["WRITE", "DENYOOM"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "index",
+        "type": "integer"
+      },
+      {
+        "name": "element",
+        "type": "string"
+      }
+    ]
+  },
+  "LTRIM": {
+    "summary": "Keeps only a range of elements of a list.",
+    "complexity": "O(N) where N is the number of elements removed",
+    "group": "list",
+    "since": "1.0.0",
+    "arity": 4,
+    "command_flags": ["WRITE"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "start",
+        "type": "integer"
+      },
+      {
+        "name": "stop",
+        "type": "integer"
+      }
+    ]
+  }
+}

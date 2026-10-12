@@ -1,0 +1,379 @@
+{
+  "HSET": {
+    "summary": "Sets one or more fields of a hash.",
+    "complexity": "O(N) where N is the number of fields set",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": -4,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "data",
+        "type": "block",
+        "arguments": [
+          {
+            "name": "field",
+            "type": "string"
+          },
+          {
+            "name": "value",
+            "type": "string"
+          }
+        ],
+        "multiple": true
+      }
+    ]
+  },
+  "HMSET": {
+    "summary": "Sets one or more fields of a hash (replies OK).",
+    "complexity": "O(N) where N is the number of fields set",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": -4,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "data",
+        "type": "block",
+        "arguments": [
+          {
+            "name": "field",
+            "type": "string"
+          },
+          {
+            "name": "value",
+            "type": "string"
+          }
+        ],
+        "multiple": true
+      }
+    ]
+  },
+  "HSETNX": {
+    "summary": "Sets a hash field only when it does not exist.",
+    "complexity": "O(1)",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": 4,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "field",
+        "type": "string"
+      },
+      {
+        "name": "value",
+        "type": "string"
+      }
+    ]
+  },
+  "HGET": {
+    "summary": "Returns the value of a hash field.",
+    "complexity": "O(1)",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": 3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "field",
+        "type": "string"
+      }
+    ]
+  },
+  "HMGET": {
+    "summary": "Returns the values of one or more hash fields.",
+    "complexity": "O(N) where N is the number of fields",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": -3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "field",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "HDEL": {
+    "summary": "Deletes one or more hash fields.",
+    "complexity": "O(N) where N is the number of fields",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": -3,
+    "command_flags": ["WRITE", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "field",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  },
+  "HGETALL": {
+    "summary": "Returns every field and value of a hash.",
+    "complexity": "O(N) where N is the size of the hash",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "HKEYS": {
+    "summary": "Returns every field of a hash.",
+    "complexity": "O(N) where N is the size of the hash",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "HVALS": {
+    "summary": "Returns every value of a hash.",
+    "complexity": "O(N) where N is the size of the hash",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "HLEN": {
+    "summary": "Returns the number of fields in a hash.",
+    "complexity": "O(1)",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": 2,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      }
+    ]
+  },
+  "HEXISTS": {
+    "summary": "Reports whether a hash field exists.",
+    "complexity": "O(1)",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": 3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "field",
+        "type": "string"
+      }
+    ]
+  },
+  "HSTRLEN": {
+    "summary": "Returns the length of a hash field value.",
+    "complexity": "O(1)",
+    "group": "hash",
+    "since": "3.2.0",
+    "arity": 3,
+    "command_flags": ["READONLY", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "field",
+        "type": "string"
+      }
+    ]
+  },
+  "HINCRBY": {
+    "summary": "Increments the integer value of a hash field.",
+    "complexity": "O(1)",
+    "group": "hash",
+    "since": "2.0.0",
+    "arity": 4,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "field",
+        "type": "string"
+      },
+      {
+        "name": "increment",
+        "type": "integer"
+      }
+    ]
+  },
+  "HINCRBYFLOAT": {
+    "summary": "Increments the floating point value of a hash field.",
+    "complexity": "O(1)",
+    "group": "hash",
+    "since": "2.6.0",
+    "arity": 4,
+    "command_flags": ["WRITE", "DENYOOM", "FAST"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "field",
+        "type": "string"
+      },
+      {
+        "name": "increment",
+        "type": "double"
+      }
+    ]
+  },
+  "HSCAN": {
+    "summary": "Iterates over the fields and values of a hash.",
+    "complexity": "O(1) per call, O(N) for a full iteration",
+    "group": "hash",
+    "since": "2.8.0",
+    "arity": -3,
+    "command_flags": ["READONLY"],
+    "key_range": {
+      "first": 1,
+      "last": 1,
+      "step": 1
+    },
+    "arguments": [
+      {
+        "name": "key",
+        "type": "key"
+      },
+      {
+        "name": "cursor",
+        "type": "integer"
+      },
+      {
+        "name": "pattern",
+        "type": "pattern",
+        "token": "MATCH",
+        "optional": true
+      },
+      {
+        "name": "count",
+        "type": "integer",
+        "token": "COUNT",
+        "optional": true
+      }
+    ]
+  }
+}

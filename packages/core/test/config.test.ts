@@ -86,3 +86,23 @@ describe('resolveConfig', () => {
     expect(failure(resolveConfig({ fileText: '- a\n- b\n' })).code).toBe('CONFIG_INVALID');
   });
 });
+
+describe('resolveConfig limits and auth', () => {
+  test('defaults follow Valkey limits and leave auth off', () => {
+    const config = value(resolveConfig());
+    expect(config.limits.maxBulkBytes).toBe(512 * 1024 * 1024);
+    expect(config.limits.maxInlineBytes).toBe(64 * 1024);
+    expect(config.limits.idleTimeoutMs).toBe(0);
+    expect(config.auth.password).toBeUndefined();
+  });
+
+  test('a password comes from the environment', () => {
+    const config = value(resolveConfig({ env: { MINDLOG_AUTH__PASSWORD: 's3cret' } }));
+    expect(config.auth.password).toBe('s3cret');
+  });
+
+  test('limits must be positive', () => {
+    const error = failure(resolveConfig({ flags: { limits: { maxClients: 0 } } }));
+    expect(Object.keys(error.fields ?? {})).toEqual(['limits.maxClients']);
+  });
+});

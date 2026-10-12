@@ -51,6 +51,44 @@ export const configSchema = z.strictObject({
         .prefault({}),
     })
     .prefault({}),
+  limits: z
+    .strictObject({
+      maxClients: z.number().int().min(1).default(10_000),
+      // RESP bulk strings and inline requests (Valkey proto-max-bulk-len, 64 KiB inline).
+      maxBulkBytes: z
+        .number()
+        .int()
+        .min(1)
+        .default(512 * 1024 * 1024),
+      maxInlineBytes: z
+        .number()
+        .int()
+        .min(1)
+        .default(64 * 1024),
+      maxArgs: z
+        .number()
+        .int()
+        .min(1)
+        .default(1024 * 1024),
+      // A client whose unsent replies exceed this is disconnected.
+      outputBufferBytes: z
+        .number()
+        .int()
+        .min(1)
+        .default(64 * 1024 * 1024),
+      // Close idle connections after this long; 0 disables (Redis `timeout 0`).
+      idleTimeoutMs: z.number().int().min(0).default(0),
+      // Commands queued inside one MULTI.
+      maxTransactionCommands: z.number().int().min(1).default(10_000),
+      maxPendingProposals: z.number().int().min(1).default(10_000),
+    })
+    .prefault({}),
+  auth: z
+    .strictObject({
+      // Single static user for phase 1 (`AUTH <password>` / `AUTH default <password>`).
+      password: z.string().min(1).optional(),
+    })
+    .prefault({}),
   profile: z.enum(['dev', 'production']).default('dev'),
 });
 

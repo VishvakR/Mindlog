@@ -14,3 +14,4 @@ export { LocalLog } from './log/local-log.js';
 export type { LocalProposerDeps, LocalProposerOptions } from './proposer/local-proposer.js';
 export { LocalProposer } from './proposer/local-proposer.js';
 export { recover } from './proposer/recover.js';
+export { CommandStamper } from './proposer/command-stamper.js';

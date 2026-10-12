@@ -23,7 +23,8 @@
     "proto:breaking": "buf breaking --against \".git#branch=main\"",
     "build": "tsc -b",
     "typecheck": "tsc -b tsconfig.check.json",
-    "lint:cycles": "madge --circular packages"
+    "lint:cycles": "madge --circular packages",
+    "fuzz:resp": "FUZZ_RUNS=${FUZZ_RUNS:-200000} vitest run --testTimeout=3600000 packages/adapter-resp/test/fuzz"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.73.0",

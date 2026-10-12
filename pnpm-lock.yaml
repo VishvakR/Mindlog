@@ -125,6 +125,10 @@ importers:
       '@mindlog/storage':
         specifier: workspace:*
         version: link:../storage
+    devDependencies:
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
 
   packages/proto:
     dependencies:

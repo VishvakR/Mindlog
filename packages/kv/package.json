@@ -24,5 +24,8 @@
     "@mindlog/proto": "workspace:*",
     "@mindlog/statemachine": "workspace:*",
     "@mindlog/storage": "workspace:*"
+  },
+  "devDependencies": {
+    "@mindlog/eventbus": "workspace:*"
   }
 }

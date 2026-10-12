@@ -6,5 +6,12 @@
     "tsBuildInfoFile": "../dist-test/.tsbuildinfo"
   },
   "include": ["."],
-  "references": [{ "path": ".." }]
+  "references": [
+    {
+      "path": ".."
+    },
+    {
+      "path": "../../eventbus"
+    }
+  ]
 }

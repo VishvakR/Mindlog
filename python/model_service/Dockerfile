@@ -9,4 +9,5 @@ COPY mindlog_proto ./mindlog_proto
 RUN uv sync --frozen --no-dev --package mindlog-model-service
 USER nobody
 EXPOSE 50051
-CMD ["uv", "run", "--no-sync", "python", "-m", "model_service"]
+# The venv python directly: `uv run` needs a writable cache, and nobody has no home.
+CMD ["/app/.venv/bin/python", "-m", "model_service"]

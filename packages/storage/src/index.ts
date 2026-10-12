@@ -18,3 +18,5 @@ export { MvccWriter } from './mvcc/mvcc-writer.js';
 export { decodeVersionValue } from './mvcc/version-value.js';
 export type { ParsedVersionedKey } from './mvcc/versioned-key.js';
 export { keyAfter, parseVersionedKey, versionedKey } from './mvcc/versioned-key.js';
+export type { MvccScanOptions, VersionedValue } from './mvcc/mvcc-reader.js';
+export { MvccReader } from './mvcc/mvcc-reader.js';

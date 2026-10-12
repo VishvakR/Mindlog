@@ -35,6 +35,15 @@ importers:
       '@mindlog/server':
         specifier: workspace:*
         version: link:packages/server
+      '@opentelemetry/api':
+        specifier: ^1.9.1
+        version: 1.9.1
+      '@opentelemetry/sdk-trace-base':
+        specifier: ^2.12.0
+        version: 2.12.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-trace-node':
+        specifier: ^2.12.0
+        version: 2.12.0(@opentelemetry/api@1.9.1)
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -218,6 +227,9 @@ importers:
 
   packages/server:
     dependencies:
+      '@mindlog/adapter-http':
+        specifier: workspace:*
+        version: link:../adapter-http
       '@mindlog/adapter-resp':
         specifier: workspace:*
         version: link:../adapter-resp

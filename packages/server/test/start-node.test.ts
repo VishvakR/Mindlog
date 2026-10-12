@@ -8,7 +8,11 @@ import { tempDir } from './support/temp-dir.js';
 
 function config(dataDir: string, extra: Record<string, unknown> = {}): MindlogConfig {
   const result = resolveConfig({
-    flags: { node: { dataDir }, listen: { resp: { host: '127.0.0.1', port: 0 } }, ...extra },
+    flags: {
+      node: { dataDir },
+      listen: { resp: { host: '127.0.0.1', port: 0 }, http: { host: '127.0.0.1', port: 0 } },
+      ...extra,
+    },
   });
   if (!result.ok) throw new Error(result.error.message);
   return result.value;

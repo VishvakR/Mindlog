@@ -12,12 +12,14 @@ export interface CliArgs {
 }
 
 export const USAGE = `Usage: mindlog-server --single-node [options]
+       mindlog-server superuser upsert <email> <password> [-c <path>] [--data-dir <path>]
 
 Options:
   --single-node          Run one node with a local durable log (phase 1)
   -c, --config <path>    Config file (default: ./mindlog.yaml if present)
   -p, --port <port>      RESP port (listen.resp.port)
       --host <host>      RESP bind address (listen.resp.host)
+      --http-port <port> HTTP API and dashboard port (listen.http.port)
       --data-dir <path>  Data directory (node.dataDir)
       --log-level <lvl>  trace | debug | info | warn | error | fatal
   -h, --help             Show this help
@@ -41,6 +43,7 @@ export function parseCliArgs(argv: readonly string[]): Result<CliArgs, MindlogEr
         config: { type: 'string', short: 'c' },
         port: { type: 'string', short: 'p' },
         host: { type: 'string' },
+        'http-port': { type: 'string' },
         'data-dir': { type: 'string' },
         'log-level': { type: 'string' },
         help: { type: 'boolean', short: 'h', default: false },
@@ -56,8 +59,15 @@ export function parseCliArgs(argv: readonly string[]): Result<CliArgs, MindlogEr
     resp.port = Number(values.port);
   }
   if (values.host !== undefined) resp.host = values.host;
+  const listen: Record<string, unknown> = {};
+  if (Object.keys(resp).length > 0) listen.resp = resp;
+  const httpPort = values['http-port'];
+  if (httpPort !== undefined) {
+    if (!/^\d+$/.test(httpPort)) return invalid(`--http-port must be a number, got '${httpPort}'`);
+    listen.http = { port: Number(httpPort) };
+  }
   const flags: Record<string, unknown> = {};
-  if (Object.keys(resp).length > 0) flags.listen = { resp };
+  if (Object.keys(listen).length > 0) flags.listen = listen;
   if (values['data-dir'] !== undefined) flags.node = { dataDir: values['data-dir'] };
   if (values['log-level'] !== undefined) flags.observability = { logLevel: values['log-level'] };
   return ok({

@@ -9,7 +9,11 @@ import { startNode } from '@mindlog/server';
 export async function startTestNode(overrides: Record<string, unknown> = {}) {
   const dataDir = await mkdtemp(join(tmpdir(), 'mindlog-compat-'));
   const config = resolveConfig({
-    flags: { node: { dataDir }, listen: { resp: { host: '127.0.0.1', port: 0 } }, ...overrides },
+    flags: {
+      node: { dataDir },
+      listen: { resp: { host: '127.0.0.1', port: 0 }, http: { host: '127.0.0.1', port: 0 } },
+      ...overrides,
+    },
   });
   if (!config.ok) throw new Error(config.error.message);
   const started = await startNode(config.value, {

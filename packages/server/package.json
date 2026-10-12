@@ -22,6 +22,7 @@
     "test": "vitest run --root ../.. packages/server/"
   },
   "dependencies": {
+    "@mindlog/adapter-http": "workspace:*",
     "@mindlog/adapter-resp": "workspace:*",
     "@mindlog/core": "workspace:*",
     "@mindlog/eventbus": "workspace:*",

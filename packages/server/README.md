@@ -5,9 +5,16 @@ Composition root (layer `composition`, CLAUDE.md §3.1): the only package that k
 ## Running
 
 ```bash
-pnpm dev                                    # build, then mindlog-server --single-node on :6379
-node packages/server/dist/bin.js --single-node --port 6380 --data-dir ./data
+pnpm dev                                    # build, then mindlog-server --single-node: RESP :6379, HTTP :8090
+node packages/server/dist/bin.js --single-node --port 6380 --http-port 8091 --data-dir ./data
 redis-cli -p 6379 PING
+open http://localhost:8090/_/                # dashboard (needs a superuser, below)
+```
+
+Create a dashboard superuser while the server is stopped (it holds the data directory open):
+
+```bash
+node packages/server/dist/bin.js superuser upsert admin@example.com 'a long password' --data-dir ./data
 ```
 
 | Flag | Config key | |
@@ -16,6 +23,7 @@ redis-cli -p 6379 PING
 | `-c, --config <path>` | | Config file; default `./mindlog.yaml` if present |
 | `-p, --port <port>` | `listen.resp.port` | `0` binds any free port |
 | `--host <host>` | `listen.resp.host` | |
+| `--http-port <port>` | `listen.http.port` | HTTP API, `/metrics` and dashboard; `0` binds any free port |
 | `--data-dir <path>` | `node.dataDir` | |
 | `--log-level <level>` | `observability.logLevel` | |
 
@@ -26,25 +34,28 @@ Precedence: defaults → `mindlog.yaml` → `MINDLOG_<SECTION>__<KEY>` environme
 | Export | Purpose |
 |---|---|
 | `main(argv, io)` | CLI entry: returns a running node or an exit code |
-| `startNode(config, options)` | Starts a node; `RunningNode` has the bound RESP address, `replayed` and `close()` |
+| `startNode(config, options)` | Starts a node; `RunningNode` has the bound RESP and HTTP addresses, `replayed` and `close()` |
+| `openNodeCore(config, deps)` | Opens and recovers a data directory without listeners (used by `superuser upsert`) |
+| `redactedSettings`, `DEFAULT_DASHBOARD_DIR` | What `/api/admin/settings` shows; where `web/` builds the dashboard |
 | `loadConfig`, `parseCliArgs`, `USAGE` | Configuration layering and argument parsing |
 | `serverInfo`, `mindlogVersion`, `REDIS_API_VERSION` | What `INFO`, `HELLO` and `CONFIG GET` report |
 
-## Wiring (phase 1)
+## Wiring (phase 2)
 
 ```
 dataDir/raftlog  LevelDbStore (sync) ── LocalLog ──┐
 dataDir/state    LevelDbStore ──────── StateMachine ┼─ recover() replays appliedIndex+1..last
                                                     └─ LocalProposer (group commit, BUSY)
 KvService (registry, stamper: HLC + ULID, StaticAuthenticator, tracer, metrics)
-RespServer (CommandTable from JSON specs, connection commands, limits)
+RespServer (CommandTable from JSON specs, connection commands, limits, resp.command spans)
+HttpServer (AdminService, KvBrowser, RESP console over WebSocket, /metrics, dashboard at /_/)
 ExpiryJob (100 ms) · GcJob (1 s)          → propose Expire / GcThreshold commands
 ```
 
 ## Lifecycle
 
-- **Start**: open both stores (the second failing closes the first), replay the log into state, then listen. A listen failure releases the stores.
-- **Stop** (`SIGINT`/`SIGTERM`, or `close()`): stop accepting → let in-flight commands finish → stop the jobs → drain the proposer → checkpoint (flush state, compact the log, record the truncation point) → close the stores → flush traces.
+- **Start**: open both stores (the second failing closes the first), replay the log into state, then listen on RESP and HTTP; `/ready` turns 200 once both listen. A listen failure releases the stores.
+- **Stop** (`SIGINT`/`SIGTERM`, or `close()`): `/ready` turns 503 → close HTTP (WebSockets included) → stop accepting RESP → let in-flight commands finish → stop the jobs → drain the proposer → checkpoint (flush state, compact the log, record the truncation point) → close the stores → flush traces.
 - **Fail-stop**: an uncaught exception or unhandled rejection logs `fatal` and exits 1. The log replays on the next start (CLAUDE.md §4 rule 6).
 
 ## Invariants
@@ -54,4 +65,4 @@ ExpiryJob (100 ms) · GcJob (1 s)          → propose Expire / GcThreshold comm
 
 ## Metrics emitted
 
-None of its own: the wired packages emit theirs (`mindlog_kv_*`, `mindlog_resp_*`, `mindlog_statemachine_*`, `mindlog_eventbus_*`). An HTTP `/metrics` endpoint arrives with `adapter-http` in phase 2.
+None of its own: the wired packages emit theirs (`mindlog_kv_*`, `mindlog_resp_*`, `mindlog_http_*`, `mindlog_statemachine_*`, `mindlog_eventbus_*`), scraped at `GET /metrics`. With `observability.tracing.endpoint` set, traces go to OTLP/HTTP; a RESP write produces `resp.command → kv.<cmd> → storage.write, statemachine.apply` (`test/integration/trace.test.ts`).

@@ -110,10 +110,12 @@ class KvNull(_message.Message):
     def __init__(self) -> None: ...
 
 class KvReplyList(_message.Message):
-    __slots__ = ("items",)
+    __slots__ = ("items", "pairs")
     ITEMS_FIELD_NUMBER: _ClassVar[int]
+    PAIRS_FIELD_NUMBER: _ClassVar[int]
     items: _containers.RepeatedCompositeFieldContainer[KvReply]
-    def __init__(self, items: _Optional[_Iterable[_Union[KvReply, _Mapping]]] = ...) -> None: ...
+    pairs: bool
+    def __init__(self, items: _Optional[_Iterable[_Union[KvReply, _Mapping]]] = ..., pairs: _Optional[bool] = ...) -> None: ...
 
 class KvReplyMap(_message.Message):
     __slots__ = ("entries",)

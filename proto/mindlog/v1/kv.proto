@@ -82,6 +82,9 @@ message KvNull {}
 
 message KvReplyList {
   repeated KvReply items = 1;
+  // Items are [element, score] pairs (WITHSCORES, ZPOPMIN): RESP3 sends them
+  // as nested arrays, RESP2 flattens them into one array.
+  bool pairs = 2;
 }
 
 message KvReplyMap {

@@ -5,3 +5,5 @@
 export type { Proposal, Proposer } from './proposer/proposer.js';
 export type { ApplyContext, ApplyHandler, BodyCase } from './apply/apply-handler.js';
 export { ApplyHandlerRegistry } from './apply/apply-handler-registry.js';
+export { IdempotencyTable } from './system/idempotency-table.js';
+export { appliedIndexKey, idempotencyKey, logEntryKey, logPrefix } from './system/system-keys.js';

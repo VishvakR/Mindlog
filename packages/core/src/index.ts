@@ -74,3 +74,5 @@ export type { TracingHandle, TracingOptions } from './tracing/init-tracing.js';
 export { initTracing } from './tracing/init-tracing.js';
 
 export type { ScopePath } from './scope/scope-path.js';
+
+export { crc32c } from './checksum/crc32c.js';

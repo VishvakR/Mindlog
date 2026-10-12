@@ -25,6 +25,7 @@ Shared foundations for every Mindlog package (PLAN 4.2, layer `core`). It has no
 | Metrics | `Metrics`, `PromMetrics`, `MemoryMetrics`, `assertMetricName` | Names must be `mindlog_<area>_<thing>_<unit>` |
 | Tracing | `Tracer`, `OtelTracer`, `initTracing` | Off unless an OTLP endpoint is configured |
 | Scopes | `ScopePath` | tenant / user / agent / session (PLAN 5.5) |
+| Checksums | `crc32c` | CRC-32C for log entries and segments (PLAN 7.3) |
 
 Every port has a production implementation and an in-memory one (`ManualClock`, `SeededRandom`, `MemoryLogger`, `MemoryMetrics`). Both are exported because the simulator and other packages' tests use them. Shared contract suites live in `test/contracts/`.
 

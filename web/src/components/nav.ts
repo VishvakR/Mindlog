@@ -1,0 +1,16 @@
+import type { LucideIcon } from 'lucide-react';
+import { Activity, Database, Settings, SquareTerminal } from 'lucide-react';
+
+export interface NavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  description: string;
+}
+
+export const NAV: NavItem[] = [
+  { to: '/', label: 'Overview', icon: Activity, description: 'Node health and activity' },
+  { to: '/data', label: 'Data', icon: Database, description: 'Browse and edit keys' },
+  { to: '/console', label: 'Console', icon: SquareTerminal, description: 'Run Redis commands' },
+  { to: '/settings', label: 'Settings', icon: Settings, description: 'Effective configuration' },
+];

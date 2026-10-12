@@ -387,17 +387,19 @@ The `/` in prose such as `k/(key, 'h', field)` is notation for consecutive eleme
 
 ### 5.2 Redis value encoding
 
+Every Redis key has a **header** at `k/(key)` (`KvHeader`: type, generation, element count, expiry, last-modified version, list head/tail). Collection elements live under the header's **generation** so that `DEL`, overwrite and expiry are one write; dead generations are removed later by replicated `GcThreshold` commands (ADR-0022).
+
 | Type | Encoding |
 |---|---|
-| String | Single key; value = bytes |
-| Hash | One key per field: `k/(key, 'h', field)`; a header key stores type, field count, TTL |
-| List | Header (head, tail sequence numbers) + one key per element `k/(key,'l',seq)` |
-| Set | One key per member `k/(key,'s',member)` |
-| Sorted set | Two families: by member `k/(key,'z',member)` → score, and by score `k/(key,'Z',score,member)` |
-| Stream | `k/(key,'x',msTime,seq)` per entry + consumer-group metadata keys |
-| JSON | Single key with a compact binary JSON (or plain JSON in v1) |
+| String | Value stored in the header |
+| Hash | One key per field: `k/(key, gen, 'h', field)` |
+| List | Header holds head and tail sequence numbers; one key per element `k/(key, gen, 'l', seq)` |
+| Set | One key per member `k/(key, gen, 's', member)` |
+| Sorted set | Two families: by member `k/(key, gen, 'z', member)` → score, and by score `k/(key, gen, 'Z', score, member)` |
+| Stream | `k/(key, gen, 'x', msTime, seq)` per entry + consumer-group metadata keys |
+| JSON | Value stored in the header (plain JSON in v1) |
 
-Every type has a header key holding type tag, element count and expiry. TTL is enforced lazily on read and by a leader-only expiry job that proposes `Expire` commands (so expiry is replicated, never decided independently by replicas).
+TTL is enforced lazily on read and by a leader-only expiry job that finds due keys through the expiry index `s/expire/(atMs, tenant, key)` and proposes `Expire` commands (so expiry is replicated, never decided independently by replicas). Writes are replicated as the client's command argv and re-executed deterministically in apply (ADR-0021).
 
 ### 5.3 Memory record (canonical schema)
 
@@ -461,6 +463,7 @@ message Command {
     TxnPrewrite prewrite = 60; TxnCommit txn_commit = 61; TxnRollback txn_rollback = 62;
     JobEnqueue job_enqueue = 70; JobLease job_lease = 71; JobComplete job_complete = 72;
     SplitTrigger split = 80; MergeTrigger merge = 81; ConfChange conf_change = 82;
+    // 13: GcThreshold gc_threshold (MVCC version and dead-generation GC, ADR-0022)
     AdminOp admin = 90;
   }
 }
@@ -473,6 +476,7 @@ message Command {
 - **Idempotency:** before applying, look up `s/idem/(request_id)`. If present, skip and return the stored result. Entries expire after a retention window via a replicated GC command.
 - Indexes (HNSW, BM25, graph, secondary) are updated in the same apply. HNSW insertion level randomness is seeded from `hash(memoryId)` so every replica builds an identical graph.
 - After the batch commits, emit `CommandApplied` and the specific domain event.
+- Results are stored as `CommandResult` (a `KvReply` for KV commands, or an `ErrorDetail`) under the idempotency key, so a retried request gets the original reply.
 - Apply errors that are **deterministic** (validation failure) are recorded as the command's result; apply errors that are **environmental** (disk full) crash the replica (fail-stop) so it recovers from the log rather than diverging.
 
 ### 6.3 Change stream
@@ -1751,6 +1755,8 @@ References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly]
 | 018 | Rule language compatible with PocketBase filter syntax |
 | 019 | Change-stream cursors as (rangeId, index) |
 | 020 | Offline-first: no network dependency by default |
+| 021 | KV writes replicated as command argv, re-executed deterministically in apply |
+| 022 | Collection generations for O(1) delete; dead generations removed by replicated GC |
 
 ---
 

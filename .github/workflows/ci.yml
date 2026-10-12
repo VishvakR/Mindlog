@@ -89,6 +89,7 @@ jobs:
       - name: kill -9 loses no acknowledged write (50 iterations)
         run: pnpm test:durability
       - name: redis-benchmark smoke run
+        timeout-minutes: 5
         run: scripts/bench-smoke.sh 20000 50
 
   protobuf:

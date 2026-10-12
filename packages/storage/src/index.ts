@@ -22,3 +22,4 @@ export type { MvccScanOptions, VersionedValue } from './mvcc/mvcc-reader.js';
 export { MvccReader } from './mvcc/mvcc-reader.js';
 export type { CollectOptions, CollectResult } from './mvcc/collect-versions.js';
 export { collectVersions } from './mvcc/collect-versions.js';
+export { MvccTxn } from './mvcc/mvcc-txn.js';

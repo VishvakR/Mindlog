@@ -17,6 +17,9 @@ export const bulk = (value: Uint8Array): KvReply => reply({ case: 'bulk', value 
 export const double = (value: number): KvReply => reply({ case: 'double', value });
 export const array = (items: KvReply[]): KvReply => reply({ case: 'array', value: { items } });
 export const set = (items: KvReply[]): KvReply => reply({ case: 'set', value: { items } });
+/** [element, score] pairs: nested in RESP3, flattened in RESP2. */
+export const pairs = (items: (readonly [KvReply, KvReply])[]): KvReply =>
+  reply({ case: 'array', value: { items: items.map(([a, b]) => array([a, b])), pairs: true } });
 export const map = (entries: (readonly [KvReply, KvReply])[]): KvReply =>
   reply({ case: 'map', value: { entries: entries.map(([key, value]) => ({ key, value })) } });
 

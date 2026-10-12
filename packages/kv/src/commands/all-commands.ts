@@ -4,6 +4,8 @@ import { keyCommands } from './keys/key-commands.js';
 import { scanCommands } from './keys/scan.js';
 import { listCommands } from './lists/list-commands.js';
 import { setCommands } from './sets/set-commands.js';
+import { zsetReadCommands } from './zsets/zset-reads.js';
+import { zsetWriteCommands } from './zsets/zset-writes.js';
 import type { KvCommand } from './kv-command.js';
 import { KvCommandRegistry } from './registry.js';
 import { counterCommands } from './strings/counters.js';
@@ -21,6 +23,8 @@ export const allKvCommands = (): KvCommand[] => [
   ...hashCommands,
   ...listCommands,
   ...setCommands,
+  ...zsetWriteCommands,
+  ...zsetReadCommands,
 ];
 
 /** A registry with every supported command. */

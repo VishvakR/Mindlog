@@ -28,4 +28,5 @@ export {
   selectCommand,
 } from './connection/handlers/session-commands.js';
 export { clientCommand } from './connection/handlers/client.js';
+export { configCommand } from './connection/handlers/config.js';
 export { infoCommand } from './connection/handlers/info.js';

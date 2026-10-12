@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { clientCommand, helloCommand, infoCommand } from '@mindlog/adapter-resp';
+import { clientCommand, configCommand, helloCommand, infoCommand } from '@mindlog/adapter-resp';
 import { openClient, respServer } from '../support/resp-node.js';
 
-const server = () => respServer({ handlers: [infoCommand, helloCommand, clientCommand] });
+const server = () =>
+  respServer({ handlers: [infoCommand, configCommand, helloCommand, clientCommand] });
 
 const body = (reply: string) => reply.replace(/^\$\d+\r\n/, '').replace(/\r\n$/, '');
 
@@ -32,5 +33,30 @@ describe('INFO', () => {
     const reply = await c.send(['INFO']);
     const [, length] = /^\$(\d+)\r\n/.exec(reply) ?? [];
     expect(Buffer.byteLength(body(reply))).toBe(Number(length));
+  });
+});
+
+describe('CONFIG GET', () => {
+  test('matches settings by glob, map in RESP3 and flat array in RESP2', async () => {
+    const c = openClient(await server());
+    expect(await c.send(['CONFIG', 'GET', 'databases'])).toBe(
+      '*2\r\n$9\r\ndatabases\r\n$1\r\n1\r\n',
+    );
+    expect(await c.send(['CONFIG', 'GET', 'MAX*'])).toBe(
+      '*2\r\n$10\r\nmaxclients\r\n$5\r\n10000\r\n',
+    );
+    await c.send(['HELLO', '3']);
+    expect(await c.send(['CONFIG', 'GET', 'nothing'])).toBe('%0\r\n');
+    expect(await c.send(['CONFIG', 'GET', 'databases', 'maxclients'])).toMatch(/^%2\r\n/);
+  });
+
+  test('other subcommands are unknown', async () => {
+    const c = openClient(await server());
+    expect(await c.send(['CONFIG', 'SET', 'x', 'y'])).toBe(
+      "-ERR unknown subcommand 'SET'. Try CONFIG HELP.\r\n",
+    );
+    expect(await c.send(['CONFIG', 'GET'])).toBe(
+      "-ERR wrong number of arguments for 'config|get' command\r\n",
+    );
   });
 });

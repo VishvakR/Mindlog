@@ -20,6 +20,12 @@
       "path": "packages/proto/test"
     },
     {
+      "path": "packages/statemachine"
+    },
+    {
+      "path": "packages/statemachine/test"
+    },
+    {
       "path": "packages/storage"
     },
     {

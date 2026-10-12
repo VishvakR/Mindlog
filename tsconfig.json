@@ -2,6 +2,9 @@
   "files": [],
   "references": [
     {
+      "path": "packages/adapter-http"
+    },
+    {
       "path": "packages/adapter-resp"
     },
     {

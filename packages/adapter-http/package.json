@@ -1,0 +1,37 @@
+{
+  "name": "@mindlog/adapter-http",
+  "version": "0.0.0",
+  "private": true,
+  "description": "HTTP adapter: health, metrics, REST API, WebSocket console and the dashboard",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/adapter-http/"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.6",
+    "@fastify/websocket": "^11.3.4",
+    "@mindlog/adapter-resp": "workspace:*",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/services": "workspace:*",
+    "fastify": "^5.12.5",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/kv": "workspace:*",
+    "@mindlog/statemachine": "workspace:*",
+    "@mindlog/storage": "workspace:*",
+    "@types/ws": "^8.18.2"
+  }
+}

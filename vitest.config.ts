@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 // condition, so tests never need a prior build (ADR-0002).
 // Externals (node_modules) keep Node's own resolution: bundler-only conditions
 // such as `module` can select builds that Node cannot load.
-const conditions = ['@mindlog/source', 'import', 'node', 'default'];
+const conditions = ['@mindlog/source', 'node', 'default'];
 
 export default defineConfig({
   resolve: { conditions },

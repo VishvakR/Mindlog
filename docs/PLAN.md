@@ -269,7 +269,7 @@ The repo is a pnpm workspace. Each server module is an internal package with its
 | `@mindlog/adapter-http` | interfaces | Fastify REST, SSE realtime, admin API, health, metrics | `HttpServer` |
 | `@mindlog/adapter-grpc` | interfaces | Public gRPC services | `GrpcServer` |
 | `@mindlog/server` | composition root | Bootstraps config, wires adapters to ports, lifecycle, graceful shutdown | `main()` |
-| `web` | interfaces | Dashboard (SvelteKit), built to static assets served by `adapter-http` | — |
+| `web` | interfaces | Dashboard (React + shadcn/ui, ADR-0023), built to static assets served by `adapter-http` | — |
 | `sdk-ts`, `python/sdk` | clients | SDKs incl. embedded replica | — |
 | `python/model_service` | infra | Model sidecar | — |
 
@@ -1173,7 +1173,7 @@ Defined with a small JSON pipeline instead of SQL: `[{ from: "posts" }, { join: 
 
 ### 17.1 Technology
 
-SvelteKit (static adapter) + TypeScript, Tailwind or plain CSS variables, Cytoscape.js (graph), a virtualized grid for tables, CodeMirror for the console and rule editor (with rule-language autocomplete from the type checker). Built assets are served by `adapter-http` at `/_/`; no CDN calls (works offline).
+React + Vite + TypeScript, Tailwind CSS v4 and shadcn/ui components (ADR-0023), Cytoscape.js (graph), a virtualized grid for tables, CodeMirror for the console and rule editor (with rule-language autocomplete from the type checker). Built assets are served by `adapter-http` at `/_/`; no CDN calls (works offline).
 
 ### 17.2 Pages
 
@@ -1196,7 +1196,7 @@ SvelteKit (static adapter) + TypeScript, Tailwind or plain CSS variables, Cytosc
 
 ### 17.3 Security
 
-Superuser/admin login with MFA (TOTP) option; CSRF protection on cookie sessions; CSP headers; every mutation goes through the same REST API with the same authorization and audit as external clients.
+Superuser/admin login with MFA (TOTP) option; bearer tokens rather than cookie sessions, so no CSRF surface (ADR-0024); CSP headers; every mutation goes through the same REST API with the same authorization and audit as external clients.
 
 ---
 
@@ -1455,7 +1455,7 @@ mindlog/
     adapter-resp/  adapter-mcp/  adapter-http/  adapter-grpc/
     server/                     composition root, CLI
     sdk-ts/
-  web/                          SvelteKit dashboard
+  web/                          React + shadcn/ui dashboard
   python/
     model_service/
     sdk/
@@ -1542,7 +1542,7 @@ References: [R-resp3-spec], [R-valkey] (`src/t_*.c` for command semantics), [R-n
 
 Tasks
 - [ ] `@mindlog/adapter-http`: Fastify, `/health`, `/ready`, `/metrics`, `/api/kv/*` (scan, get, set, delete, TTL), RFC 9457 errors, OpenAPI generation, admin auth (superuser bootstrap via CLI).
-- [ ] `web/` SvelteKit dashboard: login, Overview, Data browser (typed editors), Console (RESP over WebSocket proxy), Settings (read-only).
+- [ ] `web/` React + shadcn/ui dashboard (ADR-0023): login, Overview, Data browser (typed editors), Console (RESP over WebSocket proxy), Settings (read-only).
 - [ ] Serve dashboard at `/_/` from the server; embed in the single binary build.
 - [ ] Metrics for RESP/HTTP; tracing spans; Grafana dashboard JSON in `deploy/grafana/`.
 - [ ] Docker images and `docker-compose.yml` (`dev` profile) including the (empty) model service placeholder.
@@ -1757,6 +1757,8 @@ References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly]
 | 020 | Offline-first: no network dependency by default |
 | 021 | KV writes replicated as command argv, re-executed deterministically in apply |
 | 022 | Collection generations for O(1) delete; dead generations removed by replicated GC |
+| 023 | Dashboard as a React + shadcn/ui static app |
+| 024 | HTTP adapter on Fastify; superusers in the system tenant with bearer tokens |
 
 ---
 

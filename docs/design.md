@@ -500,7 +500,7 @@ These follow directly from the replicated log. Prior art exists for each one on 
 | MCP | Tools: remember, recall, improve, forget, branch, resolve, cache_store … | `@modelcontextprotocol/server` over Streamable HTTP (:8765) and stdio. Zod v4 schemas shared with REST. Structured content plus a short text summary, with size-bounded outputs |
 | REST + SSE | `/api/…`, `/api/realtime` | Fastify. OpenAPI generated from the same Zod schemas. RFC 9457 problem details |
 | gRPC | Public services + SDKs | Protobuf in `proto/`, checked by buf lint and breaking-change detection |
-| Dashboard | SvelteKit static app at `/_/` | Uses only the public API, with the same authorization and audit as any client. No CDN calls |
+| Dashboard | React + shadcn/ui static app at `/_/` (ADR-0023) | Uses only the public API, with the same authorization and audit as any client. No CDN calls |
 
 Adapters are thin: parse → validate → call an application service → serialise. **Errors come from one table** in `@mindlog/core` (implemented). Each `MindlogErrorCode` maps to exactly one reply per interface, so adapters never invent errors:
 

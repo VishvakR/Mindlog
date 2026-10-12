@@ -5,6 +5,7 @@ import type { KvCommandRegistry } from '@mindlog/kv';
 import {
   KvReadExecutor,
   expireHandler,
+  gcThresholdHandler,
   isWrite,
   kvBatchHandler,
   kvWriteHandler,
@@ -62,6 +63,7 @@ export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_00
   handlers.register(kvWriteHandler(registry));
   handlers.register(expireHandler);
   handlers.register(kvBatchHandler(registry));
+  handlers.register(gcThresholdHandler);
   const store = new MemoryStore();
   const machine = await StateMachine.open({
     store,
@@ -124,6 +126,7 @@ export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_00
     clock,
     store,
     proposer,
+    machine,
     batch,
     logger,
     metrics,

@@ -36,3 +36,6 @@ export { decodeCursor, encodeCursor } from './model/scan-cursor.js';
 export { kvBatchHandler } from './apply/kv-batch-handler.js';
 export type { VersionSource } from './model/watch.js';
 export { watchVersion } from './model/watch.js';
+export { gcThresholdHandler } from './apply/gc-handler.js';
+export type { GcJobDeps } from './jobs/gc-job.js';
+export { GcJob } from './jobs/gc-job.js';

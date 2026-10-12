@@ -33,6 +33,14 @@ describe('PromMetrics', () => {
     expect(metrics.contentType).toContain('text/plain');
   });
 
+  test('process metrics include event-loop lag under the mindlog_ prefix', async () => {
+    const metrics = new PromMetrics();
+    metrics.collectProcessMetrics();
+    const text = await metrics.render();
+    expect(text).toContain('mindlog_nodejs_eventloop_lag_seconds');
+    expect(text).toContain('mindlog_process_resident_memory_bytes');
+  });
+
   test('instances do not share a registry', () => {
     const options = { name: 'mindlog_kv_deletes_total', help: 'Deletes' };
     new PromMetrics().counter(options);

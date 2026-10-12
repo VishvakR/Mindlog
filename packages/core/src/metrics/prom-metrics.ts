@@ -15,6 +15,14 @@ export class PromMetrics implements Metrics {
   readonly registry = new client.Registry();
   readonly #cache = new MetricCache();
 
+  /**
+   * Adds Node.js process series (CPU, RSS, heap, GC, event-loop lag) as
+   * `mindlog_process_*` and `mindlog_nodejs_*`. Call once per process.
+   */
+  collectProcessMetrics(): void {
+    client.collectDefaultMetrics({ register: this.registry, prefix: 'mindlog_' });
+  }
+
   counter(options: MetricOptions): Counter {
     return this.#cache.getOrCreate(options.name, 'counter', () => {
       const c = new client.Counter({ ...base(options), registers: [this.registry] });

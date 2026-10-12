@@ -11,3 +11,13 @@ export type { CommandArgument, CommandSpec, KeyRange } from './commands/command-
 export { loadCommandSpecs } from './commands/command-spec.js';
 export { CommandTable } from './commands/command-table.js';
 export { ClientRegistry, ClientState } from './connection/client-state.js';
+export type {
+  ConnectionCommand,
+  ConnectionContext,
+  ServerContext,
+  ServerInfo,
+} from './connection/connection-command.js';
+export { ConnectionCommandRegistry } from './connection/connection-command.js';
+export type { ConnectionDeps, ConnectionTransport } from './connection/connection.js';
+export { Connection } from './connection/connection.js';
+export { commandCommand } from './connection/handlers/command.js';

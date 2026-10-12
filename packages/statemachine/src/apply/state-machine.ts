@@ -69,6 +69,18 @@ export class StateMachine {
     return this.#appliedIndex;
   }
 
+  /**
+   * Makes everything applied so far durable (fsync). The log may be compacted
+   * only up to an index that has been flushed (CLAUDE.md rule 7).
+   */
+  async flush(): Promise<bigint> {
+    const index = this.#appliedIndex;
+    const batch = this.#deps.store.batch();
+    batch.put(appliedIndexKey(this.#rangeId), encodeIndex(index));
+    await batch.write({ sync: true });
+    return index;
+  }
+
   async apply(index: bigint, command: Command): Promise<CommandResult> {
     if (index !== this.#appliedIndex + 1n) {
       throw new Error(`apply out of order: got ${index}, expected ${this.#appliedIndex + 1n}`);

@@ -10,6 +10,8 @@ export interface LocalProposerOptions {
   readonly maxQueue?: number;
   /** Most commands written by one log append (one fsync). */
   readonly maxBatch?: number;
+  /** Flush state and compact the log after this many applied commands. */
+  readonly checkpointEvery?: number;
 }
 
 export interface LocalProposerDeps {
@@ -36,6 +38,8 @@ export class LocalProposer implements Proposer {
   readonly #deps: LocalProposerDeps;
   readonly #maxQueue: number;
   readonly #maxBatch: number;
+  readonly #checkpointEvery: bigint;
+  #checkpointed: bigint;
   readonly #queue: Waiting[] = [];
   readonly #depth: Gauge;
   readonly #groupSize: Histogram;
@@ -47,6 +51,8 @@ export class LocalProposer implements Proposer {
     this.#deps = deps;
     this.#maxQueue = deps.options?.maxQueue ?? 10_000;
     this.#maxBatch = deps.options?.maxBatch ?? 512;
+    this.#checkpointEvery = BigInt(deps.options?.checkpointEvery ?? 10_000);
+    this.#checkpointed = deps.machine.appliedIndex;
     this.#depth = deps.metrics.gauge({
       name: 'mindlog_statemachine_proposal_queue_count',
       help: 'Proposals waiting for the next group commit',
@@ -79,6 +85,13 @@ export class LocalProposer implements Proposer {
     });
   }
 
+  /** Flushes applied state, then compacts the log up to the flushed index. */
+  async checkpoint(): Promise<void> {
+    const durable = await this.#deps.machine.flush();
+    await this.#deps.log.compact(durable);
+    this.#checkpointed = durable;
+  }
+
   /** Stops accepting proposals and waits for pending ones to finish. */
   async close(): Promise<void> {
     this.#closed = true;
@@ -108,6 +121,9 @@ export class LocalProposer implements Proposer {
         const index = indexes[i] ?? 0n;
         const result = await this.#deps.machine.apply(index, waiting.command);
         waiting.resolve(ok({ index, result }));
+      }
+      if (this.#deps.machine.appliedIndex - this.#checkpointed >= this.#checkpointEvery) {
+        await this.checkpoint();
       }
     } catch (cause: unknown) {
       this.#failure = cause;

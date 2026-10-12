@@ -4,13 +4,17 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { ErrorDetail } from "./common_pb.js";
+import { file_mindlog_v1_common } from "./common_pb.js";
+import type { Expire, KvBatch, KvReply, KvWrite } from "./kv_pb.js";
+import { file_mindlog_v1_kv } from "./kv_pb.js";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file mindlog/v1/commands.proto.
  */
 export const file_mindlog_v1_commands: GenFile = /*@__PURE__*/
-  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIlMKB0NvbW1hbmQSEgoKcmVxdWVzdF9pZBgBIAEoDBIRCglwcmluY2lwYWwYAiABKAkSCwoDaGxjGAMgASgEEg4KBmJyYW5jaBgEIAEoCUoECAoQZGIGcHJvdG8z");
+  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIpQCCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIAEIGCgRib2R5SgQIDhBkIjEKC0djVGhyZXNob2xkEhMKC2JlbG93X2luZGV4GAEgASgEEg0KBWxpbWl0GAIgASgNImcKDUNvbW1hbmRSZXN1bHQSIQoCa3YYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHlIABIoCgVlcnJvchgCIAEoCzIXLm1pbmRsb2cudjEuRXJyb3JEZXRhaWxIAEIJCgdvdXRjb21lYgZwcm90bzM", [file_mindlog_v1_common, file_mindlog_v1_kv]);
 
 /**
  * Envelope of every replicated command in a range's Raft log (PLAN 6.1,
@@ -47,6 +51,47 @@ export type Command = Message<"mindlog.v1.Command"> & {
    * @generated from field: string branch = 4;
    */
   branch: string;
+
+  /**
+   * Tenant whose keyspace the command touches (CLAUDE.md rule 10).
+   *
+   * @generated from field: string tenant = 5;
+   */
+  tenant: string;
+
+  /**
+   * Bodies use field numbers 10-99 (PLAN 6.1): kv 10-13, memory 20-25,
+   * branches 30-32, cache 40-41, collections 50-52, transactions 60-62,
+   * jobs 70-72, ranges 80-82, admin 90. Unused numbers stay reserved until
+   * their body lands, behind a cluster version (PLAN 19.5).
+   *
+   * @generated from oneof mindlog.v1.Command.body
+   */
+  body: {
+    /**
+     * @generated from field: mindlog.v1.KvWrite kv_write = 10;
+     */
+    value: KvWrite;
+    case: "kvWrite";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.KvBatch kv_batch = 11;
+     */
+    value: KvBatch;
+    case: "kvBatch";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.Expire expire = 12;
+     */
+    value: Expire;
+    case: "expire";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.GcThreshold gc_threshold = 13;
+     */
+    value: GcThreshold;
+    case: "gcThreshold";
+  } | { case: undefined; value?: undefined };
 };
 
 /**
@@ -55,4 +100,62 @@ export type Command = Message<"mindlog.v1.Command"> & {
  */
 export const CommandSchema: GenMessage<Command> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_commands, 0);
+
+/**
+ * Removes MVCC versions older than `below_index` (keeping the newest one at or
+ * below it) and elements of dead collection generations, at most `limit`
+ * entries per command (ADR-0022, PLAN 10.2).
+ *
+ * @generated from message mindlog.v1.GcThreshold
+ */
+export type GcThreshold = Message<"mindlog.v1.GcThreshold"> & {
+  /**
+   * @generated from field: uint64 below_index = 1;
+   */
+  belowIndex: bigint;
+
+  /**
+   * @generated from field: uint32 limit = 2;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message mindlog.v1.GcThreshold.
+ * Use `create(GcThresholdSchema)` to create a new message.
+ */
+export const GcThresholdSchema: GenMessage<GcThreshold> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_commands, 1);
+
+/**
+ * Outcome of applying one command, stored under its request_id so a retried
+ * request gets the original result.
+ *
+ * @generated from message mindlog.v1.CommandResult
+ */
+export type CommandResult = Message<"mindlog.v1.CommandResult"> & {
+  /**
+   * @generated from oneof mindlog.v1.CommandResult.outcome
+   */
+  outcome: {
+    /**
+     * @generated from field: mindlog.v1.KvReply kv = 1;
+     */
+    value: KvReply;
+    case: "kv";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.ErrorDetail error = 2;
+     */
+    value: ErrorDetail;
+    case: "error";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message mindlog.v1.CommandResult.
+ * Use `create(CommandResultSchema)` to create a new message.
+ */
+export const CommandResultSchema: GenMessage<CommandResult> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_commands, 2);
 

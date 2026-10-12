@@ -28,9 +28,17 @@ def test_command_round_trips_with_a_full_range_hlc() -> None:
     assert decoded.branch == "feature-x"
 
 
-def test_body_field_numbers_stay_reserved() -> None:
+def test_command_uses_body_numbers_10_to_13() -> None:
     numbers = {f.number for f in commands_pb2.Command.DESCRIPTOR.fields}
-    assert numbers == {1, 2, 3, 4}
+    assert numbers == {1, 2, 3, 4, 5, 10, 11, 12, 13}
+
+
+def test_command_with_kv_write_round_trips() -> None:
+    cmd = commands_pb2.Command(tenant="acme")
+    cmd.kv_write.argv.extend([b"INCR", b"n"])
+    decoded = commands_pb2.Command.FromString(cmd.SerializeToString())
+    assert decoded.WhichOneof("body") == "kv_write"
+    assert list(decoded.kv_write.argv) == [b"INCR", b"n"]
 
 
 def test_error_detail_carries_field_messages() -> None:

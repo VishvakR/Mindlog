@@ -2,6 +2,9 @@ syntax = "proto3";
 
 package mindlog.v1;
 
+import "mindlog/v1/common.proto";
+import "mindlog/v1/kv.proto";
+
 // Envelope of every replicated command in a range's Raft log (PLAN 6.1,
 // ADR-0003). Everything non-deterministic (ids, HLC, model outputs) is decided
 // by the proposer and carried here, so apply() is a pure function of the log.
@@ -14,10 +17,36 @@ message Command {
   uint64 hlc = 3;
   // Memory branch the command targets; empty means "main".
   string branch = 4;
+  // Tenant whose keyspace the command touches (CLAUDE.md rule 10).
+  string tenant = 5;
 
-  // Field numbers 10-99 belong to the `body` oneof (PLAN 6.1 numbering):
-  // kv 10-12, memory 20-25, branches 30-32, cache 40-41, collections 50-52,
-  // transactions 60-62, jobs 70-72, ranges 80-82, admin 90. Each body is
-  // un-reserved in the commit that adds it, behind a cluster version (PLAN 19.5).
-  reserved 10 to 99;
+  // Bodies use field numbers 10-99 (PLAN 6.1): kv 10-13, memory 20-25,
+  // branches 30-32, cache 40-41, collections 50-52, transactions 60-62,
+  // jobs 70-72, ranges 80-82, admin 90. Unused numbers stay reserved until
+  // their body lands, behind a cluster version (PLAN 19.5).
+  oneof body {
+    KvWrite kv_write = 10;
+    KvBatch kv_batch = 11;
+    Expire expire = 12;
+    GcThreshold gc_threshold = 13;
+  }
+
+  reserved 14 to 99;
+}
+
+// Removes MVCC versions older than `below_index` (keeping the newest one at or
+// below it) and elements of dead collection generations, at most `limit`
+// entries per command (ADR-0022, PLAN 10.2).
+message GcThreshold {
+  uint64 below_index = 1;
+  uint32 limit = 2;
+}
+
+// Outcome of applying one command, stored under its request_id so a retried
+// request gets the original result.
+message CommandResult {
+  oneof outcome {
+    KvReply kv = 1;
+    ErrorDetail error = 2;
+  }
 }

@@ -1,6 +1,6 @@
 import { create, fromBinary, toBinary } from '@bufbuild/protobuf';
 import { describe, expect, test } from 'vitest';
-import { CommandSchema, ErrorDetailSchema } from '@mindlog/proto';
+import { CommandResultSchema, CommandSchema, ErrorDetailSchema } from '@mindlog/proto';
 
 describe('Command envelope', () => {
   test('round-trips through binary with a bigint HLC', () => {
@@ -28,9 +28,32 @@ describe('Command envelope', () => {
     expect(decoded.hlc).toBe(max);
   });
 
-  test('reserves body field numbers 10-99', () => {
-    const reserved = CommandSchema.fields.filter((f) => f.number >= 10 && f.number <= 99);
-    expect(reserved).toEqual([]);
+  test('uses body numbers 10-13 and keeps 14-99 free', () => {
+    const bodyNumbers = CommandSchema.fields.map((f) => f.number).filter((n) => n >= 10);
+    expect(bodyNumbers).toEqual([10, 11, 12, 13]);
+  });
+
+  test('carries a tenant and a KvWrite body', () => {
+    const utf8 = new TextEncoder();
+    const cmd = create(CommandSchema, {
+      tenant: 'acme',
+      body: { case: 'kvWrite', value: { argv: ['INCR', 'n'].map((a) => utf8.encode(a)) } },
+    });
+    const decoded = fromBinary(CommandSchema, toBinary(CommandSchema, cmd));
+    expect(decoded.tenant).toBe('acme');
+    expect(decoded.body.case).toBe('kvWrite');
+  });
+
+  test('CommandResult holds either a KV reply or an error', () => {
+    const okResult = create(CommandResultSchema, {
+      outcome: { case: 'kv', value: { kind: { case: 'simple', value: 'OK' } } },
+    });
+    const errResult = create(CommandResultSchema, {
+      outcome: { case: 'error', value: { code: 'INVALID_ARGUMENT', message: 'bad' } },
+    });
+    for (const r of [okResult, errResult]) {
+      expect(fromBinary(CommandResultSchema, toBinary(CommandResultSchema, r))).toEqual(r);
+    }
   });
 });
 

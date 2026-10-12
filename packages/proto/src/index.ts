@@ -2,8 +2,13 @@
  * Generated protobuf schemas for Mindlog's replicated commands and internal
  * RPCs (ADR-0004). Regenerate with `pnpm proto:gen`; never edit `gen/`.
  */
-export { CommandSchema, file_mindlog_v1_commands } from './gen/mindlog/v1/commands_pb.js';
-export type { Command } from './gen/mindlog/v1/commands_pb.js';
+export {
+  CommandResultSchema,
+  CommandSchema,
+  GcThresholdSchema,
+  file_mindlog_v1_commands,
+} from './gen/mindlog/v1/commands_pb.js';
+export type { Command, CommandResult, GcThreshold } from './gen/mindlog/v1/commands_pb.js';
 export {
   ErrorDetailSchema,
   HlcSchema,

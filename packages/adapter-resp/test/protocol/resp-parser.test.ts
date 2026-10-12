@@ -96,6 +96,30 @@ describe('RespParser: multibulk', () => {
     ]);
   });
 
+  test('headers end at CR and are strict integers, as in Valkey string2ll', () => {
+    expect(text(feed(Buffer.from('*\r\n')))).toEqual([
+      'ERR:Protocol error: invalid multibulk length',
+    ]);
+    expect(text(feed(Buffer.from('* 1\r\n')))).toEqual([
+      'ERR:Protocol error: invalid multibulk length',
+    ]);
+    expect(text(feed(Buffer.from('*0x1\r\n')))).toEqual([
+      'ERR:Protocol error: invalid multibulk length',
+    ]);
+    expect(text(feed(Buffer.from('*1\r\n$1e0\r\nx\r\n')))).toEqual([
+      'ERR:Protocol error: invalid bulk length',
+    ]);
+    expect(text(feed(Buffer.from('*1\r\n$01\r\nx\r\n')))).toEqual([
+      'ERR:Protocol error: invalid bulk length',
+    ]);
+  });
+
+  test('a bare LF does not end a multibulk header (fuzz regression)', () => {
+    const bytes = Buffer.from('*1\r\n$5\n\x00\x00\x00\r\n', 'latin1');
+    expect(text(feed(bytes))).toEqual(['ERR:Protocol error: invalid bulk length']);
+    expect(text(feed(bytes, [7]))).toEqual(['ERR:Protocol error: invalid bulk length']);
+  });
+
   test('a protocol error stops the parser', () => {
     const parser = new RespParser();
     expect(parser.push(Buffer.from('*x\r\n'))).toHaveLength(1);

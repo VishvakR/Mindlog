@@ -1,3 +1,4 @@
+import { parseInteger } from '@mindlog/kv';
 import { splitInline } from './inline-args.js';
 
 export interface ParserLimits {
@@ -88,30 +89,38 @@ export class RespParser {
     return { kind: 'error', message: `Protocol error: ${message}` };
   }
 
-  /** Index of the CR of the next CRLF from `from`, or -1. */
-  #lineEnd(from: number): number {
-    const lf = this.#buf.indexOf(LF, from);
-    return lf > from && this.#buf[lf - 1] === CR ? lf - 1 : lf < 0 ? -1 : lf;
+  /**
+   * End of a multibulk header line: the next CR, once the byte after it has
+   * arrived (Valkey `processMultibulkBuffer`), or -1 to wait for more.
+   */
+  #headerEnd(from: number): number {
+    const cr = this.#buf.indexOf(CR, from);
+    return cr < 0 || cr + 1 >= this.#buf.length ? -1 : cr;
+  }
+
+  /** The header's integer, parsed strictly like Valkey `string2ll`. */
+  #headerNumber(end: number): bigint | undefined {
+    return parseInteger(this.#buf.subarray(this.#pos + 1, end));
   }
 
   #readRequest(): ParseEvent | undefined {
     while (this.#pos < this.#buf.length) {
       if (this.#buf[this.#pos] !== STAR) return this.#readInline();
-      const end = this.#lineEnd(this.#pos);
+      const end = this.#headerEnd(this.#pos);
       if (end < 0) {
         if (this.#buf.length - this.#pos > this.#limits.maxInlineBytes) {
           return this.#fail('too big mbulk count string');
         }
         return undefined;
       }
-      const count = Number(this.#buf.toString('latin1', this.#pos + 1, end));
+      const count = this.#headerNumber(end);
       this.#pos = end + 2;
-      if (!Number.isInteger(count) || count > this.#limits.maxArgs) {
+      if (count === undefined || count > BigInt(this.#limits.maxArgs)) {
         return this.#fail('invalid multibulk length');
       }
-      if (count <= 0) continue;
+      if (count <= 0n) continue;
       this.#args = [];
-      this.#remaining = count;
+      this.#remaining = Number(count);
       return this.#readBulks();
     }
     return undefined;
@@ -127,28 +136,28 @@ export class RespParser {
             `expected '$', got '${String.fromCharCode(this.#buf[this.#pos] ?? 0)}'`,
           );
         }
-        const end = this.#lineEnd(this.#pos);
+        const end = this.#headerEnd(this.#pos);
         if (end < 0) {
           if (this.#buf.length - this.#pos > this.#limits.maxInlineBytes) {
             return this.#fail('too big bulk count string');
           }
           return undefined;
         }
-        const length = Number(this.#buf.toString('latin1', this.#pos + 1, end));
-        if (!Number.isInteger(length) || length < 0 || length > this.#limits.maxBulkBytes) {
+        const length = this.#headerNumber(end);
+        if (length === undefined || length < 0n || length > BigInt(this.#limits.maxBulkBytes)) {
           return this.#fail('invalid bulk length');
         }
-        this.#bulkLen = length;
+        this.#bulkLen = Number(length);
         this.#pos = end + 2;
       }
       if (this.#buf.length - this.#pos < this.#bulkLen + 2) return undefined;
-      args.push(Uint8Array.prototype.slice.call(this.#buf, this.#pos, this.#pos + this.#bulkLen));
+      args.push(new Uint8Array(this.#buf.subarray(this.#pos, this.#pos + this.#bulkLen)));
       this.#pos += this.#bulkLen + 2;
       this.#bulkLen = -1;
       this.#remaining--;
     }
     this.#args = undefined;
-    return { kind: 'command', argv: args.map((a) => new Uint8Array(a)) };
+    return { kind: 'command', argv: args };
   }
 
   #readInline(): ParseEvent | undefined {

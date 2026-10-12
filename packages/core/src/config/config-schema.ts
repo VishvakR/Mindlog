@@ -78,6 +78,8 @@ export const configSchema = z.strictObject({
         .default(64 * 1024 * 1024),
       // Close idle connections after this long; 0 disables (Redis `timeout 0`).
       idleTimeoutMs: z.number().int().min(0).default(0),
+      // Parsed commands waiting on one connection before it stops reading.
+      maxPipelineCommands: z.number().int().min(1).default(1024),
       // Commands queued inside one MULTI.
       maxTransactionCommands: z.number().int().min(1).default(10_000),
       maxPendingProposals: z.number().int().min(1).default(10_000),

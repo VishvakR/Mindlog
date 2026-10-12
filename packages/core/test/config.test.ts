@@ -93,6 +93,7 @@ describe('resolveConfig limits and auth', () => {
     expect(config.limits.maxBulkBytes).toBe(512 * 1024 * 1024);
     expect(config.limits.maxInlineBytes).toBe(64 * 1024);
     expect(config.limits.idleTimeoutMs).toBe(0);
+    expect(config.limits.maxPipelineCommands).toBe(1024);
     expect(config.auth.password).toBeUndefined();
   });
 

@@ -1,6 +1,6 @@
 import type { Random } from '@mindlog/core';
 import type { Command, CommandResult } from '@mindlog/proto';
-import type { MvccTxn } from '@mindlog/storage';
+import type { KvReader, MvccTxn, WriteBatch } from '@mindlog/storage';
 
 /** Command body kinds, e.g. `'kvWrite'`. */
 export type BodyCase = NonNullable<Command['body']['case']>;
@@ -19,6 +19,11 @@ export interface ApplyContext {
   readonly nowMs: bigint;
   /** Deterministic randomness, seeded from the log index. */
   readonly random: Random;
+  /**
+   * Raw access for maintenance handlers only (GC): physical deletes and
+   * `$node` keys, written in the same atomic batch. Everything else uses `txn`.
+   */
+  readonly raw: { readonly reader: KvReader; readonly batch: WriteBatch };
 }
 
 /**

@@ -15,3 +15,5 @@ export type { LocalProposerDeps, LocalProposerOptions } from './proposer/local-p
 export { LocalProposer } from './proposer/local-proposer.js';
 export { recover } from './proposer/recover.js';
 export { CommandStamper } from './proposer/command-stamper.js';
+export type { StateGcResult } from './gc/collect-state-versions.js';
+export { collectStateVersions } from './gc/collect-state-versions.js';

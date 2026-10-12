@@ -119,6 +119,7 @@ export class StateMachine {
       txn,
       nowMs: hlcPhysical(command.hlc as Hlc),
       random: new SeededRandom(index),
+      raw: { reader: this.#deps.store, batch },
     });
     txn.writeTo(batch);
     return result;

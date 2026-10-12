@@ -587,17 +587,23 @@ Every new failure path gets a simulator scenario.
 | Compatibility, fuzzing, chaos, load | Redis client suites, parser fuzzers, Docker + `tc`/iptables, redis-benchmark/memtier | Nightly / weekly / per release |
 | AI evaluation | LongMemEval, LoCoMo, ablations, conflict F1, cache hit/false-hit | Per change to the memory engine |
 
-### 18.2 What exists today (phase 0)
+### 18.2 What exists today (phase 1)
 
 | Area | Status |
 |---|---|
 | Tooling | pnpm workspace (TypeScript 6, strict), ESLint with layer boundaries, madge, Prettier, Vitest + fast-check, changesets, commitlint, uv workspace (ruff, mypy --strict, pytest), buf |
-| `@mindlog/core` | Result, error table, Clock/Random ports (+ fakes), ULID, HLC, order-preserving key encoding and decoder, layered config, logger, metrics, tracing, ScopePath |
+| `@mindlog/core` | Result, error table, Clock/Random ports (+ fakes), ULID, HLC, order-preserving key encoding and decoder, layered config (with `limits` and `auth`), logger, metrics, tracing, ScopePath, CRC-32C |
 | `@mindlog/eventbus` | Typed domain events, EventBus port, in-memory bus |
-| `@mindlog/proto` / `mindlog-proto` | `common.proto`, `Command` envelope (body numbers reserved), generated TS and Python, golden-byte compatibility tests |
-| Python | `model_service` skeleton |
-| CI | Lint, typecheck, tests (TS + Python), protobuf drift and breaking checks, Conventional Commits |
-| Gates | Boundary rules proven by fixtures; key order verified for 100k random tuples |
+| `@mindlog/proto` / `mindlog-proto` | `Command` envelope with `KvWrite`, `KvBatch`, `Expire`, `GcThreshold` bodies, `CommandResult`, `KvReply`; generated TS and Python; golden-byte tests |
+| `@mindlog/storage` | `KvStore` port, `LevelDbStore` and `MemoryStore` (one contract suite), MVCC versions, tombstones, scans at a version, version GC |
+| `@mindlog/statemachine` | `Proposer` port, `StateMachine` with an apply-handler registry, idempotency table, `appliedIndex`, `LocalLog` (CRC-32C, fsync, truncation record), `LocalProposer` (group commit, BUSY), recovery replay |
+| `@mindlog/kv` | 100 Redis commands over generations (strings, keys, expiry, hashes, lists, sets, sorted sets, JSON subset), SCAN cursors, replicated expiry and GC jobs |
+| `@mindlog/services` | `KvService`: sessions, static AUTH, reads on applied state, writes through the Proposer, MULTI/EXEC/WATCH, spans and metrics |
+| `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server |
+| `@mindlog/server` | Composition root, `mindlog-server --single-node`, graceful shutdown |
+| Python | `model_service` skeleton; redis-py compatibility suite |
+| CI | Lint, typecheck, tests (TS + Python), protobuf drift and breaking checks, Conventional Commits, phase 1 gate job (redis-py, kill -9 durability, redis-benchmark) |
+| Gates | Phase 0 (`docs/phases/phase-0.md`) and phase 1 (`docs/phases/phase-1.md`) |
 
 Everything else in this document is designed but not built yet; it arrives phase by phase (PLAN 24).
 

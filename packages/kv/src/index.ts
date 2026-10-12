@@ -25,3 +25,4 @@ export { isWrite } from './commands/kv-command.js';
 export { KvCommandRegistry } from './commands/registry.js';
 export { kvResult, kvWriteHandler } from './apply/kv-write-handler.js';
 export { KvReadExecutor } from './read/kv-read-executor.js';
+export { allKvCommands, createKvRegistry } from './commands/all-commands.js';

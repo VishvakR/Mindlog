@@ -37,3 +37,20 @@ describe('loadCommandSpecs', () => {
     expect(() => loadCommandSpecs(dir)).toThrow(/invalid command spec bad.json/);
   });
 });
+
+describe('compatibility doc', () => {
+  test('docs/api/resp-compatibility.md lists every command', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const doc = await readFile(
+      new URL('../../../../docs/api/resp-compatibility.md', import.meta.url),
+      'utf8',
+    );
+    const missing: string[] = [];
+    for (const [name, spec] of specs) {
+      const subcommands = Object.keys(spec.subcommands ?? {});
+      const forms = subcommands.length > 0 ? subcommands.map((s) => `${name} ${s}`) : [name];
+      for (const form of forms) if (!doc.includes(`\`${form}\``)) missing.push(form);
+    }
+    expect(missing).toEqual([]);
+  });
+});

@@ -20,6 +20,12 @@
       "path": "packages/proto/test"
     },
     {
+      "path": "packages/storage"
+    },
+    {
+      "path": "packages/storage/test"
+    },
+    {
       "path": "test"
     }
   ]

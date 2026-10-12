@@ -114,6 +114,12 @@ importers:
         specifier: ^2.16.0
         version: 2.16.0
 
+  packages/storage:
+    dependencies:
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+
 packages:
 
   '@babel/code-frame@7.29.7':

@@ -7,3 +7,6 @@ export type { ApplyContext, ApplyHandler, BodyCase } from './apply/apply-handler
 export { ApplyHandlerRegistry } from './apply/apply-handler-registry.js';
 export { IdempotencyTable } from './system/idempotency-table.js';
 export { appliedIndexKey, idempotencyKey, logEntryKey, logPrefix } from './system/system-keys.js';
+export { errorResult } from './apply/command-results.js';
+export type { StateMachineDeps } from './apply/state-machine.js';
+export { StateMachine } from './apply/state-machine.js';

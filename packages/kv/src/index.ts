@@ -4,3 +4,19 @@
  * added as it lands.
  */
 export {};
+export {
+  Tag,
+  deadGenerationKey,
+  deadGenerationPrefix,
+  elementKey,
+  elementPrefix,
+  expiryIndexKey,
+  expiryIndexPrefix,
+  headerKey,
+  tenantPrefix,
+} from './model/kv-keys.js';
+export type { KvView, KvWriter } from './model/kv-view.js';
+export type { KeyspaceContext } from './model/keyspace.js';
+export { Keyspace } from './model/keyspace.js';
+export { formatDouble, parseFloat64, parseInteger } from './model/numbers.js';
+export * as replies from './model/replies.js';

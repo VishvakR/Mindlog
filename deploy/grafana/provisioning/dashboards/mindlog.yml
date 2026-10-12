@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: mindlog
+    folder: Mindlog
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

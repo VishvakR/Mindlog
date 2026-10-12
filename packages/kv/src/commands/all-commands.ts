@@ -1,3 +1,4 @@
+import { hashCommands } from './hashes/hash-commands.js';
 import { expiryCommands } from './keys/expiry.js';
 import { keyCommands } from './keys/key-commands.js';
 import { scanCommands } from './keys/scan.js';
@@ -15,6 +16,7 @@ export const allKvCommands = (): KvCommand[] => [
   ...expiryCommands,
   ...keyCommands,
   ...scanCommands,
+  ...hashCommands,
 ];
 
 /** A registry with every supported command. */

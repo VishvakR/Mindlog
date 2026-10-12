@@ -9,3 +9,5 @@ export { USAGE, parseCliArgs } from './cli/args.js';
 export { REDIS_API_VERSION, mindlogVersion, serverInfo } from './bootstrap/server-info.js';
 export type { NodeOptions, RunningNode } from './bootstrap/start-node.js';
 export { startNode } from './bootstrap/start-node.js';
+export type { MainIo, MainResult } from './cli/main.js';
+export { EXIT, formatError, main } from './cli/main.js';

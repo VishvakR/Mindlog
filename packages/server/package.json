@@ -15,7 +15,8 @@
     "mindlog-server": "./dist/bin.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "dashboard"
   ],
   "scripts": {
     "build": "tsc -b",

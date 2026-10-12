@@ -82,6 +82,7 @@ describe('MvccReader.scan', () => {
     expect(await scan({ limit: 2 })).toBe('3,1');
     expect(await scan({ after: k('h', 'a') })).toBe('1,2');
     expect(await scan({ before: k('h', 'c') })).toBe('3');
+    expect(await scan({ from: k('h', 'c') })).toBe('1,2');
   });
 
   test('matches a model of every key at every index', async () => {

@@ -61,6 +61,7 @@ export class MvccTxn {
     const overlay = [...this.#pending.values()]
       .filter((p) => startsWith(p.key, prefix))
       .filter((p) => !options.after || compareBytes(p.key, keyAfter(options.after)) >= 0)
+      .filter((p) => !options.from || compareBytes(p.key, options.from) >= 0)
       .filter((p) => !options.before || compareBytes(p.key, options.before) < 0)
       .sort((a, b) => order * compareBytes(a.key, b.key));
     const limit = options.limit ?? Number.POSITIVE_INFINITY;

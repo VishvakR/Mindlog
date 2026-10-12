@@ -16,6 +16,8 @@ export interface MvccScanOptions {
   readonly at?: bigint;
   readonly limit?: number;
   readonly reverse?: boolean;
+  /** Start at this raw key (inclusive), e.g. the prefix of an inclusive bound. */
+  readonly from?: Uint8Array;
   /** Resume strictly after this key (and anything extending it). */
   readonly after?: Uint8Array;
   /** Stop before this key (exclusive). */
@@ -72,7 +74,7 @@ export class MvccReader {
    * under the prefix extends another (true for every collection's element rows).
    */
   async *scan(prefix: Uint8Array, options: MvccScanOptions = {}): AsyncGenerator<VersionedValue> {
-    const start = options.after ? keyAfter(options.after) : prefix;
+    const start = options.after ? keyAfter(options.after) : (options.from ?? prefix);
     const end = options.before ?? prefixEnd(prefix);
     if (compareBytes(start, end) >= 0) return;
     const limit = options.limit ?? Number.POSITIVE_INFINITY;

@@ -60,6 +60,7 @@ describe('MvccTxn', () => {
     expect(await scan({ limit: 2 })).toBe('old-a,new-b');
     expect(await scan({ after: key('b') })).toBe('new-c,new-f');
     expect(await scan({ before: key('c') })).toBe('old-a,new-b');
+    expect(await scan({ from: key('c') })).toBe('new-c,new-f');
   });
 
   test('after commit, the store matches a model of all transactions', async () => {

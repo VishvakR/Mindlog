@@ -8,3 +8,9 @@ lint:
 breaking:
   use:
     - FILE
+  ignore_only:
+    # Command body numbers are reserved until their body lands, then
+    # un-reserved on purpose (ADR-0004). Reuse of a field number is still
+    # caught by the field rules.
+    RESERVED_MESSAGE_NO_DELETE:
+      - proto/mindlog/v1/commands.proto

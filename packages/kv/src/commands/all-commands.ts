@@ -3,6 +3,7 @@ import { jsonCommands } from './json/json-commands.js';
 import { expiryCommands } from './keys/expiry.js';
 import { keyCommands } from './keys/key-commands.js';
 import { scanCommands } from './keys/scan.js';
+import { serverCommands } from './keys/server-commands.js';
 import { listCommands } from './lists/list-commands.js';
 import { setCommands } from './sets/set-commands.js';
 import { zsetReadCommands } from './zsets/zset-reads.js';
@@ -27,6 +28,7 @@ export const allKvCommands = (): KvCommand[] => [
   ...zsetWriteCommands,
   ...zsetReadCommands,
   ...jsonCommands,
+  ...serverCommands,
 ];
 
 /** A registry with every supported command. */

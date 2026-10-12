@@ -1,10 +1,11 @@
 import type { Clock } from '@mindlog/core';
 import { MindlogErrorCode } from '@mindlog/core';
 import type { KvCommandRegistry } from '@mindlog/kv';
-import { KvReadExecutor, isWrite, replies } from '@mindlog/kv';
+import { KvReadExecutor, isWrite, replies, watchVersion } from '@mindlog/kv';
 import type { KvReply } from '@mindlog/proto';
 import type { CommandStamper, Proposer } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
+import { MvccReader } from '@mindlog/storage';
 import type { StaticAuthenticator } from '../auth/static-authenticator.js';
 import { Session } from '../session/session.js';
 
@@ -74,7 +75,92 @@ export class KvService {
       return replies.error('UNAUTHENTICATED', 'Authentication required.');
     }
     if (name === 'AUTH') return this.#auth(session, argv);
+    switch (name) {
+      case 'MULTI':
+        return this.#multi(session, argv);
+      case 'EXEC':
+        return this.#exec(session, argv);
+      case 'DISCARD':
+        return this.#discard(session, argv);
+      case 'WATCH':
+        return this.#watch(session, argv);
+      case 'UNWATCH':
+        session.watches.clear();
+        return replies.ok();
+    }
+    if (session.transaction) return this.#queue(session, argv);
     return this.run(session, argv);
+  }
+
+  #multi(session: Session, argv: readonly Uint8Array[]): KvReply {
+    if (argv.length !== 1) return replies.errors.arity('multi');
+    if (session.transaction)
+      return replies.error('INVALID_ARGUMENT', 'MULTI calls can not be nested');
+    session.transaction = { queued: [], failed: false };
+    return replies.ok();
+  }
+
+  /** Validates a command at queue time; a bad one aborts the whole EXEC (Valkey). */
+  #queue(session: Session, argv: readonly Uint8Array[]): KvReply {
+    const transaction = session.transaction;
+    if (!transaction) return replies.error('INTERNAL', 'no transaction');
+    const command = argv[0] ? this.deps.registry.get(argv[0]) : undefined;
+    let problem: KvReply | undefined;
+    if (!command) {
+      const [head, ...rest] = argv.map((a) => decoder.decode(a).slice(0, 128));
+      const args = rest.map((a) => `'${a}' `).join('');
+      problem = replies.error(
+        'INVALID_ARGUMENT',
+        `unknown command '${head ?? ''}', with args beginning with: ${args}`,
+      );
+    } else if (command.arity >= 0 ? argv.length !== command.arity : argv.length < -command.arity) {
+      problem = replies.errors.arity(command.name);
+    }
+    if (problem) {
+      transaction.failed = true;
+      return problem;
+    }
+    transaction.queued.push(argv.map((a) => a.slice()));
+    return replies.simple('QUEUED');
+  }
+
+  async #exec(session: Session, argv: readonly Uint8Array[]): Promise<KvReply> {
+    if (argv.length !== 1) return replies.errors.arity('exec');
+    const transaction = session.transaction;
+    if (!transaction) return replies.error('INVALID_ARGUMENT', 'EXEC without MULTI');
+    const watches = [...session.watches.values()];
+    session.resetTransaction();
+    if (transaction.failed) {
+      return replies.error('EXEC_ABORTED', 'Transaction discarded because of previous errors.');
+    }
+    return this.propose(session, {
+      case: 'kvBatch',
+      value: { writes: transaction.queued.map((a) => ({ argv: a })), watches },
+    });
+  }
+
+  #discard(session: Session, argv: readonly Uint8Array[]): KvReply {
+    if (argv.length !== 1) return replies.errors.arity('discard');
+    if (!session.transaction) return replies.error('INVALID_ARGUMENT', 'DISCARD without MULTI');
+    session.resetTransaction();
+    return replies.ok();
+  }
+
+  async #watch(session: Session, argv: readonly Uint8Array[]): Promise<KvReply> {
+    if (argv.length < 2) return replies.errors.arity('watch');
+    if (session.transaction)
+      return replies.error('INVALID_ARGUMENT', 'WATCH inside MULTI is not allowed');
+    const reader = new MvccReader(this.deps.store);
+    for (const key of argv.slice(1)) {
+      const id = Buffer.from(key).toString('hex');
+      if (!session.watches.has(id)) {
+        session.watches.set(id, {
+          key: key.slice(),
+          version: await watchVersion(reader, session.tenant, key),
+        });
+      }
+    }
+    return replies.ok();
   }
 
   /** Runs one data command: reads on applied state, writes through the Proposer. */

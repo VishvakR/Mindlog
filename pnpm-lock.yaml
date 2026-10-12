@@ -220,6 +220,9 @@ importers:
       '@mindlog/storage':
         specifier: workspace:*
         version: link:../storage
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@mindlog/eventbus':
         specifier: workspace:*

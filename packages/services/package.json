@@ -24,7 +24,8 @@
     "@mindlog/kv": "workspace:*",
     "@mindlog/proto": "workspace:*",
     "@mindlog/statemachine": "workspace:*",
-    "@mindlog/storage": "workspace:*"
+    "@mindlog/storage": "workspace:*",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@mindlog/eventbus": "workspace:*"

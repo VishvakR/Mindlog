@@ -28,3 +28,4 @@ export {
   selectCommand,
 } from './connection/handlers/session-commands.js';
 export { clientCommand } from './connection/handlers/client.js';
+export { infoCommand } from './connection/handlers/info.js';

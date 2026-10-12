@@ -2,7 +2,13 @@ import { create } from '@bufbuild/protobuf';
 import { ManualClock, MemoryLogger, MemoryMetrics, packHlc } from '@mindlog/core';
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import type { KvCommandRegistry } from '@mindlog/kv';
-import { KvReadExecutor, expireHandler, isWrite, kvWriteHandler } from '@mindlog/kv';
+import {
+  KvReadExecutor,
+  expireHandler,
+  isWrite,
+  kvBatchHandler,
+  kvWriteHandler,
+} from '@mindlog/kv';
 import type { KvReply } from '@mindlog/proto';
 import { CommandSchema } from '@mindlog/proto';
 import { MemoryStore } from '@mindlog/storage';
@@ -55,6 +61,7 @@ export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_00
   const handlers = new ApplyHandlerRegistry();
   handlers.register(kvWriteHandler(registry));
   handlers.register(expireHandler);
+  handlers.register(kvBatchHandler(registry));
   const store = new MemoryStore();
   const machine = await StateMachine.open({
     store,
@@ -91,10 +98,33 @@ export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_00
     return outcome.value;
   }
 
+  /** Proposes a MULTI/EXEC batch with optional WATCH versions. */
+  async function batch(commands: string[][], watches: [string, bigint][] = []): Promise<Plain> {
+    const proposal = await proposer.propose(
+      create(CommandSchema, {
+        requestId: encoder.encode(`r${request++}`),
+        tenant: 't',
+        hlc: packHlc(clock.now(), 0n),
+        body: {
+          case: 'kvBatch',
+          value: {
+            writes: commands.map((argv) => ({ argv: argv.map((a) => encoder.encode(a)) })),
+            watches: watches.map(([key, version]) => ({ key: encoder.encode(key), version })),
+          },
+        },
+      }),
+    );
+    if (!proposal.ok) throw new Error(proposal.error.message);
+    const outcome = proposal.value.result.outcome;
+    if (outcome.case !== 'kv') throw new Error('unexpected batch result');
+    return plain(outcome.value);
+  }
+
   return {
     clock,
     store,
     proposer,
+    batch,
     logger,
     metrics,
     raw,

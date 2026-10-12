@@ -33,3 +33,6 @@ export type { LiveKey } from './model/key-iterator.js';
 export { liveKeys } from './model/key-iterator.js';
 export { globMatch } from './model/glob.js';
 export { decodeCursor, encodeCursor } from './model/scan-cursor.js';
+export { kvBatchHandler } from './apply/kv-batch-handler.js';
+export type { VersionSource } from './model/watch.js';
+export { watchVersion } from './model/watch.js';

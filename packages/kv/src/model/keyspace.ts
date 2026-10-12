@@ -59,6 +59,19 @@ export class Keyspace {
     return undefined;
   }
 
+  /**
+   * Deletes a key whose stored expiry has passed (used by the expiry job's
+   * command). Returns true if it was deleted.
+   */
+  async expireIfDue(name: Uint8Array): Promise<boolean> {
+    const stored = await this.context.view.get(headerKey(this.tenant, name));
+    if (!stored) return false;
+    const header = fromBinary(KvHeaderSchema, stored);
+    if (!this.expired(header)) return false;
+    this.delete(name, header);
+    return true;
+  }
+
   /** A fresh header for a new key; its generation is the creating command's index. */
   fresh(type: KvType): KvHeader {
     return create(KvHeaderSchema, { type, generation: this.context.index });

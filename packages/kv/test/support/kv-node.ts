@@ -2,7 +2,7 @@ import { create } from '@bufbuild/protobuf';
 import { ManualClock, MemoryLogger, MemoryMetrics, packHlc } from '@mindlog/core';
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import type { KvCommandRegistry } from '@mindlog/kv';
-import { KvReadExecutor, isWrite, kvWriteHandler } from '@mindlog/kv';
+import { KvReadExecutor, expireHandler, isWrite, kvWriteHandler } from '@mindlog/kv';
 import type { KvReply } from '@mindlog/proto';
 import { CommandSchema } from '@mindlog/proto';
 import { MemoryStore } from '@mindlog/storage';
@@ -54,6 +54,7 @@ export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_00
   const metrics = new MemoryMetrics();
   const handlers = new ApplyHandlerRegistry();
   handlers.register(kvWriteHandler(registry));
+  handlers.register(expireHandler);
   const store = new MemoryStore();
   const machine = await StateMachine.open({
     store,
@@ -93,6 +94,9 @@ export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_00
   return {
     clock,
     store,
+    proposer,
+    logger,
+    metrics,
     raw,
     run: async (...args: (string | Uint8Array)[]) => plain(await raw(...args)),
   };

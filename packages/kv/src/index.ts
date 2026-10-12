@@ -26,3 +26,6 @@ export { KvCommandRegistry } from './commands/registry.js';
 export { kvResult, kvWriteHandler } from './apply/kv-write-handler.js';
 export { KvReadExecutor } from './read/kv-read-executor.js';
 export { allKvCommands, createKvRegistry } from './commands/all-commands.js';
+export { expireHandler } from './apply/expire-handler.js';
+export type { ExpiryJobDeps } from './jobs/expiry-job.js';
+export { ExpiryJob } from './jobs/expiry-job.js';

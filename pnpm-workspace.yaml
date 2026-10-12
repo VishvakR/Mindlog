@@ -1,5 +1,6 @@
 packages:
   - packages/*
+  - web
 
 # Packages whose install scripts we never run: they ship prebuilt platform
 # binaries, so their install/postinstall step is only a fallback.

@@ -53,6 +53,9 @@ export default defineConfig(
       '**/gen/**',
       'references/**',
       'python/**',
+      // Linted by its own oxlint config (pnpm --filter @mindlog/web lint).
+      'web/**',
+      'packages/server/dashboard/**',
       // Deliberately broken; linted only by test/architecture/boundaries.test.ts.
       'test/lint-fixtures/**',
     ],

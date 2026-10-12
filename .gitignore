@@ -40,3 +40,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Built dashboard (web/ → vite build)
+/packages/server/dashboard/

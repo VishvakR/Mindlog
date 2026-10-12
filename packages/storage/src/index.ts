@@ -14,3 +14,7 @@ export { compareBytes } from './store/compare-bytes.js';
 export { MemoryStore } from './store/memory-store.js';
 export type { LevelDbOptions } from './store/leveldb-store.js';
 export { LevelDbStore } from './store/leveldb-store.js';
+export { MvccWriter } from './mvcc/mvcc-writer.js';
+export { decodeVersionValue } from './mvcc/version-value.js';
+export type { ParsedVersionedKey } from './mvcc/versioned-key.js';
+export { keyAfter, parseVersionedKey, versionedKey } from './mvcc/versioned-key.js';

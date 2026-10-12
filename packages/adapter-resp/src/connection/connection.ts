@@ -183,7 +183,13 @@ export class Connection implements ConnectionContext {
     this.client.lastCommand = name.toLowerCase() || 'NULL';
     this.client.lastActiveMs = this.server.clock.now();
     try {
-      return await this.#dispatch(name, argv);
+      const tracer = this.server.tracer;
+      if (!tracer) return await this.#dispatch(name, argv);
+      return await tracer.withSpan(
+        'resp.command',
+        { 'mindlog.command': name.slice(0, 32), 'mindlog.client': this.client.id },
+        () => this.#dispatch(name, argv),
+      );
     } catch (cause) {
       this.server.logger.error('RESP command failed', { command: name, cause });
       return replies.error('INTERNAL', 'internal error');

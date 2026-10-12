@@ -1,4 +1,4 @@
-import type { Clock, Logger } from '@mindlog/core';
+import type { Clock, Logger, Tracer } from '@mindlog/core';
 import type { KvReply } from '@mindlog/proto';
 import type { KvService, Session } from '@mindlog/services';
 import type { CommandTable } from '../commands/command-table.js';
@@ -24,6 +24,8 @@ export interface ServerContext {
   readonly clock: Clock;
   readonly logger: Logger;
   readonly info: ServerInfo;
+  /** Opens a `resp.command` span per command, the root of RESP traces. */
+  readonly tracer?: Tracer;
 }
 
 /** What a connection-level command may see and change. */

@@ -32,7 +32,7 @@ export interface ConnectionLimits {
 }
 
 /** Why a connection closed, for the disconnect metric and logs. */
-export type CloseReason = 'quit' | 'protocol-error' | 'output-limit' | 'peer' | 'server';
+export type CloseReason = 'quit' | 'protocol-error' | 'output-limit' | 'idle' | 'peer' | 'server';
 
 export interface ConnectionDeps {
   readonly server: ServerContext;

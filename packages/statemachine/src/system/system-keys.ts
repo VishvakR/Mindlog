@@ -17,6 +17,17 @@ export function idempotencyKey(requestId: Uint8Array): Uint8Array {
   return systemKey(['idem', requestId]);
 }
 
+/** Time-ordered index of idempotency records, for retention GC. */
+export function idempotencyAgeKey(index: bigint, requestId: Uint8Array): Uint8Array {
+  return systemKey(['idem-at', index, requestId]);
+}
+
+export function idempotencyAgePrefix(): Uint8Array {
+  const prefix = keyPrefix(NODE_TENANT, 's', ['idem-at']);
+  if (!prefix.ok) throw new RangeError(prefix.error.message);
+  return prefix.value;
+}
+
 /** One log entry of a range in the log store. */
 export function logEntryKey(rangeId: bigint, index: bigint): Uint8Array {
   return systemKey(['raftlog', rangeId, index]);

@@ -1,6 +1,6 @@
 import { decodeKey } from '@mindlog/core';
 import type { ApplyHandler } from '@mindlog/statemachine';
-import { collectStateVersions, errorResult } from '@mindlog/statemachine';
+import { IdempotencyTable, collectStateVersions, errorResult } from '@mindlog/statemachine';
 import type { KvReader, MvccTxn, WriteBatch } from '@mindlog/storage';
 import { deadGenerationPrefix, generationPrefix } from '../model/kv-keys.js';
 import { integer } from '../model/replies.js';
@@ -43,9 +43,10 @@ async function collectDeadGenerations(txn: MvccTxn, raw: Raw, belowIndex: bigint
 }
 
 /**
- * Applies `GcThreshold`: dead generations first, then MVCC versions across the
- * keyspace, within one shared limit. Deterministic for a given state, so every
- * replica reclaims the same rows. Replies with the number of rows removed.
+ * Applies `GcThreshold`: expired idempotency records, dead generations, then
+ * MVCC versions across the keyspace, within one shared limit. Deterministic
+ * for a given state, so every replica reclaims the same rows. Replies with the
+ * number of rows removed.
  */
 export const gcThresholdHandler: ApplyHandler = {
   body: 'gcThreshold',
@@ -54,9 +55,11 @@ export const gcThresholdHandler: ApplyHandler = {
       return errorResult('INTERNAL', 'expected a gcThreshold body');
     const { belowIndex, limit } = command.body.value;
     const budget = limit > 0 ? limit : 1000;
-    const dead = await collectDeadGenerations(txn, raw, belowIndex, budget);
+    const idempotency = await IdempotencyTable.collect(raw, belowIndex, budget);
+    const dead = await collectDeadGenerations(txn, raw, belowIndex, budget - idempotency);
+    const spent = idempotency + dead;
     const versions =
-      dead < budget ? await collectStateVersions(raw, belowIndex, budget - dead) : undefined;
-    return kvResult(integer(dead + (versions?.removed ?? 0)));
+      spent < budget ? await collectStateVersions(raw, belowIndex, budget - spent) : undefined;
+    return kvResult(integer(spent + (versions?.removed ?? 0)));
   },
 };

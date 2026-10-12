@@ -90,7 +90,7 @@ export class StateMachine {
     let result = await this.#idempotency.lookup(command.requestId);
     if (!result) {
       result = await this.#execute(index, command, batch);
-      this.#idempotency.record(batch, command.requestId, result);
+      this.#idempotency.record(batch, command.requestId, result, index);
     }
     batch.put(appliedIndexKey(this.#rangeId), encodeIndex(index));
     await batch.write();

@@ -33,6 +33,7 @@ export { decodeTuple } from './keys/decode-tuple.js';
 export type { KeyParts, KeyRange } from './keys/key.js';
 export {
   KeyFamily,
+  NODE_TENANT,
   SYSTEM_TENANT,
   decodeKey,
   isUserTenant,

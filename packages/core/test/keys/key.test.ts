@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import type { KeyFamily, KeyRange } from '@mindlog/core';
 import {
   KeyFamily as Families,
+  NODE_TENANT,
   SYSTEM_TENANT,
   decodeKey,
   encodeKey,
@@ -96,6 +97,7 @@ describe('prefix ranges', () => {
 describe('system tenant', () => {
   test('is reserved and still encodes like any tenant', () => {
     expect(isUserTenant(SYSTEM_TENANT)).toBe(false);
+    expect(isUserTenant(NODE_TENANT)).toBe(false);
     expect(isUserTenant('acme')).toBe(true);
     expect(isUserTenant('')).toBe(false);
     expect(encodeKey({ tenant: SYSTEM_TENANT, family: 's', tuple: ['applied', 1n] }).ok).toBe(true);

@@ -29,8 +29,8 @@ describe('IdempotencyTable', () => {
     expect(await table.lookup(new Uint8Array())).toBeUndefined();
   });
 
-  test('system keys live under the $system tenant and never collide', () => {
+  test('node keys live under the $node tenant and never collide', () => {
     expect(compareBytes(appliedIndexKey(1n), idempotencyKey(Uint8Array.of(1)))).not.toBe(0);
-    expect(new TextDecoder().decode(appliedIndexKey(1n))).toContain('$system');
+    expect(new TextDecoder().decode(appliedIndexKey(1n))).toContain('$node');
   });
 });

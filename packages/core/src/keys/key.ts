@@ -30,10 +30,17 @@ export type KeyFamily = (typeof KeyFamily)[keyof typeof KeyFamily];
 const FAMILIES = new Set<string>(Object.values(KeyFamily));
 
 /**
- * Tenant that owns node-level system keys: applied index, idempotency table,
- * log entries, expiry index. User tenants never start with `$`.
+ * Tenant for replicated system data stored with MVCC, like any tenant's data:
+ * the expiry index and dead-generation records. User tenants never start with `$`.
  */
 export const SYSTEM_TENANT = '$system';
+
+/**
+ * Tenant for raw (unversioned) keys written directly, not through MVCC: the
+ * applied index, idempotency records, log entries and GC cursors. MVCC-level
+ * maintenance such as version GC must skip it.
+ */
+export const NODE_TENANT = '$node';
 
 /** True for tenant names users may own (non-empty, not starting with `$`). */
 export function isUserTenant(tenant: string): boolean {

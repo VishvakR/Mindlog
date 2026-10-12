@@ -12,7 +12,7 @@ Deterministic command apply, idempotency, and the single-node log behind the `Pr
 | `ApplyHandler`, `ApplyContext`, `ApplyHandlerRegistry`, `BodyCase` | One handler per command body (`kvWrite`, `kvBatch`, `expire`, `gcThreshold`, …), registered by the composition root |
 | `LocalLog` | Checksummed (CRC-32C), fsynced command log in the log store |
 | `recover(log, machine)` | Replays the log above the applied index on startup |
-| `IdempotencyTable`, `errorResult`, system key helpers | Stored results per request id; deterministic error results; `$system` key layout |
+| `IdempotencyTable`, `errorResult`, node key helpers | Stored results per request id; deterministic error results; raw `$node` key layout |
 
 ```ts
 const machine = await StateMachine.open({ store: stateStore, handlers, events, clock, logger, metrics });

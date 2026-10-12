@@ -1,8 +1,8 @@
 import type { Tuple } from '@mindlog/core';
-import { SYSTEM_TENANT, encodeKey, keyPrefix } from '@mindlog/core';
+import { NODE_TENANT, encodeKey, keyPrefix } from '@mindlog/core';
 
 function systemKey(tuple: Tuple): Uint8Array {
-  const encoded = encodeKey({ tenant: SYSTEM_TENANT, family: 's', tuple });
+  const encoded = encodeKey({ tenant: NODE_TENANT, family: 's', tuple });
   if (!encoded.ok) throw new RangeError(encoded.error.message);
   return encoded.value;
 }
@@ -24,7 +24,7 @@ export function logEntryKey(rangeId: bigint, index: bigint): Uint8Array {
 
 /** Prefix of every log entry of a range. */
 export function logPrefix(rangeId: bigint): Uint8Array {
-  const prefix = keyPrefix(SYSTEM_TENANT, 's', ['raftlog', rangeId]);
+  const prefix = keyPrefix(NODE_TENANT, 's', ['raftlog', rangeId]);
   if (!prefix.ok) throw new RangeError(prefix.error.message);
   return prefix.value;
 }

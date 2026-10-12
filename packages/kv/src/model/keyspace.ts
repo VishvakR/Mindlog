@@ -15,7 +15,7 @@ export interface KeyspaceContext {
   readonly writer?: KvWriter;
   /** Commit index of the applying command (0 outside apply). */
   readonly index: bigint;
-  /** Index-seeded randomness, only inside apply (SPOP, SRANDMEMBER). */
+  /** Index-seeded inside apply (SPOP); a system source for reads (SRANDMEMBER). */
   readonly random?: Random;
 }
 
@@ -35,7 +35,7 @@ export class Keyspace {
   }
 
   get random(): Random {
-    if (!this.context.random) throw new Error('randomness outside apply');
+    if (!this.context.random) throw new Error('no random source in this context');
     return this.context.random;
   }
 

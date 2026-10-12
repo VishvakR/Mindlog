@@ -1,3 +1,4 @@
+import { SystemRandom } from '@mindlog/core';
 import type { KvReply } from '@mindlog/proto';
 import type { KvReader } from '@mindlog/storage';
 import { MvccReader } from '@mindlog/storage';
@@ -14,6 +15,7 @@ import { error } from '../model/replies.js';
 export class KvReadExecutor {
   readonly #registry: KvCommandRegistry;
   readonly #view: MvccReader;
+  readonly #random = new SystemRandom();
 
   constructor(registry: KvCommandRegistry, reader: KvReader) {
     this.#registry = registry;
@@ -25,7 +27,13 @@ export class KvReadExecutor {
     if (command && isWrite(command)) {
       return Promise.resolve(error('INTERNAL', `${command.name} must be proposed, not read`));
     }
-    const keyspace = new Keyspace({ tenant, nowMs, view: this.#view, index: 0n });
+    const keyspace = new Keyspace({
+      tenant,
+      nowMs,
+      view: this.#view,
+      index: 0n,
+      random: this.#random,
+    });
     return this.#registry.dispatch(keyspace, argv);
   }
 }

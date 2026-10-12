@@ -3,6 +3,7 @@ import { expiryCommands } from './keys/expiry.js';
 import { keyCommands } from './keys/key-commands.js';
 import { scanCommands } from './keys/scan.js';
 import { listCommands } from './lists/list-commands.js';
+import { setCommands } from './sets/set-commands.js';
 import type { KvCommand } from './kv-command.js';
 import { KvCommandRegistry } from './registry.js';
 import { counterCommands } from './strings/counters.js';
@@ -19,6 +20,7 @@ export const allKvCommands = (): KvCommand[] => [
   ...scanCommands,
   ...hashCommands,
   ...listCommands,
+  ...setCommands,
 ];
 
 /** A registry with every supported command. */

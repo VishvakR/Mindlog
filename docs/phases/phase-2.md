@@ -10,8 +10,8 @@
 | Criterion (PLAN 24) | Evidence | Result |
 |---|---|---|
 | Dashboard edit → visible in `redis-cli`, and vice versa | `test/compat/dashboard-roundtrip.test.ts`: a superuser created with the CLI logs in; a hash written over the REST API is read by ioredis (value and TTL); a sorted set written by ioredis is read and scanned over HTTP; an HTTP delete removes the key. Manual run in headless Chrome against a built node: a hash field edited in the data browser, a list created with New key and a 120 s expiry, then `redis-cli HGET user:1 name` → `Ada Lovelace`, `LRANGE ui:list 0 -1` → `first second`, `TTL ui:list` → `119`. Keys written by `redis-cli` (hash, zset, list, set, JSON, TTL strings) show with their types and TTLs | ✔ |
-| Prometheus scrapes metrics | `GET /metrics` serves the text format from the node's registry: `mindlog_kv_*`, `mindlog_resp_*`, `mindlog_http_*`, `mindlog_statemachine_*`, process and event-loop series (`adapter-http` tests, `core` metrics test). `deploy/prometheus/prometheus.yml` scrapes `mindlog:8090/metrics`; Grafana provisions the "Mindlog node" dashboard from `deploy/grafana/` | ✔ endpoint and config; the compose stack was not run (see below) |
-| A trace shows RESP → apply → storage | `test/integration/trace.test.ts`: with an OpenTelemetry SDK registered, a RESP `SET` from ioredis yields one trace `resp.command` → `kv.set` → `storage.write` (log append + fsync) and `statemachine.apply` with the right parents. In production `observability.tracing.endpoint` exports it over OTLP (compose points it at Jaeger) | ✔ |
+| Prometheus scrapes metrics | `GET /metrics` serves the text format from the node's registry: `mindlog_kv_*`, `mindlog_resp_*`, `mindlog_http_*`, `mindlog_statemachine_*`, process and event-loop series (`adapter-http` tests, `core` metrics test). `deploy/prometheus/prometheus.yml` scrapes `mindlog:8090/metrics`; Grafana provisions the "Mindlog node" dashboard from `deploy/grafana/` | ✔ also in `docker compose --profile dev`: Prometheus target `mindlog:8090/metrics` is `up`, KV series are queryable, Grafana provisions the "Mindlog node" dashboard and queries Prometheus |
+| A trace shows RESP → apply → storage | `test/integration/trace.test.ts`: with an OpenTelemetry SDK registered, a RESP `SET` from ioredis yields one trace `resp.command` → `kv.set` → `storage.write` (log append + fsync) and `statemachine.apply` with the right parents. In the compose stack, Jaeger shows the same chain for a `redis-cli SET` against the container: `resp.command` → `kv.set` → `storage.write`, `statemachine.apply` | ✔ |
 
 ## Phase 2 checklist (PLAN 24)
 
@@ -35,7 +35,7 @@
 | Python | ruff, mypy --strict, pytest | ✔ 32 tests |
 | Commits | `pnpm lint:commits` (whole history, after rewrapping 12 phase 0–1 messages) | ✔ |
 | Dependencies | `pnpm audit` | ✔ only the previously accepted braces advisory |
-| Images | Both images built; the server container started and passed into its healthcheck | ✔ (then removed at the user's request) |
+| Images and compose | `docker compose --profile dev build` and `up`; superuser created with `docker compose run --rm mindlog superuser upsert …`; node healthy, dashboard login works, model service runs and stops on SIGTERM (exit 0) | ✔ |
 
 ## Defects found while building
 
@@ -47,10 +47,10 @@
 | Durability test under parallel load | All random kills could land before the first acknowledged write | `2070669`: kill after the first acknowledged write |
 | Browser check | A rebuilt dashboard 404'd until restart; the span wrapper turned static replies into empty 200s | `5626545`: per-request file lookup, SPA fallback in the not-found handler, no span wrapper on static routes |
 | Browser check | Chrome's `scrollIntoView` returns a promise; returning it from an effect crashed the console page | Effects use statement bodies |
+| Compose run | The model-service container ran `uv run` as `nobody`, which needs a writable cache directory, so it crashed | Run the venv's Python directly |
 
 ## Known gaps and follow-ups
 
-- The `docker compose --profile dev` stack (Prometheus scraping, Grafana panels, Jaeger UI) was not run end to end; at the user's request Docker is only used to write the files. Run `docker compose --profile dev up --build` to see the scrape and the trace in the UIs.
 - Login has no rate limiting and no TOTP/MFA (PLAN 17.3, phase 10).
 - The console is a plain input with history, not CodeMirror; no command autocomplete yet.
 - `/metrics` is unauthenticated, like most exporters; put it behind the network boundary in production.

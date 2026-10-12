@@ -29,6 +29,17 @@ export type KeyFamily = (typeof KeyFamily)[keyof typeof KeyFamily];
 
 const FAMILIES = new Set<string>(Object.values(KeyFamily));
 
+/**
+ * Tenant that owns node-level system keys: applied index, idempotency table,
+ * log entries, expiry index. User tenants never start with `$`.
+ */
+export const SYSTEM_TENANT = '$system';
+
+/** True for tenant names users may own (non-empty, not starting with `$`). */
+export function isUserTenant(tenant: string): boolean {
+  return tenant !== '' && !tenant.startsWith('$');
+}
+
 export interface KeyParts {
   /** Resolved tenant; every key carries one (CLAUDE.md rule 10). */
   readonly tenant: string;

@@ -3,8 +3,10 @@ import { describe, expect, test } from 'vitest';
 import type { KeyFamily, KeyRange } from '@mindlog/core';
 import {
   KeyFamily as Families,
+  SYSTEM_TENANT,
   decodeKey,
   encodeKey,
+  isUserTenant,
   keyPrefix,
   prefixRange,
   versionsRange,
@@ -88,5 +90,14 @@ describe('prefix ranges', () => {
     expect(inRange(unwrap(encodeKey({ ...base, tuple: ['a', 1n], version: 1n })), range)).toBe(
       false,
     );
+  });
+});
+
+describe('system tenant', () => {
+  test('is reserved and still encodes like any tenant', () => {
+    expect(isUserTenant(SYSTEM_TENANT)).toBe(false);
+    expect(isUserTenant('acme')).toBe(true);
+    expect(isUserTenant('')).toBe(false);
+    expect(encodeKey({ tenant: SYSTEM_TENANT, family: 's', tuple: ['applied', 1n] }).ok).toBe(true);
   });
 });

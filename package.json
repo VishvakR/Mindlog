@@ -25,7 +25,8 @@
     "typecheck": "tsc -b tsconfig.check.json",
     "lint:cycles": "madge --circular packages",
     "fuzz:resp": "FUZZ_RUNS=${FUZZ_RUNS:-200000} vitest run --testTimeout=3600000 packages/adapter-resp/test/fuzz",
-    "dev": "tsc -b packages/server && node packages/server/dist/bin.js --single-node"
+    "dev": "tsc -b packages/server && node packages/server/dist/bin.js --single-node",
+    "test:durability": "CRASH_ITERATIONS=${CRASH_ITERATIONS:-50} vitest run test/integration/crash-durability.test.ts"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.73.0",

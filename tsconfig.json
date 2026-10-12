@@ -8,6 +8,9 @@
       "path": "packages/eventbus"
     },
     {
+      "path": "packages/kv"
+    },
+    {
       "path": "packages/proto"
     },
     {

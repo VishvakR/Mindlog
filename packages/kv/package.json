@@ -1,0 +1,28 @@
+{
+  "name": "@mindlog/kv",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Redis data types and commands as deterministic, replicated operations",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/kv/"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/proto": "workspace:*",
+    "@mindlog/statemachine": "workspace:*",
+    "@mindlog/storage": "workspace:*"
+  }
+}

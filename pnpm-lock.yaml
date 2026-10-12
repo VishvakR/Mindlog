@@ -108,6 +108,24 @@ importers:
         specifier: workspace:*
         version: link:../proto
 
+  packages/kv:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
+      '@mindlog/statemachine':
+        specifier: workspace:*
+        version: link:../statemachine
+      '@mindlog/storage':
+        specifier: workspace:*
+        version: link:../storage
+
   packages/proto:
     dependencies:
       '@bufbuild/protobuf':

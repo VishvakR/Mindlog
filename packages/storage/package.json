@@ -19,6 +19,7 @@
     "test": "vitest run --root ../.. packages/storage/"
   },
   "dependencies": {
-    "@mindlog/core": "workspace:*"
+    "@mindlog/core": "workspace:*",
+    "classic-level": "^3.0.0"
   }
 }

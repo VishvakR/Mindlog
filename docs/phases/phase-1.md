@@ -2,7 +2,7 @@
 
 - Date: 2026-10-12
 - PLAN: §24 Phase 1
-- Status: **gate met**, awaiting sign-off
+- Status: **gate met**, signed off 2026-10-12
 - Commits: 101 since phase 0 (`3d4cb02..HEAD`), one per component, each with its tests
 
 ## Exit gate

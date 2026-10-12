@@ -41,6 +41,8 @@ export interface ConnectionDeps {
   readonly client: ClientState;
   readonly limits: ConnectionLimits;
   readonly onClose?: (reason: CloseReason) => void;
+  /** Opens sessions already authenticated as this principal (the dashboard console). */
+  readonly principal?: string;
 }
 
 /** Replies are flushed at least this often within one pipeline. */
@@ -76,7 +78,16 @@ export class Connection implements ConnectionContext {
     this.server = deps.server;
     this.client = deps.client;
     this.#parser = new RespParser(deps.limits.parser);
-    this.#session = deps.server.service.openSession(String(deps.client.id));
+    this.#session = this.#openSession();
+  }
+
+  #openSession(): Session {
+    const session = this.server.service.openSession(String(this.client.id));
+    if (this.#deps.principal !== undefined) {
+      session.authenticated = true;
+      session.principal = this.#deps.principal;
+    }
+    return session;
   }
 
   get session(): Session {
@@ -126,7 +137,7 @@ export class Connection implements ConnectionContext {
   }
 
   resetSession(): void {
-    this.#session = this.server.service.openSession(String(this.client.id));
+    this.#session = this.#openSession();
     this.client.protocol = 2;
     this.client.multi = -1;
   }

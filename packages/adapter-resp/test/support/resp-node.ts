@@ -118,7 +118,11 @@ export const TEST_LIMITS: ConnectionLimits = {
 };
 
 /** A connection whose transport records what the server sends. */
-export function openClient(fixture: RespServerFixture, limits: ConnectionLimits = TEST_LIMITS) {
+export function openClient(
+  fixture: RespServerFixture,
+  limits: ConnectionLimits = TEST_LIMITS,
+  principal?: string,
+) {
   const writes: Buffer[] = [];
   const transport = {
     /** While set, written bytes stay pending, as with a peer that stopped reading. */
@@ -161,6 +165,7 @@ export function openClient(fixture: RespServerFixture, limits: ConnectionLimits 
     onClose: (reason) => {
       transport.closeReason = reason;
     },
+    ...(principal === undefined ? {} : { principal }),
   });
   /** Sends raw bytes and returns everything written in reply. */
   const raw = async (bytes: string | Buffer): Promise<string> => {

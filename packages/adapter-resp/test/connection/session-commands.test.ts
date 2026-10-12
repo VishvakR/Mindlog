@@ -47,3 +47,13 @@ describe('RESET', () => {
     expect(await c.send(['GET', 'k'])).toBe('-NOAUTH Authentication required.\r\n');
   });
 });
+
+describe('preauthenticated connections', () => {
+  test('skip AUTH and stay authenticated across RESET', async () => {
+    const c = openClient(await server('pw'), undefined, 'admin@example.com');
+    expect(await c.send(['SET', 'k', 'v'])).toBe('+OK\r\n');
+    expect(c.connection.session.principal).toBe('admin@example.com');
+    expect(await c.send(['RESET'], ['GET', 'k'])).toBe('+RESET\r\n$1\r\nv\r\n');
+    expect(c.connection.session.authenticated).toBe(true);
+  });
+});

@@ -11,3 +11,32 @@ export {
   file_mindlog_v1_common,
 } from './gen/mindlog/v1/common_pb.js';
 export type { ErrorDetail, Hlc, RequestId } from './gen/mindlog/v1/common_pb.js';
+export {
+  ExpireSchema,
+  ExpiringKeySchema,
+  KvBatchSchema,
+  KvHeaderSchema,
+  KvNullSchema,
+  KvReplyListSchema,
+  KvReplyMapSchema,
+  KvReplyPairSchema,
+  KvReplySchema,
+  KvType,
+  KvTypeSchema,
+  KvWriteSchema,
+  WatchedKeySchema,
+  file_mindlog_v1_kv,
+} from './gen/mindlog/v1/kv_pb.js';
+export type {
+  Expire,
+  ExpiringKey,
+  KvBatch,
+  KvHeader,
+  KvNull,
+  KvReply,
+  KvReplyList,
+  KvReplyMap,
+  KvReplyPair,
+  KvWrite,
+  WatchedKey,
+} from './gen/mindlog/v1/kv_pb.js';

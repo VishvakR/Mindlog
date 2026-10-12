@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+import "mindlog/v1/common.proto";
+
+// One Redis write command exactly as the client sent it, command name first.
+// Apply re-executes it deterministically (ADR-0021).
+message KvWrite {
+  repeated bytes argv = 1;
+}
+
+// A key watched by WATCH and the header version observed then (0: absent).
+message WatchedKey {
+  bytes key = 1;
+  uint64 version = 2;
+}
+
+// MULTI/EXEC: all writes apply atomically, or none if a watched key changed.
+message KvBatch {
+  repeated KvWrite writes = 1;
+  repeated WatchedKey watches = 2;
+}
+
+// Keys the leader's expiry job found due. Apply re-checks each header's
+// expiry, so a key that was rewritten meanwhile is left alone.
+message Expire {
+  repeated ExpiringKey keys = 1;
+}
+
+message ExpiringKey {
+  bytes key = 1;
+  uint64 expire_at_ms = 2;
+}
+
+enum KvType {
+  KV_TYPE_UNSPECIFIED = 0;
+  KV_TYPE_STRING = 1;
+  KV_TYPE_HASH = 2;
+  KV_TYPE_LIST = 3;
+  KV_TYPE_SET = 4;
+  KV_TYPE_ZSET = 5;
+  KV_TYPE_JSON = 6;
+}
+
+// Stored at k/(key). Collection elements live at k/(key, generation, tag, ...)
+// so DEL and overwrite bump the generation instead of touching every element
+// (ADR-0022).
+message KvHeader {
+  KvType type = 1;
+  uint64 generation = 2;
+  uint64 count = 3;
+  // Absolute expiry in ms since the epoch; 0 means no TTL.
+  uint64 expire_at_ms = 4;
+  // Commit index of the last change, used by WATCH.
+  uint64 version = 5;
+  // List element sequence range [list_head, list_tail).
+  sint64 list_head = 6;
+  sint64 list_tail = 7;
+  // String and JSON values.
+  bytes value = 8;
+}
+
+// Protocol-neutral reply, rendered to RESP2 or RESP3 by the adapter and stored
+// for idempotent retries.
+message KvReply {
+  oneof kind {
+    KvNull null = 1;
+    sint64 integer = 2;
+    bytes bulk = 3;
+    string simple = 4;
+    double double = 5;
+    bool boolean = 6;
+    KvReplyList array = 7;
+    KvReplyList set = 8;
+    KvReplyMap map = 9;
+    ErrorDetail error = 10;
+  }
+}
+
+message KvNull {}
+
+message KvReplyList {
+  repeated KvReply items = 1;
+}
+
+message KvReplyMap {
+  repeated KvReplyPair entries = 1;
+}
+
+message KvReplyPair {
+  KvReply key = 1;
+  KvReply value = 2;
+}

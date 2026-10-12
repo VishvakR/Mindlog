@@ -22,3 +22,8 @@ export type { ConnectionDeps, ConnectionTransport } from './connection/connectio
 export { Connection } from './connection/connection.js';
 export { commandCommand } from './connection/handlers/command.js';
 export { helloCommand } from './connection/handlers/hello.js';
+export {
+  quitCommand,
+  resetCommand,
+  selectCommand,
+} from './connection/handlers/session-commands.js';

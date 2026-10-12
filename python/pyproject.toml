@@ -13,6 +13,7 @@ dev = [
     "grpcio-tools>=1.84.0",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
+    "redis>=8.1.0",
     "ruff>=0.17.0",
 ]
 
@@ -43,4 +44,7 @@ warn_unreachable = true
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers"]
-markers = ["integration: needs real models or services; excluded from the fast suite"]
+markers = [
+    "integration: needs real models or services; excluded from the fast suite",
+    "compat: runs a client library against a built mindlog-server (pnpm build)",
+]

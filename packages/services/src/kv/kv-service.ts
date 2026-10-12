@@ -74,15 +74,21 @@ export class KvService {
     return new Session(id, this.deps.defaultTenant ?? 'default', !this.deps.authenticator.required);
   }
 
-  /** AUTH (and HELLO ... AUTH): checks the static user and marks the session. */
+  /** Whether sessions start unauthenticated (a password is configured). */
+  get authenticationRequired(): boolean {
+    return this.deps.authenticator.required;
+  }
+
+  /**
+   * AUTH <user> <pass> and HELLO ... AUTH: checks the static user and marks the
+   * session. Without a password the `default` user is `nopass`, as in Valkey.
+   */
   authenticate(session: Session, username: string, password: string): KvReply {
-    if (!this.deps.authenticator.required) {
-      return replies.error(
-        'INVALID_ARGUMENT',
-        'AUTH <password> called without any password configured for the default user. Are you sure your configuration is correct?',
-      );
-    }
-    if (!this.deps.authenticator.verify(username, password)) {
+    const required = this.deps.authenticator.required;
+    const valid = required
+      ? this.deps.authenticator.verify(username, password)
+      : username === 'default';
+    if (!valid) {
       return replies.error(
         'INVALID_CREDENTIALS',
         'invalid username-password pair or user is disabled.',
@@ -228,7 +234,15 @@ export class KvService {
   }
 
   #auth(session: Session, argv: readonly Uint8Array[]): KvReply {
-    if (argv.length === 2) return this.authenticate(session, 'default', decoder.decode(argv[1]));
+    if (argv.length === 2) {
+      if (!this.deps.authenticator.required) {
+        return replies.error(
+          'INVALID_ARGUMENT',
+          'AUTH <password> called without any password configured for the default user. Are you sure your configuration is correct?',
+        );
+      }
+      return this.authenticate(session, 'default', decoder.decode(argv[1]));
+    }
     if (argv.length === 3) {
       return this.authenticate(session, decoder.decode(argv[1]), decoder.decode(argv[2]));
     }

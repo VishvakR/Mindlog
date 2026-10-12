@@ -44,6 +44,15 @@ describe('KvService', () => {
     });
   });
 
+  test('without a password the default user is nopass, as in Valkey', async () => {
+    const node = await serviceNode();
+    expect(node.service.authenticationRequired).toBe(false);
+    expect(await node.run(node.open(), 'AUTH', 'default', 'anything')).toBe('OK');
+    expect(await node.run(node.open(), 'AUTH', 'alice', 'x')).toEqual({
+      error: 'INVALID_CREDENTIALS invalid username-password pair or user is disabled.',
+    });
+  });
+
   test('records latency and errors per command with bounded labels', async () => {
     const node = await serviceNode();
     const s = node.open();

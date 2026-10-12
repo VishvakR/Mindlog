@@ -1,10 +1,11 @@
 packages:
   - packages/*
 
-# Packages whose install scripts we never run: both ship prebuilt platform
-# binaries as optional dependencies, so their postinstall is only a fallback.
+# Packages whose install scripts we never run: they ship prebuilt platform
+# binaries, so their install/postinstall step is only a fallback.
 ignoredBuiltDependencies:
   - '@bufbuild/buf'
+  - classic-level
   - unrs-resolver
 
 # madge declares typescript ^5 but only uses its parser API, which is

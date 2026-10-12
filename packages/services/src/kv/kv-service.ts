@@ -1,4 +1,4 @@
-import type { Clock } from '@mindlog/core';
+import type { Clock, Counter, Histogram, Metrics, Tracer } from '@mindlog/core';
 import { MindlogErrorCode } from '@mindlog/core';
 import type { KvCommandRegistry } from '@mindlog/kv';
 import { KvReadExecutor, isWrite, replies, watchVersion } from '@mindlog/kv';
@@ -17,9 +17,13 @@ export interface KvServiceDeps {
   readonly stamper: CommandStamper;
   readonly clock: Clock;
   readonly authenticator: StaticAuthenticator;
+  readonly metrics: Metrics;
+  readonly tracer: Tracer;
   /** Tenant for sessions until multi-tenancy lands (phase 10). */
   readonly defaultTenant?: string;
 }
+
+const SESSION_COMMANDS = new Set(['AUTH', 'MULTI', 'EXEC', 'DISCARD', 'WATCH', 'UNWATCH']);
 
 const decoder = new TextDecoder();
 export const commandName = (argv: readonly Uint8Array[]): string =>
@@ -40,10 +44,30 @@ const OPEN_COMMANDS = new Set(['AUTH']);
 export class KvService {
   protected readonly deps: KvServiceDeps;
   protected readonly reads: KvReadExecutor;
+  readonly #latency: Histogram;
+  readonly #errors: Counter;
 
   constructor(deps: KvServiceDeps) {
     this.deps = deps;
     this.reads = new KvReadExecutor(deps.registry, deps.store);
+    this.#latency = deps.metrics.histogram({
+      name: 'mindlog_kv_command_latency_seconds',
+      help: 'KV command latency as seen by the service, by command',
+      labelNames: ['command'],
+      buckets: [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1],
+    });
+    this.#errors = deps.metrics.counter({
+      name: 'mindlog_kv_command_errors_total',
+      help: 'KV commands answered with an error, by command and error code',
+      labelNames: ['command', 'code'],
+    });
+  }
+
+  /** Bounded label for metrics: known command names only. */
+  #label(name: string): string {
+    return SESSION_COMMANDS.has(name) || this.deps.registry.get(name)
+      ? name.toLowerCase()
+      : 'unknown';
   }
 
   openSession(id: string): Session {
@@ -69,7 +93,22 @@ export class KvService {
     return replies.ok();
   }
 
+  /** Executes one command with a span, a latency observation and error counting. */
   async execute(session: Session, argv: readonly Uint8Array[]): Promise<KvReply> {
+    const label = this.#label(commandName(argv));
+    const started = this.deps.clock.monotonic();
+    const reply = await this.deps.tracer.withSpan(
+      `kv.${label}`,
+      { 'mindlog.tenant': session.tenant, 'mindlog.command': label },
+      () => this.#dispatch(session, argv),
+    );
+    this.#latency.observe(Number(this.deps.clock.monotonic() - started) / 1e9, { command: label });
+    if (reply.kind.case === 'error')
+      this.#errors.inc(1, { command: label, code: reply.kind.value.code });
+    return reply;
+  }
+
+  async #dispatch(session: Session, argv: readonly Uint8Array[]): Promise<KvReply> {
     const name = commandName(argv);
     if (!session.authenticated && !OPEN_COMMANDS.has(name)) {
       return replies.error('UNAUTHENTICATED', 'Authentication required.');

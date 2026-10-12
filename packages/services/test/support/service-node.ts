@@ -3,6 +3,7 @@ import {
   ManualClock,
   MemoryLogger,
   MemoryMetrics,
+  OtelTracer,
   SeededRandom,
   UlidGenerator,
 } from '@mindlog/core';
@@ -98,6 +99,8 @@ export async function serviceNode(options: { password?: string; maxQueue?: numbe
     ),
     clock,
     authenticator: new StaticAuthenticator(options.password),
+    metrics,
+    tracer: new OtelTracer(),
   });
   let sessions = 0;
   const open = () => service.openSession(`c${sessions++}`);

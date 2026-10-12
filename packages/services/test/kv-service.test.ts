@@ -44,6 +44,29 @@ describe('KvService', () => {
     });
   });
 
+  test('records latency and errors per command with bounded labels', async () => {
+    const node = await serviceNode();
+    const s = node.open();
+    await node.run(s, 'SET', 'k', 'v');
+    await node.run(s, 'SET', 'k');
+    await node.run(s, 'WHATEVER-RANDOM-NAME');
+    expect(
+      node.metrics.observations('mindlog_kv_command_latency_seconds', { command: 'set' }),
+    ).toHaveLength(2);
+    expect(
+      node.metrics.value('mindlog_kv_command_errors_total', {
+        command: 'set',
+        code: 'INVALID_ARGUMENT',
+      }),
+    ).toBe(1);
+    expect(
+      node.metrics.value('mindlog_kv_command_errors_total', {
+        command: 'unknown',
+        code: 'INVALID_ARGUMENT',
+      }),
+    ).toBe(1);
+  });
+
   test('a full proposal queue surfaces as BUSY', async () => {
     const node = await serviceNode({ maxQueue: 1 });
     const s = node.open();

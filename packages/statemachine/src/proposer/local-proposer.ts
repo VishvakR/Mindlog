@@ -1,4 +1,13 @@
-import type { Gauge, Histogram, Logger, MindlogError, Metrics, Result } from '@mindlog/core';
+import type {
+  Gauge,
+  Histogram,
+  Logger,
+  MindlogError,
+  Metrics,
+  Result,
+  SpanAttributes,
+  Tracer,
+} from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
 import type { Command } from '@mindlog/proto';
 import type { StateMachine } from '../apply/state-machine.js';
@@ -19,6 +28,8 @@ export interface LocalProposerDeps {
   readonly machine: StateMachine;
   readonly logger: Logger;
   readonly metrics: Metrics;
+  /** Spans for the log append (storage.write) and each apply; none without it. */
+  readonly tracer?: Tracer;
   readonly options?: LocalProposerOptions;
 }
 
@@ -113,13 +124,26 @@ export class LocalProposer implements Proposer {
     }
   }
 
+  #span<T>(name: string, attributes: SpanAttributes, fn: () => Promise<T>): Promise<T> {
+    const tracer = this.#deps.tracer;
+    return tracer ? tracer.withSpan(name, attributes, fn) : fn();
+  }
+
+  // The group commit runs in the async context of the proposal that started it,
+  // so these spans join that request's trace.
   async #commit(group: Waiting[]): Promise<void> {
     try {
-      const indexes = await this.#deps.log.append(group.map((w) => w.command));
+      const indexes = await this.#span('storage.write', { 'mindlog.entries': group.length }, () =>
+        this.#deps.log.append(group.map((w) => w.command)),
+      );
       this.#groupSize.observe(group.length);
       for (const [i, waiting] of group.entries()) {
         const index = indexes[i] ?? 0n;
-        const result = await this.#deps.machine.apply(index, waiting.command);
+        const result = await this.#span(
+          'statemachine.apply',
+          { 'mindlog.index': index, 'mindlog.body': waiting.command.body.case ?? 'none' },
+          () => this.#deps.machine.apply(index, waiting.command),
+        );
         waiting.resolve(ok({ index, result }));
       }
       if (this.#deps.machine.appliedIndex - this.#checkpointed >= this.#checkpointEvery) {

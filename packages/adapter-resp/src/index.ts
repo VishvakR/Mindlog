@@ -18,7 +18,12 @@ export type {
   ServerInfo,
 } from './connection/connection-command.js';
 export { ConnectionCommandRegistry } from './connection/connection-command.js';
-export type { ConnectionDeps, ConnectionTransport } from './connection/connection.js';
+export type {
+  CloseReason,
+  ConnectionDeps,
+  ConnectionLimits,
+  ConnectionTransport,
+} from './connection/connection.js';
 export { Connection } from './connection/connection.js';
 export { commandCommand } from './connection/handlers/command.js';
 export { helloCommand } from './connection/handlers/hello.js';

@@ -24,7 +24,12 @@ import {
   StateMachine,
 } from '@mindlog/statemachine';
 import { MemoryStore } from '@mindlog/storage';
-import type { ConnectionCommand, ParserLimits, ServerContext } from '@mindlog/adapter-resp';
+import type {
+  CloseReason,
+  ConnectionCommand,
+  ConnectionLimits,
+  ServerContext,
+} from '@mindlog/adapter-resp';
 import {
   ClientRegistry,
   CommandTable,
@@ -106,9 +111,23 @@ export async function respServer(
 
 export type RespServerFixture = Awaited<ReturnType<typeof respServer>>;
 
+export const TEST_LIMITS: ConnectionLimits = {
+  parser: DEFAULT_LIMITS,
+  outputBufferBytes: 64 * 1024 * 1024,
+  maxPipeline: 1024,
+};
+
 /** A connection whose transport records what the server sends. */
-export function openClient(fixture: RespServerFixture, parser: ParserLimits = DEFAULT_LIMITS) {
+export function openClient(fixture: RespServerFixture, limits: ConnectionLimits = TEST_LIMITS) {
   const writes: Buffer[] = [];
+  const transport = {
+    /** While set, written bytes stay pending, as with a peer that stopped reading. */
+    stalled: false,
+    pendingBytes: 0,
+    paused: false,
+    pauses: 0,
+    closeReason: undefined as CloseReason | undefined,
+  };
   let closed = false;
   const client = fixture.server.clients.register(
     '127.0.0.1:50000',
@@ -119,12 +138,28 @@ export function openClient(fixture: RespServerFixture, parser: ParserLimits = DE
     server: fixture.server,
     handlers: fixture.handlers,
     client,
-    parser,
+    limits,
     transport: {
-      write: (bytes) => writes.push(bytes),
+      write: (bytes) => {
+        writes.push(bytes);
+        if (transport.stalled) transport.pendingBytes += bytes.length;
+      },
+      get pendingBytes() {
+        return transport.pendingBytes;
+      },
+      pause: () => {
+        transport.paused = true;
+        transport.pauses++;
+      },
+      resume: () => {
+        transport.paused = false;
+      },
       close: () => {
         closed = true;
       },
+    },
+    onClose: (reason) => {
+      transport.closeReason = reason;
     },
   });
   /** Sends raw bytes and returns everything written in reply. */
@@ -136,7 +171,7 @@ export function openClient(fixture: RespServerFixture, parser: ParserLimits = DE
   /** Sends commands as one pipeline of multibulk frames. */
   const send = (...commands: string[][]): Promise<string> =>
     raw(Buffer.concat(commands.map(frame)));
-  return { connection, client, writes, raw, send, isClosed: () => closed };
+  return { connection, client, writes, transport, raw, send, isClosed: () => closed };
 }
 
 export function frame(args: readonly string[]): Buffer {

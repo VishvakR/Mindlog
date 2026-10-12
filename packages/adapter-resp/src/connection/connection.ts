@@ -15,15 +15,32 @@ import type {
 /** The byte stream under a connection (a `net.Socket` in production). */
 export interface ConnectionTransport {
   write(bytes: Buffer): void;
+  /** Bytes written but not yet sent to the peer. */
+  readonly pendingBytes: number;
+  /** Stops and restarts reading from the peer (backpressure). */
+  pause(): void;
+  resume(): void;
   close(): void;
 }
+
+export interface ConnectionLimits {
+  readonly parser: ParserLimits;
+  /** Hard limit on unsent reply bytes; the client is disconnected above it. */
+  readonly outputBufferBytes: number;
+  /** Parsed commands waiting to run before reading pauses. */
+  readonly maxPipeline: number;
+}
+
+/** Why a connection closed, for the disconnect metric and logs. */
+export type CloseReason = 'quit' | 'protocol-error' | 'output-limit' | 'peer' | 'server';
 
 export interface ConnectionDeps {
   readonly server: ServerContext;
   readonly handlers: ConnectionCommandRegistry;
   readonly transport: ConnectionTransport;
   readonly client: ClientState;
-  readonly parser: ParserLimits;
+  readonly limits: ConnectionLimits;
+  readonly onClose?: (reason: CloseReason) => void;
 }
 
 /** Replies are flushed at least this often within one pipeline. */
@@ -50,14 +67,15 @@ export class Connection implements ConnectionContext {
   /** Set while `#process` runs; cleared synchronously when it returns. */
   #processing = false;
   #running: Promise<void> = Promise.resolve();
-  #closeAfterReply = false;
+  #closeAfterReply: CloseReason | undefined;
   #closed = false;
+  #paused = false;
 
   constructor(deps: ConnectionDeps) {
     this.#deps = deps;
     this.server = deps.server;
     this.client = deps.client;
-    this.#parser = new RespParser(deps.parser);
+    this.#parser = new RespParser(deps.limits.parser);
     this.#session = deps.server.service.openSession(String(deps.client.id));
   }
 
@@ -79,6 +97,10 @@ export class Connection implements ConnectionContext {
       }
       this.#queue.push(event.argv);
     }
+    if (!this.#paused && this.#queue.length - this.#head > this.#deps.limits.maxPipeline) {
+      this.#paused = true;
+      this.#deps.transport.pause();
+    }
     if (!this.#processing) {
       this.#processing = true;
       this.#running = this.#process();
@@ -91,15 +113,16 @@ export class Connection implements ConnectionContext {
   }
 
   /** Closes the connection; safe to call more than once. */
-  close(): void {
+  close(reason: CloseReason = 'server'): void {
     if (this.#closed) return;
     this.#closed = true;
     this.server.clients.remove(this.client.id);
     this.#deps.transport.close();
+    this.#deps.onClose?.(reason);
   }
 
   closeAfterReply(): void {
-    this.#closeAfterReply = true;
+    this.#closeAfterReply = 'quit';
   }
 
   resetSession(): void {
@@ -119,15 +142,29 @@ export class Connection implements ConnectionContext {
     this.#head = 0;
     if (this.#protocolError !== undefined && this.#queue.length === 0) {
       this.#writer.writeError('INVALID_ARGUMENT', this.#protocolError);
-      this.#closeAfterReply = true;
+      this.#closeAfterReply = 'protocol-error';
     }
     this.#flush();
-    if (this.#closeAfterReply) this.close();
+    if (this.#closeAfterReply) this.close(this.#closeAfterReply);
+    if (this.#paused && !this.#closed) {
+      this.#paused = false;
+      this.#deps.transport.resume();
+    }
     this.#processing = false;
   }
 
+  /** Sends buffered replies; a client that stopped reading is disconnected. */
   #flush(): void {
-    if (this.#writer.length > 0 && !this.#closed) this.#deps.transport.write(this.#writer.take());
+    if (this.#writer.length === 0 || this.#closed) return;
+    const transport = this.#deps.transport;
+    transport.write(this.#writer.take());
+    if (transport.pendingBytes > this.#deps.limits.outputBufferBytes) {
+      this.server.logger.warn('client output buffer limit reached; disconnecting', {
+        clientId: this.client.id,
+        pendingBytes: transport.pendingBytes,
+      });
+      this.close('output-limit');
+    }
   }
 
   async #run(argv: readonly Uint8Array[]): Promise<KvReply> {

@@ -1,5 +1,6 @@
 # CI pipeline steps 1-4 (PLAN 22.5): install, lint/typecheck/boundaries/cycles,
-# unit + property tests, protobuf checks. Later phases add integration,
+# unit + property tests, protobuf checks, plus the phase 1 gate (client
+# compatibility, kill -9 durability, redis-benchmark). Later phases add
 # simulation, builds and supply-chain steps.
 name: CI
 
@@ -59,6 +60,36 @@ jobs:
         run: uv run mypy model_service mindlog_proto/tests
       - name: Tests
         run: uv run pytest
+
+  gate:
+    name: Phase 1 gate (redis-py, kill -9 durability, redis-benchmark)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - name: Install
+        run: |
+          pnpm install --frozen-lockfile
+          (cd python && uv sync --frozen)
+          sudo apt-get update && sudo apt-get install -y redis-tools
+      - name: Build
+        run: pnpm build
+      - name: redis-py compatibility (RESP2 and RESP3)
+        working-directory: python
+        run: uv run pytest compat -m compat
+      - name: kill -9 loses no acknowledged write (50 iterations)
+        run: pnpm test:durability
+      - name: redis-benchmark smoke run
+        run: scripts/bench-smoke.sh 20000 50
 
   protobuf:
     name: Protobuf (lint, generated code, breaking changes)

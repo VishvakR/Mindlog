@@ -110,6 +110,7 @@ export async function startNode(
   const logger =
     options.logger ?? createLogger({ level: config.observability.logLevel, name: 'mindlog' });
   const metrics = options.metrics ?? new PromMetrics();
+  if (metrics instanceof PromMetrics && !options.metrics) metrics.collectProcessMetrics();
   const clock = options.clock ?? new SystemClock();
   const tracing = initTracing({
     serviceName: 'mindlog',

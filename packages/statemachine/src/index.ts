@@ -11,3 +11,5 @@ export { errorResult } from './apply/command-results.js';
 export type { StateMachineDeps } from './apply/state-machine.js';
 export { StateMachine } from './apply/state-machine.js';
 export { LocalLog } from './log/local-log.js';
+export type { LocalProposerDeps, LocalProposerOptions } from './proposer/local-proposer.js';
+export { LocalProposer } from './proposer/local-proposer.js';

@@ -10,3 +10,5 @@ export type {
   StoreSnapshot,
   WriteBatch,
 } from './store/kv-store.js';
+export { compareBytes } from './store/compare-bytes.js';
+export { MemoryStore } from './store/memory-store.js';

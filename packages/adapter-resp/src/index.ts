@@ -9,3 +9,4 @@ export type { ProtocolVersion } from './protocol/resp-writer.js';
 export { RespWriter } from './protocol/resp-writer.js';
 export type { CommandArgument, CommandSpec, KeyRange } from './commands/command-spec.js';
 export { loadCommandSpecs } from './commands/command-spec.js';
+export { CommandTable } from './commands/command-table.js';

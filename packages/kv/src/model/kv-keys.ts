@@ -52,6 +52,18 @@ export const elementKey = (
   ...rest: TupleElement[]
 ): Uint8Array => key(tenant, [name, gen, tag, ...rest]);
 
+/** k/(key, gen): prefix of every element of one generation, all tags. */
+export const generationPrefix = (tenant: string, name: Uint8Array, gen: bigint): Uint8Array =>
+  prefix(tenant, 'k', [name, gen]);
+
+/** k/(key, gen, ...rest) from an element's tag-and-rest tuple (used to move elements). */
+export const encodeElementKey = (
+  tenant: string,
+  name: Uint8Array,
+  gen: bigint,
+  rest: TupleElement[],
+): Uint8Array => key(tenant, [name, gen, ...rest]);
+
 /** s/(expire, atMs, tenant, key): keys due for expiry, in time order. */
 export const expiryIndexKey = (atMs: bigint, tenant: string, name: Uint8Array): Uint8Array =>
   system(['expire', atMs, tenant, name]);

@@ -29,3 +29,5 @@ export { allKvCommands, createKvRegistry } from './commands/all-commands.js';
 export { expireHandler } from './apply/expire-handler.js';
 export type { ExpiryJobDeps } from './jobs/expiry-job.js';
 export { ExpiryJob } from './jobs/expiry-job.js';
+export type { LiveKey } from './model/key-iterator.js';
+export { liveKeys } from './model/key-iterator.js';

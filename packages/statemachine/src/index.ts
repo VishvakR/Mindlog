@@ -1,6 +1,5 @@
 /**
  * @mindlog/statemachine — deterministic command apply, idempotency and the
- * single-node log behind the Proposer port (PLAN 6). Exports only the public
- * API; each module is added as it lands.
+ * single-node log behind the Proposer port (PLAN 6).
  */
-export {};
+export type { Proposal, Proposer } from './proposer/proposer.js';

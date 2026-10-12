@@ -51,6 +51,12 @@
     },
     {
       "path": "test"
+    },
+    {
+      "path": "packages/server"
+    },
+    {
+      "path": "packages/server/test"
     }
   ]
 }

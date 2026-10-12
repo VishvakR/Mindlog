@@ -167,6 +167,30 @@ importers:
         specifier: ^2.16.0
         version: 2.16.0
 
+  packages/server:
+    dependencies:
+      '@mindlog/adapter-resp':
+        specifier: workspace:*
+        version: link:../adapter-resp
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
+      '@mindlog/kv':
+        specifier: workspace:*
+        version: link:../kv
+      '@mindlog/services':
+        specifier: workspace:*
+        version: link:../services
+      '@mindlog/statemachine':
+        specifier: workspace:*
+        version: link:../statemachine
+      '@mindlog/storage':
+        specifier: workspace:*
+        version: link:../storage
+
   packages/services:
     dependencies:
       '@bufbuild/protobuf':

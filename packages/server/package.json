@@ -1,0 +1,33 @@
+{
+  "name": "@mindlog/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Composition root: configuration, wiring, lifecycle and the mindlog-server CLI",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "mindlog-server": "./dist/bin.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/server/"
+  },
+  "dependencies": {
+    "@mindlog/adapter-resp": "workspace:*",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/kv": "workspace:*",
+    "@mindlog/services": "workspace:*",
+    "@mindlog/statemachine": "workspace:*",
+    "@mindlog/storage": "workspace:*"
+  }
+}

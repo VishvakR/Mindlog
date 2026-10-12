@@ -6,7 +6,7 @@ Application services (layer `application`): sessions, authentication, and the KV
 
 | Export | Purpose |
 |---|---|
-| `KvService` | `openSession(id)`, `execute(session, argv)` → `KvReply`, `authenticate(session, user, password)` |
+| `KvService` | `openSession(id)`, `execute(session, argv)` → `KvReply`, `authenticate(session, user, password)`, `authenticationRequired` |
 | `Session` | Per-connection tenant, principal, authentication flag, MULTI queue and WATCHed keys |
 | `StaticAuthenticator` | Phase 1 auth: one `default` user with `auth.password`; constant-time comparison |
 | `commandName` | Upper-cased command name from argv |
@@ -24,8 +24,9 @@ execute(session, argv)
 
 ## Invariants
 
-- **Authorization before anything else.** With a password configured, only `AUTH` runs before authentication.
+- **Authorization before anything else.** With a password configured, only `AUTH` runs before authentication. Without one, the `default` user is `nopass` as in Valkey: `AUTH default <anything>` succeeds, while one-argument `AUTH` is an error.
 - **Writes are proposed, never executed locally**, so every write is durable and replicated before it is acknowledged.
+- **Bounded transactions.** One MULTI queues at most `maxTransactionCommands` (default 10,000); the next command is rejected and EXEC aborts.
 - **Queue-time validation.** An unknown command or wrong arity inside MULTI aborts the EXEC with `EXECABORT`, as in Valkey. Runtime errors stay per command inside the EXEC reply.
 - **WATCH compares header versions**, so any change (including create-then-delete) aborts EXEC.
 - **Bounded telemetry labels.** Unknown command names are labelled `unknown`.

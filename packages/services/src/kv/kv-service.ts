@@ -21,7 +21,11 @@ export interface KvServiceDeps {
   readonly tracer: Tracer;
   /** Tenant for sessions until multi-tenancy lands (phase 10). */
   readonly defaultTenant?: string;
+  /** Commands one MULTI may queue (`limits.maxTransactionCommands`). */
+  readonly maxTransactionCommands?: number;
 }
+
+const DEFAULT_MAX_TRANSACTION_COMMANDS = 10_000;
 
 const SESSION_COMMANDS = new Set(['AUTH', 'MULTI', 'EXEC', 'DISCARD', 'WATCH', 'UNWATCH']);
 
@@ -160,6 +164,14 @@ export class KvService {
       );
     } else if (command.arity >= 0 ? argv.length !== command.arity : argv.length < -command.arity) {
       problem = replies.errors.arity(command.name);
+    } else {
+      const limit = this.deps.maxTransactionCommands ?? DEFAULT_MAX_TRANSACTION_COMMANDS;
+      if (transaction.queued.length >= limit) {
+        problem = replies.error(
+          'PAYLOAD_TOO_LARGE',
+          `Transaction has too many commands (limit ${String(limit)})`,
+        );
+      }
     }
     if (problem) {
       transaction.failed = true;

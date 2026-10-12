@@ -81,4 +81,19 @@ describe('MULTI / EXEC / DISCARD / WATCH (Valkey multi.tcl)', () => {
     await node.run(s, 'GET', 'x');
     expect(await node.run(s, 'EXEC')).toEqual(['changed']);
   });
+
+  test('a MULTI queue is bounded by maxTransactionCommands', async () => {
+    const node = await serviceNode({ maxTransactionCommands: 2 });
+    const s = node.open();
+    await node.run(s, 'MULTI');
+    expect(await node.run(s, 'INCR', 'a')).toBe('QUEUED');
+    expect(await node.run(s, 'INCR', 'a')).toBe('QUEUED');
+    expect(await node.run(s, 'INCR', 'a')).toEqual({
+      error: 'PAYLOAD_TOO_LARGE Transaction has too many commands (limit 2)',
+    });
+    expect(await node.run(s, 'EXEC')).toEqual({
+      error: 'EXEC_ABORTED Transaction discarded because of previous errors.',
+    });
+    expect(await node.run(s, 'GET', 'a')).toBe(null);
+  });
 });

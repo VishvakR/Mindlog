@@ -59,7 +59,9 @@ export function plain(reply: KvReply): Plain {
 }
 
 /** A full single-node service stack over in-memory stores. */
-export async function serviceNode(options: { password?: string; maxQueue?: number } = {}) {
+export async function serviceNode(
+  options: { password?: string; maxQueue?: number; maxTransactionCommands?: number } = {},
+) {
   const clock = new ManualClock(1_760_000_000_000n);
   const logger = new MemoryLogger();
   const metrics = new MemoryMetrics();
@@ -101,6 +103,9 @@ export async function serviceNode(options: { password?: string; maxQueue?: numbe
     authenticator: new StaticAuthenticator(options.password),
     metrics,
     tracer: new OtelTracer(),
+    ...(options.maxTransactionCommands === undefined
+      ? {}
+      : { maxTransactionCommands: options.maxTransactionCommands }),
   });
   let sessions = 0;
   const open = () => service.openSession(`c${sessions++}`);

@@ -22,7 +22,7 @@ fi
 
 DATA="$(mktemp -d "${TMPDIR:-/tmp}/mindlog-bench.XXXXXX")"
 LOG="$DATA/server.log"
-node "$BIN" --single-node --host 127.0.0.1 --port "$PORT" --data-dir "$DATA/data" --log-level warn >"$LOG" 2>&1 &
+node "$BIN" --single-node --host 127.0.0.1 --port "$PORT" --http-port 0 --data-dir "$DATA/data" --log-level warn >"$LOG" 2>&1 &
 SERVER=$!
 cleanup() {
   kill -TERM "$SERVER" 2>/dev/null || true
@@ -31,10 +31,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for _ in $(seq 1 50); do
-  if "$BENCH" -p "$PORT" -n 1 -t ping -q >/dev/null 2>&1; then break; fi
+# Wait with bash's /dev/tcp: redis-benchmark 7.0 (Ubuntu) hangs forever if it cannot connect.
+for _ in $(seq 1 100); do
+  if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; then break; fi
   sleep 0.1
 done
+if ! (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; then
+  echo "server did not start on port $PORT:" >&2
+  cat "$LOG" >&2
+  exit 1
+fi
 
 echo "mindlog $(node "$BIN" --version | awk '{print $2}') · node $(node --version) · $(uname -sm)"
 # Keep only the summary lines (-q still prints \r progress when not on a TTY).

@@ -41,7 +41,18 @@ afterAll(async () => {
 async function start(): Promise<Started> {
   const child = spawn(
     process.execPath,
-    [BIN, '--single-node', '--host', '127.0.0.1', '--port', '0', '--data-dir', dataDir],
+    [
+      BIN,
+      '--single-node',
+      '--host',
+      '127.0.0.1',
+      '--port',
+      '0',
+      '--http-port',
+      '0',
+      '--data-dir',
+      dataDir,
+    ],
     { stdio: ['ignore', 'pipe', 'inherit'] },
   );
   const lines = createInterface({ input: child.stdout });
@@ -109,7 +120,10 @@ test(
       const server = await start();
       replayedTotal += server.replayed;
       await verify(server.port);
+      const before = acked.counter;
       const writing = writeUntilKilled(server.port, iteration);
+      // Kill mid-stream: after the first acknowledged write, so a loaded machine still tests something.
+      while (acked.counter === before) await new Promise((r) => setTimeout(r, 2));
       await new Promise((r) => setTimeout(r, 20 + Math.random() * 80));
       const exited = new Promise((r) => server.process.once('exit', r));
       server.process.kill('SIGKILL');

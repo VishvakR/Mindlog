@@ -9,3 +9,6 @@ export type { KvServiceDeps } from './kv/kv-service.js';
 export { KvService, commandName } from './kv/kv-service.js';
 export { KvBrowser } from './kv-browser/kv-browser.js';
 export * from './kv-browser/schemas.js';
+export type { AdminServiceDeps } from './admin/admin-service.js';
+export { AdminService } from './admin/admin-service.js';
+export * from './admin/schemas.js';

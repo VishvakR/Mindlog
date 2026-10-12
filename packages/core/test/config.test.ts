@@ -87,6 +87,16 @@ describe('resolveConfig', () => {
   });
 });
 
+describe('resolveConfig ports', () => {
+  test('port 0 binds any free port; out-of-range ports are rejected', () => {
+    expect(
+      value(resolveConfig({ flags: { listen: { resp: { port: 0 } } } })).listen.resp.port,
+    ).toBe(0);
+    const error = failure(resolveConfig({ flags: { listen: { resp: { port: 65_536 } } } }));
+    expect(Object.keys(error.fields ?? {})).toEqual(['listen.resp.port']);
+  });
+});
+
 describe('resolveConfig limits and auth', () => {
   test('defaults follow Valkey limits and leave auth off', () => {
     const config = value(resolveConfig());

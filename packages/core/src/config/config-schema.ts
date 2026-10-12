@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-const port = z.number().int().min(1).max(65_535);
+// 0 binds any free port (tests, side-by-side dev nodes).
+const port = z.number().int().min(0).max(65_535);
 const host = z.string().min(1);
 
 const listener = (defaultPort: number) =>

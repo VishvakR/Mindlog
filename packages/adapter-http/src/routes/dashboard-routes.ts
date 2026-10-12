@@ -16,13 +16,14 @@ const CSP = [
 ].join('; ');
 
 /**
- * Serves the built dashboard at `/_/`; client routes fall back to `index.html`
- * but missing assets (paths with an extension) are 404 (PocketBase `Static`).
+ * Serves the built dashboard at `/_/`. Returns false when it is not built.
+ * Files are looked up per request, so a rebuild needs no restart; client
+ * routes fall back to `index.html` in the not-found handler (`spaFallback`).
  */
 export async function dashboardRoutes(
   app: FastifyInstance,
   dir: string | undefined,
-): Promise<void> {
+): Promise<boolean> {
   app.addHook('onSend', async (request, reply) => {
     if (request.url.startsWith('/_/')) reply.header('content-security-policy', CSP);
   });
@@ -32,23 +33,14 @@ export async function dashboardRoutes(
       reply
         .code(404)
         .type('text/plain')
-        .send(
-          'Dashboard not built. Run `pnpm --filter @mindlog/web build`, then restart the server.',
-        ),
+        .send('Dashboard not built. Run `pnpm --filter @mindlog/web build`, then reload.'),
     );
-    return;
+    return false;
   }
-  await app.register(fastifyStatic, {
-    root: dir,
-    prefix: '/_/',
-    wildcard: false,
-    index: ['index.html'],
-  });
-  app.get('/_/*', { config: { auth: false } }, (request, reply) => {
-    if (extname(request.url.split('?')[0] ?? '')) {
-      reply.callNotFound();
-      return;
-    }
-    return reply.sendFile('index.html');
-  });
+  await app.register(fastifyStatic, { root: dir, prefix: '/_/', index: ['index.html'] });
+  return true;
 }
+
+/** Client routes (no file extension) under `/_/` get the app shell; missing assets stay 404 (PocketBase `Static`). */
+export const isSpaRoute = (url: string): boolean =>
+  url.startsWith('/_/') && extname(url.split('?')[0] ?? '') === '';

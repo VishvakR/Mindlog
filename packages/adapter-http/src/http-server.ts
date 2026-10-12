@@ -10,7 +10,7 @@ import type { AnyRouteSpec } from './route.js';
 import { sendProblem } from './route.js';
 import { adminRoutes } from './routes/admin-routes.js';
 import { CONSOLE_PROTOCOL, consoleRoutes } from './routes/console-routes.js';
-import { dashboardRoutes } from './routes/dashboard-routes.js';
+import { dashboardRoutes, isSpaRoute } from './routes/dashboard-routes.js';
 import { healthRoutes } from './routes/health-routes.js';
 import { kvRoutes } from './routes/kv-routes.js';
 import { superuserRoutes } from './routes/superuser-routes.js';
@@ -94,7 +94,8 @@ export class HttpServer {
     });
     // Each handler runs inside an `http.request` span, so service spans nest under it.
     app.addHook('onRoute', (route) => {
-      if (route.websocket) return;
+      // Static dashboard files stream their reply after the handler returns; they get no span.
+      if (route.websocket || route.url.startsWith('/_')) return;
       const handler = route.handler;
       route.handler = function traced(request, reply) {
         return deps.tracer.withSpan(
@@ -112,15 +113,19 @@ export class HttpServer {
         status === 413 ? 'PAYLOAD_TOO_LARGE' : status < 500 ? 'INVALID_ARGUMENT' : 'INTERNAL';
       return sendProblem(reply, mindlogError(code, status < 500 ? message : 'Internal error.'));
     });
-    app.setNotFoundHandler((request, reply) =>
-      sendProblem(
+    let dashboard = false;
+    app.setNotFoundHandler((request, reply) => {
+      if (dashboard && request.method === 'GET' && isSpaRoute(request.url)) {
+        return reply.sendFile('index.html');
+      }
+      return sendProblem(
         reply,
         mindlogError(
           'NOT_FOUND',
           `No route for ${request.method} ${request.url.split('?')[0] ?? ''}`,
         ),
-      ),
-    );
+      );
+    });
 
     healthRoutes(app, this.#routes, deps);
     superuserRoutes(app, this.#routes, deps);
@@ -129,7 +134,7 @@ export class HttpServer {
     consoleRoutes(app, deps);
     const document = () => openApiDocument(this.#routes, deps.version);
     app.get('/api/openapi.json', { config: { auth: false } }, () => document());
-    await dashboardRoutes(app, deps.dashboardDir);
+    dashboard = await dashboardRoutes(app, deps.dashboardDir);
     await app.ready();
   }
 

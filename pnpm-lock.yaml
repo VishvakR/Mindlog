@@ -225,6 +225,18 @@ importers:
         specifier: ^2.16.0
         version: 2.16.0
 
+  packages/raft:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
+
   packages/server:
     dependencies:
       '@mindlog/adapter-http':

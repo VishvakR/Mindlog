@@ -119,7 +119,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['**/statemachine/**/*.ts', '**/apply/**/*.ts'],
+    files: ['**/statemachine/**/*.ts', '**/apply/**/*.ts', 'packages/raft/src/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: {
       'no-restricted-properties': [

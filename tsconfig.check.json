@@ -63,6 +63,12 @@
     },
     {
       "path": "packages/server/test"
+    },
+    {
+      "path": "packages/raft"
+    },
+    {
+      "path": "packages/raft/test"
     }
   ]
 }

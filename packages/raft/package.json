@@ -1,0 +1,26 @@
+{
+  "name": "@mindlog/raft",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure Raft consensus state machine (Ready/advance, no I/O)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/raft/"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/proto": "workspace:*"
+  }
+}

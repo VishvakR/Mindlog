@@ -33,6 +33,20 @@ describe('GET / SET (Valkey string.tcl)', () => {
     expect(await node.run('GET', 'k')).toBe('b');
   });
 
+  test('SET IFEQ writes only over an equal string value (Valkey 8.1)', async () => {
+    expect(await node.run('SET', 'k', 'a', 'IFEQ', 'x')).toBeNull();
+    expect(await node.run('GET', 'k')).toBeNull();
+    await node.run('SET', 'k', 'a');
+    expect(await node.run('SET', 'k', 'b', 'IFEQ', 'x')).toBeNull();
+    expect(await node.run('SET', 'k', 'b', 'IFEQ', 'a', 'GET')).toBe('a');
+    expect(await node.run('GET', 'k')).toBe('b');
+    expect(await node.run('SET', 'k', 'c', 'IFEQ', 'b', 'NX')).toEqual(SYNTAX);
+    await node.run('RPUSH', 'l', 'x');
+    expect(await node.run('SET', 'l', 'v', 'IFEQ', 'x')).toEqual({
+      error: expect.stringMatching(/^WRONG_TYPE/) as unknown,
+    });
+  });
+
   test('SET option conflicts are syntax errors', async () => {
     expect(await node.run('SET', 'k', 'v', 'NX', 'XX')).toEqual(SYNTAX);
     expect(await node.run('SET', 'k', 'v', 'EX', '10', 'PX', '100')).toEqual(SYNTAX);

@@ -20,21 +20,26 @@ const GET: KvCommand = {
   },
 };
 
-/** SET key value [NX|XX] [GET] [EX s|PX ms|EXAT ts|PXAT ms|KEEPTTL] */
+/** SET key value [NX|XX|IFEQ comparison] [GET] [EX s|PX ms|EXAT ts|PXAT ms|KEEPTTL] */
 const SET: KvCommand = {
   name: 'SET',
   arity: -3,
   flags: ['write', 'denyoom'],
   keys: ONE_KEY,
   async execute(ks, [name, value, ...options]) {
-    let condition: 'NX' | 'XX' | undefined;
+    let condition: 'NX' | 'XX' | 'IFEQ' | undefined;
+    let comparison: Uint8Array | undefined;
     let get = false;
     let keepTtl = false;
     let expireAtMs: bigint | undefined;
     for (let i = 0; i < options.length; i++) {
       const option = optionName(options[i]);
       if ((option === 'NX' || option === 'XX') && !condition) condition = option;
-      else if (option === 'GET' && !get) get = true;
+      else if (option === 'IFEQ' && !condition && options[i + 1]) {
+        // Valkey 8.1: set only if the current string value equals `comparison`.
+        condition = option;
+        comparison = options[++i];
+      } else if (option === 'GET' && !get) get = true;
       else if (option === 'KEEPTTL' && !keepTtl && expireAtMs === undefined) keepTtl = true;
       else if (EXPIRES.has(option) && expireAtMs === undefined && !keepTtl && options[i + 1]) {
         const at = expireAt(option as 'EX', options[++i] as Uint8Array, ks.context.nowMs, 'set');
@@ -49,7 +54,14 @@ const SET: KvCommand = {
       if (existing.type !== KvType.STRING) return errors.wrongType();
       previous = bulk(existing.value);
     }
-    if ((condition === 'NX' && existing) || (condition === 'XX' && !existing)) {
+    if (condition === 'IFEQ' && existing && existing.type !== KvType.STRING)
+      return errors.wrongType();
+    if (
+      (condition === 'NX' && existing) ||
+      (condition === 'XX' && !existing) ||
+      (condition === 'IFEQ' &&
+        (!existing || !Buffer.from(existing.value).equals(comparison ?? new Uint8Array())))
+    ) {
       return get ? previous : nil();
     }
     writeString(ks, key, value as Uint8Array, existing, {

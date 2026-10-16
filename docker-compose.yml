@@ -1,10 +1,33 @@
-# Profiles (PLAN 3, design.md): `dev` = one node + model service + Prometheus, Grafana, Jaeger.
+# Profiles (PLAN 3, design.md): `dev` = one node + model service + Prometheus, Grafana, Jaeger;
+# `chaos` = a 3-node Raft cluster (RESP 6381-6383) for scripts/chaos/*.sh.
 #   docker compose --profile dev run --rm mindlog superuser upsert you@example.com 'a long password' --data-dir /data
 #   docker compose --profile dev up --build
 # Dashboard http://localhost:8090/_/ · RESP localhost:6379 · Grafana http://localhost:3000 · Jaeger http://localhost:16686
 name: mindlog
 
+x-chaos-node: &chaos-node
+  profiles: [chaos]
+  build: .
+  image: mindlog:dev
+  command: ['-c', '/etc/mindlog/cluster.yaml']
+  volumes:
+    - ./deploy/chaos/cluster.yaml:/etc/mindlog/cluster.yaml:ro
+  networks: [chaos]
+
 services:
+  mindlog-1:
+    <<: *chaos-node
+    environment: { MINDLOG_NODE__RAFT_ID: '1', MINDLOG_NODE__ID: mindlog-1 }
+    ports: ['6381:6379', '8091:8090']
+  mindlog-2:
+    <<: *chaos-node
+    environment: { MINDLOG_NODE__RAFT_ID: '2', MINDLOG_NODE__ID: mindlog-2 }
+    ports: ['6382:6379', '8092:8090']
+  mindlog-3:
+    <<: *chaos-node
+    environment: { MINDLOG_NODE__RAFT_ID: '3', MINDLOG_NODE__ID: mindlog-3 }
+    ports: ['6383:6379', '8093:8090']
+
   mindlog:
     profiles: [dev]
     build: .
@@ -60,3 +83,6 @@ services:
 
 volumes:
   mindlog-data:
+
+networks:
+  chaos: {}

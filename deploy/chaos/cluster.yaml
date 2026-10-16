@@ -1,0 +1,9 @@
+# Three-node cluster for the `chaos` compose profile (PLAN 24 phase 3).
+# Each container sets node.raftId through MINDLOG_NODE__RAFT_ID.
+node:
+  dataDir: /data
+cluster:
+  peers:
+    - { id: 1, address: 'mindlog-1:7000' }
+    - { id: 2, address: 'mindlog-2:7000' }
+    - { id: 3, address: 'mindlog-3:7000' }

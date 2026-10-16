@@ -15,7 +15,7 @@ COPY --from=build /out .
 RUN mkdir /data && chown node:node /data
 USER node
 VOLUME /data
-EXPOSE 6379 8090
+EXPOSE 6379 8090 7000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s \
   CMD node -e "fetch('http://127.0.0.1:8090/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 ENTRYPOINT ["node", "dist/bin.js"]

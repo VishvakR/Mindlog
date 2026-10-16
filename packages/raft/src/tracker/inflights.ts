@@ -47,6 +47,12 @@ export class Inflights {
     this.#sizes = this.#sizes.slice(n);
   }
 
+  /** Releases the oldest message (its ack may have been lost). */
+  freeFirstOne(): void {
+    const first = this.#indexes[0];
+    if (first !== undefined) this.freeLE(first);
+  }
+
   reset(): void {
     this.#indexes = [];
     this.#sizes = [];

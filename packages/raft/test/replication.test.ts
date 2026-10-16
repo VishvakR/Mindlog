@@ -116,6 +116,18 @@ describe('log replication', () => {
     expect(h.node(2n).applied).toHaveLength(10);
   });
 
+  test('a pipeline full of lost appends recovers on the next heartbeat', () => {
+    const h = elected({ maxInflightMsgs: 4, maxEntryBatchBytes: 1 });
+    for (let i = 0; i < 10; i++) h.propose(1n, `p${i}`);
+    h.processReady(1n);
+    // Every append to node 3 is lost while the pipeline fills up.
+    h.inbox = h.inbox.filter((m) => !(m.to === 3n && m.type === MessageType.APPEND));
+    h.stabilize();
+    expect(h.node(3n).applied).toHaveLength(0);
+    h.tickAll(3);
+    expect(h.node(3n).applied).toEqual(h.node(1n).applied);
+  });
+
   test('stale terms are rejected and the stale leader steps down', () => {
     const h = elected();
     h.isolate(1n);

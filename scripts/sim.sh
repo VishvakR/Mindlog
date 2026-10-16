@@ -16,5 +16,5 @@ for ((i = 0; i < SHARDS; i++)); do
 done
 FAILED=0
 for job in $(jobs -p); do wait "$job" || FAILED=1; done
-grep -h "replay:" "$LOGS"/*.log || true
+grep -ho "replay: SIM_SEED=[0-9]*[^\"]*" "$LOGS"/*.log | sort -u || true
 if [ "$FAILED" = 0 ]; then echo "sim: $SEEDS seeds passed across $SHARDS shards"; else echo "sim: failures above"; exit 1; fi

@@ -378,6 +378,12 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     violate(`crashed: ${cause instanceof Error ? (cause.stack ?? cause.message) : String(cause)}`);
   }
   if (o.verbose && violations.length > 0) {
+    const fmt = (v: unknown): string =>
+      JSON.stringify(v, (_k, x: unknown) => (typeof x === 'bigint' ? x.toString() : x));
+    for (const node of nodes) {
+      const s = node.up?.replica.status();
+      if (s) console.log(`n${node.id} status`, fmt({ ...s, confState: undefined }));
+    }
     for (const node of nodes) {
       for (const e of node.up?.logger.entries.slice(-30) ?? [])
         console.log(`n${node.id}`, e.level, e.message);

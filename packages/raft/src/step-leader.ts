@@ -102,6 +102,8 @@ function handleHeartbeatResponse(r: Raft, m: Message): void {
   pr.recentActive = true;
   pr.probeSent = false;
   r.recordLeaseTick(pr, m.leaseTick);
+  // Lost appends never free their slots; let one through so a reject can reset the pipeline.
+  if (pr.state === 'replicate' && pr.inflights.full()) pr.inflights.freeFirstOne();
   if (pr.match < r.log.lastIndex()) r.sendAppend(m.from);
   // Repeat TimeoutNow until the target can campaign (it may still be applying its promotion).
   else if (m.from === r.leadTransferee) sendTimeoutNow(r, m.from);

@@ -310,6 +310,13 @@ flowchart LR
 
 Recall reads several indexes. They are all updated inside the same apply, so a recall at index *i* sees one consistent version of records, vectors, postings and edges.
 
+**Implemented in phase 3** (ADR-0007): the range replica implements the `ReadBarrier` port of `@mindlog/services`.
+- Redis reads use `lease`, and `WATCH` uses `linearizable`.
+- Leases count leader ticks that followers echo back, so only clock rate matters, not clock offset.
+- A lease read is refused after a process pause longer than two ticks.
+- ReadIndex requests are batched per event-loop turn.
+- On a follower, both `lease` and `linearizable` forward a ReadIndex to the leader, then wait for the local apply.
+
 ---
 
 ## 8. Replication and cluster management
@@ -327,7 +334,16 @@ flowchart LR
   apply --> adv["4. advance()"] --> core
 ```
 
-Features: PreVote, CheckQuorum, pipelined AppendEntries with flow control (Probe / Replicate / Snapshot progress states), ReadIndex, leader leases, follower reads, chunked snapshots, learners, single-server membership changes (ADR-006), leadership transfer, proposal forwarding. Election timeouts come from the seeded `Random` port, not a global RNG.
+Features: PreVote, CheckQuorum, pipelined AppendEntries with flow control (Probe / Replicate / Snapshot progress states), ReadIndex, leader leases, follower reads, chunked snapshots, learners, single-server membership changes (ADR-0006), leadership transfer, proposal forwarding. Election timeouts come from the seeded `Random` port, not a global RNG.
+
+How phase 3 builds it (ADR-0006, 0025, 0026):
+- `@mindlog/multiraft`'s `Replica` drives the core:
+  - each Ready is one log batch and one fsync;
+  - proposals resolve by request id when this node applies them, so writes on a follower are forwarded and answered there;
+  - on a leader change, pending proposals are proposed again (apply deduplicates by request id), so failover is bounded by the election (about 1.5 s median).
+- A new range writes its initial membership as committed `ADD_VOTER` entries, so membership always comes from the log or a snapshot.
+- Snapshots are the whole state store at its applied point. They stream in chunks over the Connect transport and install as one atomic batch, with boot reconciliation for a crash halfway (ADR-0026).
+- `--single-node` is the same code with one voter.
 
 | Timing | Default |
 |---|---|
@@ -335,7 +351,7 @@ Features: PreVote, CheckQuorum, pipelined AppendEntries with flow control (Probe
 | Election timeout | random 10–20 ticks |
 | Lease | 9 ticks |
 | Max in-flight AppendEntries / follower | 256 |
-| Snapshot threshold | 10,000 entries or 64 MiB |
+| Snapshot threshold | 10,000 applied entries in the log (1,000 kept after compaction) |
 
 Invariants are asserted in tests and debug builds: election safety, leader append-only, log matching, leader completeness, state machine safety, and `applied ≤ committed` with commit never decreasing.
 
@@ -582,12 +598,12 @@ Every new failure path gets a simulator scenario.
 | Unit + property | Vitest, fast-check | Every PR; ≥ 85% line coverage on domain packages |
 | Contract | Shared suites per port; buf breaking; TS ↔ Python golden bytes | Every PR |
 | Architecture | Lint fixtures proving boundary and determinism rules fire | Every PR |
-| Deterministic simulation | Whole cluster in one process with simulated network, disk, clock and RNG; fault schedules; invariants | 1,000 seeds per PR, 100,000 nightly; failing seeds become regression tests |
+| Deterministic simulation | `test/sim`: real replicas, state machines and KV services in one process with a simulated network (loss, duplication, reordering, partitions), power-loss disk, drifting clocks and one seeded RNG; Raft safety checked after every event, Wing–Gong linearizability and convergence at the end | 1,000 seeds per push, 100,000 nightly; failing seeds become regression tests |
 | Linearizability | Jepsen Maelstrom `lin-kv`, `txn-list-append` | Nightly from phase 3 |
 | Compatibility, fuzzing, chaos, load | Redis client suites, parser fuzzers, Docker + `tc`/iptables, redis-benchmark/memtier | Nightly / weekly / per release |
 | AI evaluation | LongMemEval, LoCoMo, ablations, conflict F1, cache hit/false-hit | Per change to the memory engine |
 
-### 18.2 What exists today (phase 2)
+### 18.2 What exists today (phase 3)
 
 | Area | Status |
 |---|---|
@@ -596,17 +612,21 @@ Every new failure path gets a simulator scenario.
 | `@mindlog/eventbus` | Typed domain events, EventBus port, in-memory bus |
 | `@mindlog/proto` / `mindlog-proto` | `Command` envelope with `KvWrite`, `KvBatch`, `Expire`, `GcThreshold` bodies, `CommandResult`, `KvReply`; generated TS and Python; golden-byte tests |
 | `@mindlog/storage` | `KvStore` port, `LevelDbStore` and `MemoryStore` (one contract suite), MVCC versions, tombstones, scans at a version, version GC |
-| `@mindlog/statemachine` | `Proposer` port, `StateMachine` with an apply-handler registry, idempotency table, `appliedIndex`, `LocalLog` (CRC-32C, fsync, truncation record), `LocalProposer` (group commit, BUSY, `storage.write` and `statemachine.apply` spans), recovery replay |
-| `@mindlog/kv` | 100 Redis commands over generations (strings, keys, expiry, hashes, lists, sets, sorted sets, JSON subset), SCAN cursors, replicated expiry and GC jobs |
-| `@mindlog/services` | `KvService`: sessions, static AUTH, reads on applied state, writes through the Proposer, MULTI/EXEC/WATCH, spans and metrics. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
+| `@mindlog/statemachine` | `Proposer` port, `StateMachine` with an apply-handler registry, idempotency table, applied `{index, term}` and `ConfState`, snapshots (read and atomic install), `RaftLogStore` (CRC-32C entries, hard and truncated state, format v2 markers, ADR-0026) |
+| `@mindlog/raft` | Pure Raft core (ADR-0006, 0007): PreVote, CheckQuorum, fast backtracking, flow control, ReadIndex, tick-echo leases, snapshots, learners, single-server changes, leadership transfer, `bootstrapEntries` |
+| `@mindlog/multiraft` | `Replica` (Ready loop, proposals, read barrier, membership, compaction, boot reconciliation), `startSingleNode`, `RaftTransport` and `Scheduler` ports |
+| `@mindlog/transport` | `ConnectTransport`: Raft messages and snapshot chunks over Connect gRPC on HTTP/2 (ADR-0025) |
+| `@mindlog/kv` | 100 Redis commands over generations (strings, keys, expiry, hashes, lists, sets, sorted sets, JSON subset), `SET … IFEQ`, SCAN cursors, replicated expiry and GC jobs (leader only) |
+| `@mindlog/services` | `KvService`: sessions, static AUTH, reads behind the `ReadBarrier`, writes through the Proposer, MULTI/EXEC/WATCH, spans and metrics. `ClusterService`: `CLUSTER.*` admin commands. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
 | `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server, `resp.command` spans, preauthenticated connections for the console |
 | `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
 | `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, data browser with typed editors, console, settings |
-| `@mindlog/server` | Composition root, `mindlog-server --single-node` (RESP + HTTP), `superuser upsert`, graceful shutdown |
+| `@mindlog/server` | Composition root: `mindlog-server` as a one-voter range (`--single-node`) or a cluster member (`cluster.peers`), `superuser upsert`, graceful shutdown, `mindlog-maelstrom` node binary |
 | Python | `model_service` placeholder process; redis-py compatibility suite |
-| Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger), Grafana dashboard in `deploy/grafana/` |
-| CI | Lint, typecheck, tests (TS, web, Python), protobuf drift and breaking checks, Conventional Commits, gate job (redis-py, kill -9 durability, redis-benchmark) |
-| Gates | Phase 0, 1 and 2 (`docs/phases/phase-N.md`) |
+| Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger; `chaos`: 3-node cluster), `scripts/chaos/` (kill the leader, partition a node), Grafana dashboard in `deploy/grafana/` |
+| Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts` |
+| CI | Lint, typecheck, tests (TS, web, Python), protobuf drift and breaking checks, Conventional Commits, gate job (redis-py, kill -9 durability, redis-benchmark, 3-node failover), 1,000 simulator seeds; nightly Maelstrom and 100,000 seeds |
+| Gates | Phases 0 to 3 (`docs/phases/phase-N.md`) |
 
 Everything else in this document is designed but not built yet; it arrives phase by phase (PLAN 24).
 
@@ -627,5 +647,9 @@ Everything else in this document is designed but not built yet; it arrives phase
 | Offline-first, tracing off by default | Runs with no network | Operators must opt in to export | ADR-020 |
 | Dashboard in React + shadcn/ui, served at `/_/` | Rich component ecosystem for later pages | Larger bundle than SvelteKit | ADR-0023 |
 | Superusers as argv-written hashes in `$system`, HMAC bearer tokens | No new command type or format; no CSRF surface | Login rate limiting and MFA come later | ADR-0024 |
+| Single-server membership changes, learners first, applied on commit | Simple quorum math; no rollback on truncation | Replacing a voter takes two changes | ADR-0006 |
+| Leases in echoed leader ticks; reads gated by a barrier | Clock offset does not matter, only rate | A paused leader falls back to ReadIndex | ADR-0007 |
+| Raft transport on Connect (gRPC over HTTP/2) | Reuses protobuf-es descriptors; streaming | Two dependencies | ADR-0025 |
+| Log format v2 with format markers; snapshots as one atomic batch | Crash-safe install with little code | Snapshots held in memory (ranges ≤ 64 MiB) | ADR-0026 |
 
 ADRs 0005 and later are written in the phase that needs them (PLAN 25).

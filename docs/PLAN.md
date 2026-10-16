@@ -1996,7 +1996,6 @@ raft:
   maxInflightBytes: 16777216
   maxEntryBatchBytes: 1048576
   snapshotEntries: 10000
-  snapshotBytes: 67108864
   trailingEntries: 1000
   snapshotChunkBytes: 1048576
 ranges:

@@ -2,7 +2,7 @@
 
 Mindlog is a Redis-compatible, Raft-replicated database that also serves as long-term memory for AI agents over MCP, and optionally as a PocketBase-style app backend. It runs fully offline: the server is TypeScript on Node.js, and local models run in a Python sidecar.
 
-> **Status: phase 0, Foundations.** The repository has its tooling, the shared `core` library, the event bus and the protobuf contracts. The database, replication and memory engine are built phase by phase as described in [`docs/PLAN.md`](docs/PLAN.md) §24.
+> **Status: phase 3, Raft.** A Redis-compatible KV store (RESP2/3, HTTP API, React dashboard) replicated with Raft across 3–5 nodes, checked by a deterministic simulator and Jepsen Maelstrom. The memory engine and later phases follow [`docs/PLAN.md`](docs/PLAN.md) §24; [`docs/design.md`](docs/design.md) §18 lists what exists today.
 
 ## Design in one paragraph
 

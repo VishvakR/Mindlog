@@ -2,7 +2,7 @@
 
 - Date: 2026-10-12
 - PLAN: §24 Phase 2
-- Status: **gate met**, awaiting sign-off
+- Status: **gate met**, signed off 2026-10-16
 - Decisions: ADR-0023 (React + shadcn/ui dashboard), ADR-0024 (Fastify adapter, superusers in `$system`, bearer tokens)
 
 ## Exit gate

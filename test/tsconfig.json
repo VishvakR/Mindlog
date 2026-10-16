@@ -5,13 +5,37 @@
     "outDir": "../dist-test/root",
     "tsBuildInfoFile": "../dist-test/root/.tsbuildinfo"
   },
-  "include": ["architecture", "compat", "integration", "support"],
+  "include": ["architecture", "compat", "integration", "sim", "support"],
   "references": [
     {
       "path": "../packages/core"
     },
     {
       "path": "../packages/server"
+    },
+    {
+      "path": "../packages/eventbus"
+    },
+    {
+      "path": "../packages/kv"
+    },
+    {
+      "path": "../packages/multiraft"
+    },
+    {
+      "path": "../packages/proto"
+    },
+    {
+      "path": "../packages/raft"
+    },
+    {
+      "path": "../packages/services"
+    },
+    {
+      "path": "../packages/statemachine"
+    },
+    {
+      "path": "../packages/storage"
     }
   ]
 }

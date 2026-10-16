@@ -1,7 +1,7 @@
 # CI pipeline steps 1-4 (PLAN 22.5): install, lint/typecheck/boundaries/cycles,
-# unit + property tests, protobuf checks, plus the phase 1 gate (client
-# compatibility, kill -9 durability, redis-benchmark). Later phases add
-# simulation, builds and supply-chain steps.
+# unit + property tests, protobuf checks, the phase 1 gate (client
+# compatibility, kill -9 durability, redis-benchmark) and the phase 3 checks
+# (1,000 simulator seeds, 3-node failover). Maelstrom runs nightly.
 name: CI
 
 on:
@@ -61,6 +61,22 @@ jobs:
       - name: Tests
         run: uv run pytest
 
+  sim:
+    name: Simulator (1,000 seeds)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Deterministic simulation (failing seeds print a replay command)
+        run: scripts/sim.sh 1000 4
+
   gate:
     name: Phase 1 gate (redis-py, kill -9 durability, redis-benchmark)
     runs-on: ubuntu-latest
@@ -91,6 +107,8 @@ jobs:
       - name: redis-benchmark smoke run
         timeout-minutes: 5
         run: scripts/bench-smoke.sh 20000 50
+      - name: 3-node leader failover under 3 s (5 kills)
+        run: FAILOVER_ITERATIONS=5 pnpm vitest run test/integration/failover.test.ts
 
   protobuf:
     name: Protobuf (lint, generated code, breaking changes)

@@ -7,6 +7,7 @@ import type { CommandStamper, Proposer } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
 import { MvccReader } from '@mindlog/storage';
 import type { StaticAuthenticator } from '../auth/static-authenticator.js';
+import type { ReadBarrier } from './read-barrier.js';
 import { Session } from '../session/session.js';
 
 export interface KvServiceDeps {
@@ -14,6 +15,8 @@ export interface KvServiceDeps {
   /** Applied state, for reads and WATCH versions. */
   readonly store: KvReader;
   readonly proposer: Proposer;
+  /** Gates reads on leadership or freshness (ADR-0007). */
+  readonly readBarrier: ReadBarrier;
   readonly stamper: CommandStamper;
   readonly clock: Clock;
   readonly authenticator: StaticAuthenticator;
@@ -207,6 +210,9 @@ export class KvService {
     if (argv.length < 2) return replies.errors.arity('watch');
     if (session.transaction)
       return replies.error('INVALID_ARGUMENT', 'WATCH inside MULTI is not allowed');
+    // WATCH versions must be current: EXEC compares them at commit (PLAN 9.3).
+    const ready = await this.deps.readBarrier.read('linearizable');
+    if (!ready.ok) return replies.error(ready.error.code, ready.error.message);
     const reader = new MvccReader(this.deps.store);
     for (const key of argv.slice(1)) {
       const id = Buffer.from(key).toString('hex');
@@ -223,7 +229,10 @@ export class KvService {
   /** Runs one data command: reads on applied state, writes through the Proposer. */
   protected async run(session: Session, argv: readonly Uint8Array[]): Promise<KvReply> {
     const command = argv[0] ? this.deps.registry.get(argv[0]) : undefined;
-    if (!command || !isWrite(command)) {
+    if (!command) return this.reads.execute(session.tenant, argv, this.deps.clock.now());
+    if (!isWrite(command)) {
+      const ready = await this.deps.readBarrier.read('lease');
+      if (!ready.ok) return replies.error(ready.error.code, ready.error.message);
       return this.reads.execute(session.tenant, argv, this.deps.clock.now());
     }
     const ok = command.arity >= 0 ? argv.length === command.arity : argv.length >= -command.arity;

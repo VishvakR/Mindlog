@@ -13,7 +13,8 @@ import {
 import type { KvReply } from '@mindlog/proto';
 import { CommandSchema } from '@mindlog/proto';
 import { MemoryStore } from '@mindlog/storage';
-import { ApplyHandlerRegistry, LocalLog, LocalProposer, StateMachine } from '@mindlog/statemachine';
+import { startSingleNode } from '@mindlog/multiraft';
+import { ApplyHandlerRegistry, RaftLogStore, StateMachine } from '@mindlog/statemachine';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -73,9 +74,10 @@ export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_00
     logger,
     metrics,
   });
-  const proposer = new LocalProposer({
-    log: await LocalLog.open(new MemoryStore()),
+  const proposer = await startSingleNode({
+    log: new RaftLogStore(new MemoryStore()),
     machine,
+    clock,
     logger,
     metrics,
   });

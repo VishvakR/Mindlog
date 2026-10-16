@@ -103,6 +103,8 @@ function handleHeartbeatResponse(r: Raft, m: Message): void {
   pr.probeSent = false;
   r.recordLeaseTick(pr, m.leaseTick);
   if (pr.match < r.log.lastIndex()) r.sendAppend(m.from);
+  // Repeat TimeoutNow until the target can campaign (it may still be applying its promotion).
+  else if (m.from === r.leadTransferee) sendTimeoutNow(r, m.from);
   if (m.context.length === 0) return;
   const acks = r.readOnly.recvAck(m.from, m.context);
   if (!acks || voteResult(r.voters, acks) !== 'won') return;

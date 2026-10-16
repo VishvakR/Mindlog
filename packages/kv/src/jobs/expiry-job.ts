@@ -8,6 +8,8 @@ import { expiryIndexPrefix } from '../model/kv-keys.js';
 export interface ExpiryJobDeps {
   readonly store: KvReader;
   readonly proposer: Proposer;
+  /** Runs only while this returns true (the range leader); always when absent. */
+  readonly active?: () => boolean;
   readonly stamper: CommandStamper;
   readonly clock: Clock;
   readonly logger: Logger;
@@ -42,6 +44,7 @@ export class ExpiryJob {
 
   /** One pass: proposes due keys, grouped by tenant. Returns how many were proposed. */
   async runOnce(): Promise<number> {
+    if (this.#deps.active && !this.#deps.active()) return 0;
     const now = this.#deps.clock.now();
     const limit = this.#deps.batchSize ?? 200;
     const byTenant = new Map<string, Due[]>();

@@ -4,7 +4,6 @@ import { expect, test } from 'vitest';
 import { packHlc } from '@mindlog/core';
 import type { KvStore } from '@mindlog/storage';
 import { MemoryStore } from '@mindlog/storage';
-import { recover } from '@mindlog/statemachine';
 import { writeCommand } from './support/counter-handler.js';
 import { startNode } from './support/node.js';
 
@@ -27,21 +26,29 @@ const op = fc.record({
   requestId: fc.constantFrom('r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8'),
 });
 
-test('replicas applying the same log reach byte-identical state', async () => {
+test('replicas applying the same log, or installing a snapshot of it, reach identical state', async () => {
   await fc.assert(
     fc.asyncProperty(fc.array(op, { maxLength: 30 }), async (ops) => {
       const commands = ops.map((o) =>
         writeCommand([o.verb, o.name], o.requestId, packHlc(o.hlc, 0n)),
       );
       const leader = await startNode();
-      for (const command of commands) await leader.proposer.propose(command);
-
       const follower = await startNode();
-      for (const [i, command] of commands.entries())
-        await follower.machine.apply(BigInt(i + 1), command);
+      for (const [i, command] of commands.entries()) {
+        await leader.machine.apply(BigInt(i + 1), 1n, command);
+        await follower.machine.apply(BigInt(i + 1), 1n, command);
+      }
 
-      const rebuilt = await startNode(leader.logStore, new MemoryStore());
-      await recover(rebuilt.log, rebuilt.machine);
+      const rebuilt = await startNode(new MemoryStore());
+      const snapshot = await leader.machine.snapshot();
+      const pairs = [];
+      for await (const chunk of snapshot.chunks(64)) pairs.push(...chunk);
+      await snapshot.release();
+      await rebuilt.machine.installSnapshot(snapshot.meta, pairs);
+      expect(rebuilt.machine.applied).toEqual({
+        index: BigInt(commands.length),
+        term: commands.length ? 1n : 0n,
+      });
 
       const expected = await stateHash(leader.stateStore);
       expect(await stateHash(follower.stateStore)).toBe(expected);

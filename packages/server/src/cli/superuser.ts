@@ -2,7 +2,9 @@ import { parseArgs } from 'node:util';
 import { MemoryMetrics, OtelTracer, SystemClock, createLogger } from '@mindlog/core';
 import { AdminService } from '@mindlog/services';
 import { loadConfig } from '../bootstrap/load-config.js';
-import { openNodeCore } from '../bootstrap/open-node-core.js';
+import { isSingleNode, openNodeCore } from '../bootstrap/open-node-core.js';
+
+const LEADER_WAIT_MS = 10_000;
 import type { MainIo, MainResult } from './io.js';
 import { EXIT, formatError } from './io.js';
 
@@ -62,6 +64,23 @@ export async function superuserCommand(argv: readonly string[], io: MainIo): Pro
     return { kind: 'exit', code: EXIT.failure };
   }
   try {
+    // A cluster member must hear from (or become) the leader before it can write.
+    if (!isSingleNode(config.value)) {
+      const known = await Promise.race([
+        core.value.replica.leaderKnown().then(() => true),
+        new Promise<false>((done) =>
+          setTimeout(() => {
+            done(false);
+          }, LEADER_WAIT_MS).unref(),
+        ),
+      ]);
+      if (!known) {
+        io.stderr(
+          'mindlog-server: no leader is reachable; start the other cluster members first\n',
+        );
+        return { kind: 'exit', code: EXIT.failure };
+      }
+    }
     const saved = await new AdminService({ service: core.value.service, clock }).upsertSuperuser({
       email,
       password,

@@ -19,7 +19,7 @@ node packages/server/dist/bin.js superuser upsert admin@example.com 'a long pass
 
 | Flag | Config key | |
 |---|---|---|
-| `--single-node` | | Required in phase 1 (clustering arrives in phase 3) |
+| `--single-node` | | Run as a one-voter range, ignoring `cluster.peers`. Without it, `cluster.peers` (or `cluster.join`) must be set |
 | `-c, --config <path>` | | Config file; default `./mindlog.yaml` if present |
 | `-p, --port <port>` | `listen.resp.port` | `0` binds any free port |
 | `--host <host>` | `listen.resp.host` | |
@@ -34,28 +34,29 @@ Precedence: defaults → `mindlog.yaml` → `MINDLOG_<SECTION>__<KEY>` environme
 | Export | Purpose |
 |---|---|
 | `main(argv, io)` | CLI entry: returns a running node or an exit code |
-| `startNode(config, options)` | Starts a node; `RunningNode` has the bound RESP and HTTP addresses, `replayed` and `close()` |
-| `openNodeCore(config, deps)` | Opens and recovers a data directory without listeners (used by `superuser upsert`) |
+| `startNode(config, options)` | Starts a node; `RunningNode` has the bound RESP, HTTP and internal addresses, the `replica`, `replayed` and `close()` |
+| `openNodeCore(config, deps)` | Opens a data directory and its range replica without client listeners (used by `superuser upsert`) |
 | `redactedSettings`, `DEFAULT_DASHBOARD_DIR` | What `/api/admin/settings` shows; where `web/` builds the dashboard |
 | `loadConfig`, `parseCliArgs`, `USAGE` | Configuration layering and argument parsing |
 | `serverInfo`, `mindlogVersion`, `REDIS_API_VERSION` | What `INFO`, `HELLO` and `CONFIG GET` report |
 
-## Wiring (phase 2)
+## Wiring (phase 3)
 
 ```
-dataDir/raftlog  LevelDbStore (sync) ── LocalLog ──┐
-dataDir/state    LevelDbStore ──────── StateMachine ┼─ recover() replays appliedIndex+1..last
-                                                    └─ LocalProposer (group commit, BUSY)
+dataDir/raftlog  LevelDbStore (format 2, sync) ── RaftLogStore ──┐
+dataDir/state    LevelDbStore (format 2) ──────── StateMachine ──┼─ Replica (Raft core, Ready loop)
+listen.internal  ConnectTransport (cluster only) ─────────────────┘   = Proposer + ReadBarrier
 KvService (registry, stamper: HLC + ULID, StaticAuthenticator, tracer, metrics)
 RespServer (CommandTable from JSON specs, connection commands, limits, resp.command spans)
 HttpServer (AdminService, KvBrowser, RESP console over WebSocket, /metrics, dashboard at /_/)
-ExpiryJob (100 ms) · GcJob (1 s)          → propose Expire / GcThreshold commands
+ExpiryJob (100 ms) · GcJob (1 s)          → leader only: propose Expire / GcThreshold commands
 ```
 
 ## Lifecycle
 
-- **Start**: open both stores (the second failing closes the first), replay the log into state, then listen on RESP and HTTP; `/ready` turns 200 once both listen. A listen failure releases the stores.
-- **Stop** (`SIGINT`/`SIGTERM`, or `close()`): `/ready` turns 503 → close HTTP (WebSockets included) → stop accepting RESP → let in-flight commands finish → stop the jobs → drain the proposer → checkpoint (flush state, compact the log, record the truncation point) → close the stores → flush traces.
+- **Start**: open both stores (the second failing closes the first) and check their format markers, open the replica (a single node replays its log and elects itself; a cluster member starts its internal listener), then listen on RESP and HTTP. `/ready` turns 200 once both listen. A listen failure releases the stores.
+- **Cluster**: list every initial member in `cluster.peers` (`{ id, address }`, the same list on each node) and give each node its own `node.raftId`. A node added later starts with `cluster.join: true` and is added with `CLUSTER.ADDLEARNER` / `CLUSTER.PROMOTE`.
+- **Stop** (`SIGINT`/`SIGTERM`, or `close()`): `/ready` turns 503 → close HTTP (WebSockets included) → stop accepting RESP → let in-flight commands finish → stop the jobs → close the replica (pending work gets `UNAVAILABLE`) and the internal listener → flush state → close the stores → flush traces.
 - **Fail-stop**: an uncaught exception or unhandled rejection logs `fatal` and exits 1. The log replays on the next start (CLAUDE.md §4 rule 6).
 
 ## Invariants

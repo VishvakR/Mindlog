@@ -18,11 +18,11 @@ import {
 import type { KvReply } from '@mindlog/proto';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
 import type { Session } from '@mindlog/services';
+import { startSingleNode } from '@mindlog/multiraft';
 import {
   ApplyHandlerRegistry,
   CommandStamper,
-  LocalLog,
-  LocalProposer,
+  RaftLogStore,
   StateMachine,
 } from '@mindlog/statemachine';
 import { MemoryStore } from '@mindlog/storage';
@@ -84,17 +84,19 @@ export async function serviceNode(
     logger,
     metrics,
   });
-  const proposer = new LocalProposer({
-    log: await LocalLog.open(new MemoryStore()),
+  const proposer = await startSingleNode({
+    log: new RaftLogStore(new MemoryStore()),
     machine,
+    clock,
     logger,
     metrics,
-    options: { maxQueue: options.maxQueue ?? 10_000 },
+    options: { maxPendingProposals: options.maxQueue ?? 10_000 },
   });
   const service = new KvService({
     registry,
     store,
     proposer,
+    readBarrier: proposer,
     stamper: new CommandStamper(
       new HybridLogicalClock(clock, { maxOffsetMs: 500n }),
       new UlidGenerator(clock, new SeededRandom(1n)),

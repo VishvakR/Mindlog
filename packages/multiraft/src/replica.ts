@@ -1,0 +1,656 @@
+import { equals, fromBinary, toBinary } from '@bufbuild/protobuf';
+import type {
+  Clock,
+  Counter,
+  Gauge,
+  Histogram,
+  Logger,
+  Metrics,
+  MindlogError,
+  Random,
+  Result,
+  SpanAttributes,
+  Tracer,
+} from '@mindlog/core';
+import { err, hlcPhysical, mindlogError, ok } from '@mindlog/core';
+import type { Hlc } from '@mindlog/core';
+import type { Command, ConfChange, ConfState, Entry, KeyValue, Message } from '@mindlog/proto';
+import { CommandSchema, ConfChangeSchema, EntryType, MessageType } from '@mindlog/proto';
+import type { BootstrapPeer, RaftOptions, RaftStatus, Ready } from '@mindlog/raft';
+import { RawNode, bootstrapEntries } from '@mindlog/raft';
+import type { Proposal, Proposer, RaftLogStore, StateMachine } from '@mindlog/statemachine';
+import type { InboundHandler, RaftTransport, Scheduler } from './ports.js';
+
+/** Replica tunables beyond the Raft core (PLAN 7.4, Appendix B). */
+export interface ReplicaOptions extends RaftOptions {
+  readonly tickMs: number;
+  /** Compact once this many applied entries are in the log. */
+  readonly snapshotEntries: number;
+  /** Entries kept after compaction so slow followers avoid a snapshot. */
+  readonly trailingEntries: number;
+  readonly snapshotChunkBytes: number;
+  /** Proposals waiting for apply beyond this are refused with BUSY. */
+  readonly maxPendingProposals: number;
+}
+
+export interface ReplicaDeps {
+  readonly rangeId: bigint;
+  readonly raftId: bigint;
+  readonly options: ReplicaOptions;
+  readonly log: RaftLogStore;
+  readonly machine: StateMachine;
+  readonly transport: RaftTransport;
+  readonly scheduler: Scheduler;
+  readonly clock: Clock;
+  readonly random: Random;
+  readonly logger: Logger;
+  readonly metrics: Metrics;
+  readonly tracer?: Tracer;
+  /** Initial members of a brand-new range; ignored once the log has entries. */
+  readonly bootstrap?: readonly BootstrapPeer[];
+}
+
+/** Read consistency levels (PLAN 9.3, ADR-0007). */
+export type ReadLevel = 'linearizable' | 'lease' | 'bounded_staleness';
+
+interface Waiter<T> {
+  readonly resolve: (result: Result<T, MindlogError>) => void;
+  readonly deadlineTick: bigint;
+}
+
+interface PendingProposal extends Waiter<Proposal> {
+  readonly started: bigint;
+}
+
+interface PendingConf extends Waiter<ConfState> {
+  readonly index: bigint;
+  readonly data: Uint8Array;
+}
+
+const ROLE_CODE = { follower: 0, 'pre-candidate': 1, candidate: 2, leader: 3 } as const;
+const hex = (bytes: Uint8Array): string => Buffer.from(bytes).toString('hex');
+
+/**
+ * One replica of a range (PLAN 8.2): drives the pure Raft core with the log
+ * store, state machine, transport and timers. Each Ready is handled as
+ * persist (one fsync) → send → install snapshot / apply in order → advance
+ * (CLAUDE.md rule 3). Implements the Proposer port; proposals made on a
+ * follower are forwarded by Raft and resolved when this node applies them.
+ */
+export class Replica implements Proposer, InboundHandler {
+  readonly #deps: ReplicaDeps;
+  readonly #raw: RawNode;
+  readonly #pending = new Map<string, PendingProposal[]>();
+  readonly #confWaiters: PendingConf[] = [];
+  readonly #readBatch: Array<Waiter<void>> = [];
+  readonly #reads = new Map<string, Array<Waiter<void>>>();
+  readonly #appliedWaiters: Array<{ index: bigint; done: () => void }> = [];
+  readonly #leaderWaiters: Array<() => void> = [];
+  readonly #snapshotting = new Set<bigint>();
+  #staged: { index: bigint; pairs: readonly KeyValue[] } | undefined;
+  #tick = 0n;
+  #lastTickNs: bigint;
+  #readSeq = 0n;
+  #loop: Promise<void> = Promise.resolve();
+  #scheduled = false;
+  #stopTicks: (() => void) | undefined;
+  #failure: unknown;
+  #closed = false;
+  #autoCampaigned = false;
+  readonly #m: {
+    term: Gauge;
+    role: Gauge;
+    commit: Gauge;
+    applied: Gauge;
+    elections: Counter;
+    commitLatency: Histogram;
+    dropped: Counter;
+    snapshots: Counter;
+  };
+
+  private constructor(deps: ReplicaDeps, raw: RawNode) {
+    this.#deps = deps;
+    this.#raw = raw;
+    this.#lastTickNs = deps.clock.monotonic();
+    const m = deps.metrics;
+    this.#m = {
+      term: m.gauge({ name: 'mindlog_raft_term_count', help: 'Current Raft term' }),
+      role: m.gauge({
+        name: 'mindlog_raft_role_info',
+        help: '0 follower, 1 pre-candidate, 2 candidate, 3 leader',
+      }),
+      commit: m.gauge({ name: 'mindlog_raft_commit_index_entries', help: 'Raft commit index' }),
+      applied: m.gauge({
+        name: 'mindlog_raft_applied_index_entries',
+        help: 'Last applied log index',
+      }),
+      elections: m.counter({
+        name: 'mindlog_raft_elections_total',
+        help: 'Times this node became leader',
+      }),
+      commitLatency: m.histogram({
+        name: 'mindlog_raft_commit_latency_seconds',
+        help: 'Proposal to apply on the proposing node',
+        buckets: [0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5],
+      }),
+      dropped: m.counter({
+        name: 'mindlog_raft_proposals_dropped_total',
+        help: 'Proposals that failed before being applied, by reason',
+        labelNames: ['reason'],
+      }),
+      snapshots: m.counter({
+        name: 'mindlog_raft_snapshots_total',
+        help: 'Snapshots sent or installed',
+        labelNames: ['direction'],
+      }),
+    };
+  }
+
+  /** Loads the log, reconciles it with the state store (ADR-0026) and builds the core. */
+  static async open(deps: ReplicaDeps): Promise<Replica> {
+    let stored = await deps.log.load();
+    const applied = deps.machine.applied;
+    const fresh =
+      stored.entries.length === 0 && stored.truncated.index === 0n && applied.index === 0n;
+    if (fresh && deps.bootstrap && deps.bootstrap.length > 0) {
+      const entries = bootstrapEntries(deps.bootstrap);
+      const hardState = { ...stored.hardState, term: 1n, commit: BigInt(entries.length) };
+      await deps.log.persist({ hardState, entries, sync: true });
+      stored = { hardState, truncated: stored.truncated, entries };
+    }
+    const last = stored.truncated.index + BigInt(stored.entries.length);
+    if (applied.index < stored.truncated.index) {
+      throw new Error(
+        `state at ${applied.index} is behind the compacted log (${stored.truncated.index})`,
+      );
+    }
+    const termAtApplied =
+      applied.index === stored.truncated.index
+        ? stored.truncated.term
+        : stored.entries[Number(applied.index - stored.truncated.index - 1n)]?.term;
+    if (applied.index > last || termAtApplied !== applied.term) {
+      // A snapshot was installed but the log rewrite did not finish (ADR-0026).
+      deps.logger.warn('resetting the log to the installed snapshot', {
+        applied: applied.index,
+        last,
+      });
+      await deps.log.persist({ entries: [], snapshot: applied, sync: true });
+      stored = { hardState: stored.hardState, truncated: applied, entries: [] };
+    }
+    const raw = RawNode.create(
+      { ...deps.options, id: deps.raftId, rangeId: deps.rangeId, random: deps.random },
+      {
+        hardState: stored.hardState,
+        truncatedIndex: stored.truncated.index,
+        truncatedTerm: stored.truncated.term,
+        entries: stored.entries,
+        applied: applied.index,
+        confState: deps.machine.confState,
+      },
+    );
+    const replica = new Replica(deps, raw);
+    deps.transport.attach(replica);
+    deps.transport.setPeers(addressesOf(deps.machine.confState));
+    return replica;
+  }
+
+  /** Starts ticking and processing. */
+  start(): void {
+    this.#stopTicks = this.#deps.scheduler.every(this.#deps.options.tickMs, () => {
+      this.#onTick();
+    });
+    this.#schedule();
+  }
+
+  /** Stops ticking, waits for the current Ready, and fails whatever is pending. */
+  async close(): Promise<void> {
+    this.#closed = true;
+    this.#stopTicks?.();
+    await this.#loop;
+    this.#failAll(mindlogError('UNAVAILABLE', 'the replica is closed'));
+  }
+
+  get failure(): unknown {
+    return this.#failure;
+  }
+
+  /** Resolves once this node knows a leader (itself or another). */
+  leaderKnown(): Promise<void> {
+    if (this.#raw.status().lead !== 0n) return Promise.resolve();
+    return new Promise((done) => {
+      this.#leaderWaiters.push(done);
+    });
+  }
+
+  isLeader(): boolean {
+    return this.#raw.status().role === 'leader';
+  }
+
+  status(): RaftStatus {
+    return this.#raw.status();
+  }
+
+  get appliedIndex(): bigint {
+    return this.#deps.machine.appliedIndex;
+  }
+
+  // ---- Proposer ----
+
+  propose(command: Command): Promise<Result<Proposal, MindlogError>> {
+    const stopped = this.#stopped();
+    if (stopped) return Promise.resolve(err(stopped));
+    if (this.#pendingCount() >= this.#deps.options.maxPendingProposals) {
+      this.#m.dropped.inc(1, { reason: 'busy' });
+      return Promise.resolve(
+        err(mindlogError('BUSY', 'too many pending writes', { retryAfterMs: 10 })),
+      );
+    }
+    const proposed = this.#raw.propose(toBinary(CommandSchema, command));
+    if (!proposed.ok) {
+      this.#m.dropped.inc(1, { reason: 'not_leader' });
+      return Promise.resolve(proposed);
+    }
+    return new Promise((resolve) => {
+      const key = hex(command.requestId);
+      const list = this.#pending.get(key) ?? [];
+      list.push({ resolve, deadlineTick: this.#deadline(), started: this.#deps.clock.monotonic() });
+      this.#pending.set(key, list);
+      this.#schedule();
+    });
+  }
+
+  // ---- reads (ADR-0007) ----
+
+  /**
+   * Resolves once local state may serve a read at `level`: after a ReadIndex
+   * round (linearizable), at once within the leader lease (lease), or when
+   * the last applied write is recent enough (bounded_staleness).
+   */
+  read(level: ReadLevel, maxStalenessMs = 500): Promise<Result<void, MindlogError>> {
+    const stopped = this.#stopped();
+    if (stopped) return Promise.resolve(err(stopped));
+    const machine = this.#deps.machine;
+    if (level === 'bounded_staleness') {
+      const age = this.#deps.clock.now() - hlcPhysical(machine.appliedHlc as Hlc);
+      if (machine.appliedHlc > 0n && age <= BigInt(maxStalenessMs))
+        return Promise.resolve(ok(undefined));
+    }
+    if (level === 'lease' && this.#tickIsFresh()) {
+      const index = this.#raw.leaseRead();
+      if (index !== undefined) return this.#whenApplied(index).then(() => ok(undefined));
+    }
+    return new Promise((resolve) => {
+      this.#readBatch.push({ resolve, deadlineTick: this.#deadline() });
+      this.#schedule();
+    });
+  }
+
+  // ---- membership and leadership (ADR-0006) ----
+
+  /** Proposes one membership change; resolves with the new ConfState once applied here. */
+  changeMembership(cc: ConfChange): Promise<Result<ConfState, MindlogError>> {
+    const stopped = this.#stopped();
+    if (stopped) return Promise.resolve(err(stopped));
+    const proposed = this.#raw.proposeConfChange(cc);
+    if (!proposed.ok) return Promise.resolve(proposed);
+    const index = this.#raw.status().lastIndex;
+    return new Promise((resolve) => {
+      this.#confWaiters.push({
+        resolve,
+        index,
+        data: toBinary(ConfChangeSchema, cc),
+        deadlineTick: this.#deadline(),
+      });
+      this.#schedule();
+    });
+  }
+
+  transferLeader(to: bigint): Result<void, MindlogError> {
+    const result = this.#raw.transferLeader(to);
+    this.#schedule();
+    return result;
+  }
+
+  // ---- inbound (InboundHandler) ----
+
+  onMessages(messages: readonly Message[]): void {
+    if (this.#closed) return;
+    for (const m of messages) this.#raw.step(m);
+    this.#schedule();
+  }
+
+  onSnapshot(message: Message, pairs: readonly KeyValue[]): void {
+    if (this.#closed || !message.snapshot) return;
+    this.#staged = { index: message.snapshot.index, pairs };
+    this.#raw.step(message);
+    this.#schedule();
+  }
+
+  onUnreachable(id: bigint): void {
+    this.#raw.reportUnreachable(id);
+  }
+
+  // ---- the Ready loop ----
+
+  #schedule(): void {
+    if (this.#scheduled || this.#failure !== undefined) return;
+    this.#scheduled = true;
+    this.#deps.scheduler.defer(() => {
+      this.#scheduled = false;
+      this.#loop = this.#loop.then(() => this.#drain());
+    });
+  }
+
+  async #drain(): Promise<void> {
+    if (this.#failure !== undefined) return;
+    try {
+      this.#issueReads();
+      while (this.#raw.hasReady()) await this.#handle(this.#raw.ready());
+      this.#maybeAutoCampaign();
+      await this.#maybeCompact();
+      if (this.#raw.hasReady()) this.#schedule();
+    } catch (cause: unknown) {
+      this.#fail(cause);
+    }
+  }
+
+  async #handle(rd: Ready): Promise<void> {
+    if (rd.softState) this.#onSoftState(rd.softState.role, rd.softState.lead);
+    if (rd.snapshot) await this.#installSnapshot(rd);
+    if (rd.hardState || rd.entries.length > 0 || rd.snapshot) {
+      await this.#span('storage.write', { 'mindlog.entries': rd.entries.length }, () =>
+        this.#deps.log.persist({
+          ...(rd.hardState ? { hardState: rd.hardState } : {}),
+          entries: rd.entries,
+          ...(rd.snapshot
+            ? { snapshot: { index: rd.snapshot.index, term: rd.snapshot.term } }
+            : {}),
+          sync: rd.mustSync,
+        }),
+      );
+    }
+    this.#send(rd.messages);
+    for (const entry of rd.committedEntries) await this.#apply(entry);
+    for (const rs of rd.readStates) this.#onReadState(rs.index, rs.context);
+    this.#raw.advance(rd);
+    this.#notifyApplied();
+    const s = this.#raw.status();
+    if (s.lead !== 0n) for (const done of this.#leaderWaiters.splice(0)) done();
+    this.#m.term.set(Number(s.term));
+    this.#m.commit.set(Number(s.commit));
+    this.#m.applied.set(Number(this.#deps.machine.appliedIndex));
+  }
+
+  async #installSnapshot(rd: Ready): Promise<void> {
+    const meta = rd.snapshot;
+    const staged = this.#staged;
+    if (!meta || staged?.index !== meta.index)
+      throw new Error(`no data for snapshot at ${meta?.index}`);
+    await this.#deps.machine.installSnapshot(meta, staged.pairs);
+    this.#staged = undefined;
+    this.#deps.transport.setPeers(addressesOf(this.#deps.machine.confState));
+    this.#m.snapshots.inc(1, { direction: 'installed' });
+  }
+
+  async #apply(entry: Entry): Promise<void> {
+    const machine = this.#deps.machine;
+    if (entry.type === EntryType.CONF_CHANGE) {
+      const confState = this.#raw.applyConfChange(fromBinary(ConfChangeSchema, entry.data));
+      await machine.applyConfState(entry.index, entry.term, confState);
+      this.#deps.transport.setPeers(addressesOf(confState));
+      this.#resolveConf(entry, confState);
+      return;
+    }
+    if (entry.data.length === 0) {
+      await machine.applyEmpty(entry.index, entry.term);
+      return;
+    }
+    const command = fromBinary(CommandSchema, entry.data);
+    const result = await this.#span(
+      'statemachine.apply',
+      { 'mindlog.index': entry.index, 'mindlog.body': command.body.case ?? 'none' },
+      () => machine.apply(entry.index, entry.term, command),
+    );
+    const key = hex(command.requestId);
+    const waiting = this.#pending.get(key);
+    if (!waiting) return;
+    this.#pending.delete(key);
+    const now = this.#deps.clock.monotonic();
+    for (const w of waiting) {
+      this.#m.commitLatency.observe(Number(now - w.started) / 1e9);
+      w.resolve(ok({ index: entry.index, result }));
+    }
+  }
+
+  #resolveConf(entry: Entry, confState: ConfState): void {
+    for (let i = this.#confWaiters.length - 1; i >= 0; i--) {
+      const w = this.#confWaiters[i];
+      if (!w || w.index > entry.index) continue;
+      this.#confWaiters.splice(i, 1);
+      if (
+        w.index === entry.index &&
+        equals(
+          ConfChangeSchema,
+          fromBinary(ConfChangeSchema, w.data),
+          fromBinary(ConfChangeSchema, entry.data),
+        )
+      )
+        w.resolve(ok(confState));
+      else
+        w.resolve(
+          err(
+            mindlogError('NOT_LEADER', 'leadership changed before the membership change committed'),
+          ),
+        );
+    }
+  }
+
+  #send(messages: readonly Message[]): void {
+    const regular: Message[] = [];
+    for (const m of messages) {
+      if (m.type === MessageType.SNAPSHOT) void this.#sendSnapshot(m);
+      else regular.push(m);
+    }
+    if (regular.length > 0) this.#deps.transport.send(regular);
+  }
+
+  async #sendSnapshot(m: Message): Promise<void> {
+    if (this.#snapshotting.has(m.to)) return;
+    this.#snapshotting.add(m.to);
+    let delivered = false;
+    try {
+      const snapshot = await this.#deps.machine.snapshot();
+      try {
+        delivered = await this.#deps.transport.sendSnapshot(
+          { ...m, snapshot: snapshot.meta },
+          snapshot.chunks(this.#deps.options.snapshotChunkBytes),
+        );
+      } finally {
+        await snapshot.release();
+      }
+      this.#m.snapshots.inc(1, { direction: 'sent' });
+    } catch (cause: unknown) {
+      this.#deps.logger.warn('snapshot send failed', { to: m.to, error: String(cause) });
+    } finally {
+      this.#snapshotting.delete(m.to);
+      this.#raw.reportSnapshot(m.to, delivered);
+      this.#schedule();
+    }
+  }
+
+  // ---- reads ----
+
+  #issueReads(): void {
+    if (this.#readBatch.length === 0) return;
+    const waiters = this.#readBatch.splice(0);
+    this.#readSeq += 1n;
+    const context = new Uint8Array(8);
+    new DataView(context.buffer).setBigUint64(0, this.#readSeq);
+    const issued = this.#raw.readIndex(context);
+    if (!issued.ok) {
+      for (const w of waiters) w.resolve(issued);
+      return;
+    }
+    this.#reads.set(hex(context), waiters);
+  }
+
+  #onReadState(index: bigint, context: Uint8Array): void {
+    const key = hex(context);
+    const waiters = this.#reads.get(key);
+    if (!waiters) return;
+    this.#reads.delete(key);
+    void this.#whenApplied(index).then(() => {
+      for (const w of waiters) w.resolve(ok(undefined));
+    });
+  }
+
+  #whenApplied(index: bigint): Promise<void> {
+    if (this.#deps.machine.appliedIndex >= index) return Promise.resolve();
+    return new Promise((done) => {
+      this.#appliedWaiters.push({ index, done });
+    });
+  }
+
+  #notifyApplied(): void {
+    const applied = this.#deps.machine.appliedIndex;
+    for (let i = this.#appliedWaiters.length - 1; i >= 0; i--) {
+      const w = this.#appliedWaiters[i];
+      if (w && w.index <= applied) {
+        this.#appliedWaiters.splice(i, 1);
+        w.done();
+      }
+    }
+  }
+
+  /** Lease reads need a recent tick: a paused process must not trust its lease (ADR-0007). */
+  #tickIsFresh(): boolean {
+    const elapsed = this.#deps.clock.monotonic() - this.#lastTickNs;
+    return elapsed <= BigInt(2 * this.#deps.options.tickMs) * 1_000_000n;
+  }
+
+  // ---- ticks, deadlines, compaction ----
+
+  #onTick(): void {
+    if (this.#failure !== undefined || this.#closed) return;
+    this.#tick += 1n;
+    this.#lastTickNs = this.#deps.clock.monotonic();
+    this.#raw.tick();
+    this.#expire();
+    this.#schedule();
+  }
+
+  #deadline(): bigint {
+    return this.#tick + BigInt(2 * this.#deps.options.electionTicks[1]);
+  }
+
+  /** Fails waiters past their deadline; the write may still commit later (indefinite). */
+  #expire(): void {
+    const now = this.#tick;
+    const late = mindlogError('DEADLINE_EXCEEDED', 'not applied in time; it may still be applied', {
+      retryAfterMs: 100,
+    });
+    for (const [key, list] of this.#pending) {
+      const live = list.filter((w) => w.deadlineTick > now);
+      for (const w of list) if (w.deadlineTick <= now) w.resolve(err(late));
+      if (live.length === 0) this.#pending.delete(key);
+      else this.#pending.set(key, live);
+      if (live.length < list.length)
+        this.#m.dropped.inc(list.length - live.length, { reason: 'deadline' });
+    }
+    const noLeader = mindlogError('NOT_LEADER', 'leadership could not be confirmed in time', {
+      retryAfterMs: 100,
+    });
+    for (const [key, list] of this.#reads) {
+      if (list.every((w) => w.deadlineTick > now)) continue;
+      this.#reads.delete(key);
+      for (const w of list) w.resolve(err(noLeader));
+    }
+    for (let i = this.#confWaiters.length - 1; i >= 0; i--) {
+      const w = this.#confWaiters[i];
+      if (w && w.deadlineTick <= now) {
+        this.#confWaiters.splice(i, 1);
+        w.resolve(err(late));
+      }
+    }
+  }
+
+  /** Flushes state, then drops applied log entries beyond the trailing window (ADR-0005 rule 7). */
+  async #maybeCompact(): Promise<void> {
+    const options = this.#deps.options;
+    const s = this.#raw.status();
+    const applied = this.#deps.machine.appliedIndex;
+    if (applied - s.firstIndex + 1n <= BigInt(options.snapshotEntries)) return;
+    const flushed = await this.#deps.machine.flush();
+    const point = flushed.index - BigInt(options.trailingEntries);
+    const term = this.#raw.termAt(point);
+    if (point < s.firstIndex || term === undefined) return;
+    this.#raw.compact(point);
+    await this.#deps.log.compact({ index: point, term });
+  }
+
+  /** A single-voter range elects itself at once instead of waiting a timeout. */
+  #maybeAutoCampaign(): void {
+    if (this.#autoCampaigned) return;
+    const s = this.#raw.status();
+    const voters = s.confState.voters;
+    if (
+      voters.length === 1 &&
+      voters[0] === this.#deps.raftId &&
+      s.role === 'follower' &&
+      s.applied >= s.commit
+    ) {
+      this.#autoCampaigned = true;
+      this.#raw.campaign();
+      this.#schedule();
+    }
+  }
+
+  #onSoftState(role: RaftStatus['role'], lead: bigint): void {
+    this.#m.role.set(ROLE_CODE[role]);
+    if (role === 'leader') this.#m.elections.inc();
+    this.#deps.logger.info('raft role changed', { role, lead, term: this.#raw.status().term });
+  }
+
+  // ---- failure ----
+
+  #stopped(): MindlogError | undefined {
+    if (this.#failure !== undefined)
+      return mindlogError('UNAVAILABLE', 'the replica stopped after a failure');
+    if (this.#closed) return mindlogError('UNAVAILABLE', 'the replica is closed');
+    return undefined;
+  }
+
+  /** Fail-stop: a storage or apply error stops the replica for good (CLAUDE.md rule 6). */
+  #fail(cause: unknown): void {
+    this.#failure = cause;
+    this.#stopTicks?.();
+    this.#deps.logger.fatal('replica stopped after a storage or apply failure', {
+      error: cause instanceof Error ? cause.message : String(cause),
+    });
+    this.#failAll(mindlogError('UNAVAILABLE', 'the replica stopped after a failure'));
+  }
+
+  #failAll(error: MindlogError): void {
+    for (const list of this.#pending.values()) for (const w of list) w.resolve(err(error));
+    this.#pending.clear();
+    for (const w of this.#readBatch.splice(0)) w.resolve(err(error));
+    for (const list of this.#reads.values()) for (const w of list) w.resolve(err(error));
+    this.#reads.clear();
+    for (const w of this.#confWaiters.splice(0)) w.resolve(err(error));
+  }
+
+  #pendingCount(): number {
+    let n = 0;
+    for (const list of this.#pending.values()) n += list.length;
+    return n;
+  }
+
+  #span<T>(name: string, attributes: SpanAttributes, fn: () => Promise<T>): Promise<T> {
+    const tracer = this.#deps.tracer;
+    return tracer ? tracer.withSpan(name, attributes, fn) : fn();
+  }
+}
+
+export function addressesOf(confState: ConfState): Map<bigint, string> {
+  return new Map(Object.entries(confState.addresses).map(([id, address]) => [BigInt(id), address]));
+}

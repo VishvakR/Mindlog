@@ -30,6 +30,7 @@
     "@mindlog/eventbus": "workspace:*",
     "@mindlog/statemachine": "workspace:*",
     "@mindlog/storage": "workspace:*",
-    "@bufbuild/protobuf": "^2.16.0"
+    "@bufbuild/protobuf": "^2.16.0",
+    "@mindlog/multiraft": "workspace:*"
   }
 }

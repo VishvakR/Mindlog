@@ -7,13 +7,38 @@
   },
   "include": ["src"],
   "references": [
-    { "path": "../adapter-http" },
-    { "path": "../adapter-resp" },
-    { "path": "../core" },
-    { "path": "../eventbus" },
-    { "path": "../kv" },
-    { "path": "../services" },
-    { "path": "../statemachine" },
-    { "path": "../storage" }
+    {
+      "path": "../adapter-http"
+    },
+    {
+      "path": "../adapter-resp"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../eventbus"
+    },
+    {
+      "path": "../kv"
+    },
+    {
+      "path": "../services"
+    },
+    {
+      "path": "../statemachine"
+    },
+    {
+      "path": "../storage"
+    },
+    {
+      "path": "../multiraft"
+    },
+    {
+      "path": "../transport"
+    },
+    {
+      "path": "../raft"
+    }
   ]
 }

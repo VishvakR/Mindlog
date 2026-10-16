@@ -405,11 +405,9 @@ export function validateConfChange(cs: ConfState, cc: ConfChange): string | unde
   switch (cc.type) {
     case ConfChangeType.ADD_LEARNER:
       if (voter) return `node ${cc.nodeId} is already a voter`;
-      if (learner) return `node ${cc.nodeId} is already a learner`;
-      return cc.address ? undefined : 'a new node needs an address';
+      return learner ? `node ${cc.nodeId} is already a learner` : undefined;
     case ConfChangeType.ADD_VOTER:
-      if (voter) return `node ${cc.nodeId} is already a voter`;
-      return learner || cc.address ? undefined : 'a new node needs an address';
+      return voter ? `node ${cc.nodeId} is already a voter` : undefined;
     case ConfChangeType.REMOVE_NODE:
       if (!voter && !learner) return `node ${cc.nodeId} is not a member`;
       return voter && cs.voters.length === 1 ? 'cannot remove the last voter' : undefined;

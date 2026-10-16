@@ -4,6 +4,8 @@ import { SYSTEM_TENANT } from '@mindlog/core';
 
 export interface GcJobDeps {
   readonly proposer: Proposer;
+  /** Runs only while this returns true (the range leader); always when absent. */
+  readonly active?: () => boolean;
   readonly stamper: CommandStamper;
   /** The node's applied index (the state machine's). */
   readonly appliedIndex: () => bigint;
@@ -37,6 +39,7 @@ export class GcJob {
 
   /** One GC step; returns rows removed (0 when skipped). */
   async runOnce(): Promise<number> {
+    if (this.#deps.active && !this.#deps.active()) return 0;
     const applied = this.#deps.appliedIndex();
     const retain = this.#deps.retainEntries ?? 100_000n;
     const limit = this.#deps.limit ?? 1000;

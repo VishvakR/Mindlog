@@ -1,4 +1,5 @@
 import { loadConfig } from '../bootstrap/load-config.js';
+import { isSingleNode } from '../bootstrap/open-node-core.js';
 import { mindlogVersion } from '../bootstrap/server-info.js';
 import { startNode } from '../bootstrap/start-node.js';
 import { USAGE, parseCliArgs } from './args.js';
@@ -24,10 +25,6 @@ export async function main(argv: readonly string[], io: MainIo): Promise<MainRes
     io.stdout(`mindlog-server ${mindlogVersion()}\n`);
     return exit(EXIT.ok);
   }
-  if (!args.value.singleNode) {
-    io.stderr('mindlog-server: clustering arrives in phase 3; run with --single-node\n');
-    return exit(EXIT.usage);
-  }
   const config = await loadConfig({
     cwd: io.cwd,
     env: io.env,
@@ -37,6 +34,15 @@ export async function main(argv: readonly string[], io: MainIo): Promise<MainRes
   if (!config.ok) {
     io.stderr(formatError(config.error));
     return exit(EXIT.config);
+  }
+  // --single-node ignores any configured peers; otherwise a cluster needs them.
+  if (args.value.singleNode)
+    config.value.cluster = { ...config.value.cluster, peers: [], join: false };
+  else if (isSingleNode(config.value)) {
+    io.stderr(
+      'mindlog-server: set cluster.peers (or cluster.join) in the config, or run with --single-node\n',
+    );
+    return exit(EXIT.usage);
   }
   const node = await startNode(config.value, io.node);
   if (!node.ok) {

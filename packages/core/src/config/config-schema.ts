@@ -16,9 +16,60 @@ export const configSchema = z.strictObject({
   node: z
     .strictObject({
       id: z.string().min(1).default('node-1'),
+      // Raft member id: non-zero and never reused (ADR-0006).
+      raftId: z.number().int().min(1).default(1),
       dataDir: z.string().min(1).default('./data'),
       zone: z.string().min(1).default('local-a'),
     })
+    .prefault({}),
+  cluster: z
+    .strictObject({
+      // Initial members of a new cluster (phase 3 static bootstrap, before PD).
+      peers: z
+        .array(z.strictObject({ id: z.number().int().min(1), address: z.string().min(1) }))
+        .default([]),
+      // Start with no membership and wait to be added as a learner.
+      join: z.boolean().default(false),
+      maxClockOffsetMs: z.number().int().min(1).default(500),
+    })
+    .prefault({}),
+  raft: z
+    .strictObject({
+      tickMs: z.number().int().min(1).default(100),
+      electionTicks: z.tuple([z.number().int().min(1), z.number().int().min(2)]).default([10, 20]),
+      heartbeatTicks: z.number().int().min(1).default(1),
+      leaseTicks: z.number().int().min(0).default(9),
+      maxInflightMsgs: z.number().int().min(1).default(256),
+      maxInflightBytes: z
+        .number()
+        .int()
+        .min(0)
+        .default(16 * 1024 * 1024),
+      maxEntryBatchBytes: z
+        .number()
+        .int()
+        .min(1)
+        .default(1024 * 1024),
+      snapshotEntries: z.number().int().min(1).default(10_000),
+      trailingEntries: z.number().int().min(0).default(1_000),
+      snapshotChunkBytes: z
+        .number()
+        .int()
+        .min(1)
+        .default(1024 * 1024),
+    })
+    .refine(
+      (r) => r.electionTicks[1] > r.electionTicks[0],
+      'raft.electionTicks must be [min, max) with max > min',
+    )
+    .refine(
+      (r) => r.leaseTicks < r.electionTicks[0],
+      'raft.leaseTicks must be below electionTicks[0] (ADR-0007)',
+    )
+    .refine(
+      (r) => r.heartbeatTicks < r.electionTicks[0],
+      'raft.heartbeatTicks must be below electionTicks[0]',
+    )
     .prefault({}),
   listen: z
     .strictObject({

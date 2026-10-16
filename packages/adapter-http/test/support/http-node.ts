@@ -16,11 +16,11 @@ import {
   kvWriteHandler,
 } from '@mindlog/kv';
 import { AdminService, KvBrowser, KvService, StaticAuthenticator } from '@mindlog/services';
+import { startSingleNode } from '@mindlog/multiraft';
 import {
   ApplyHandlerRegistry,
   CommandStamper,
-  LocalLog,
-  LocalProposer,
+  RaftLogStore,
   StateMachine,
 } from '@mindlog/statemachine';
 import { MemoryStore } from '@mindlog/storage';
@@ -60,9 +60,10 @@ export async function httpNode(options: { ready?: boolean; dashboardDir?: string
     logger,
     metrics,
   });
-  const proposer = new LocalProposer({
-    log: await LocalLog.open(new MemoryStore()),
+  const proposer = await startSingleNode({
+    log: new RaftLogStore(new MemoryStore()),
     machine,
+    clock,
     logger,
     metrics,
   });
@@ -71,6 +72,7 @@ export async function httpNode(options: { ready?: boolean; dashboardDir?: string
     registry,
     store,
     proposer,
+    readBarrier: proposer,
     stamper: new CommandStamper(
       new HybridLogicalClock(clock, { maxOffsetMs: 500n }),
       new UlidGenerator(clock, new SeededRandom(1n)),

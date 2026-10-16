@@ -69,6 +69,18 @@
     },
     {
       "path": "packages/raft/test"
+    },
+    {
+      "path": "packages/multiraft"
+    },
+    {
+      "path": "packages/multiraft/test"
+    },
+    {
+      "path": "packages/transport"
+    },
+    {
+      "path": "packages/transport/test"
     }
   ]
 }

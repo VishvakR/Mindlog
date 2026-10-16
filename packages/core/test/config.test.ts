@@ -81,6 +81,19 @@ describe('resolveConfig', () => {
     expect(Object.keys(error.fields ?? {}).sort()).toEqual(['listen.http.port', 'listen.resp']);
   });
 
+  test('raft and cluster defaults follow PLAN 7.4; leases must be shorter than elections', () => {
+    const config = value(resolveConfig());
+    expect(config.node.raftId).toBe(1);
+    expect(config.cluster).toEqual({ peers: [], join: false, maxClockOffsetMs: 500 });
+    expect(config.raft).toMatchObject({ tickMs: 100, electionTicks: [10, 20], leaseTicks: 9 });
+    const peers = value(
+      resolveConfig({ fileText: 'cluster:\n  peers:\n    - { id: 1, address: "a:7000" }\n' }),
+    );
+    expect(peers.cluster.peers).toEqual([{ id: 1, address: 'a:7000' }]);
+    const error = failure(resolveConfig({ fileText: 'raft:\n  leaseTicks: 10\n' }));
+    expect(error.message + JSON.stringify(error.fields)).toMatch(/leaseTicks/);
+  });
+
   test('rejects malformed YAML and non-mapping documents', () => {
     expect(failure(resolveConfig({ fileText: 'node: [unclosed' })).code).toBe('CONFIG_INVALID');
     expect(failure(resolveConfig({ fileText: '- a\n- b\n' })).code).toBe('CONFIG_INVALID');

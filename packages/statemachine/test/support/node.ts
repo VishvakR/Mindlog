@@ -2,16 +2,11 @@ import { ManualClock, MemoryLogger, MemoryMetrics } from '@mindlog/core';
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import type { KvStore } from '@mindlog/storage';
 import { MemoryStore } from '@mindlog/storage';
-import type { LocalProposerOptions } from '@mindlog/statemachine';
-import { ApplyHandlerRegistry, LocalLog, LocalProposer, StateMachine } from '@mindlog/statemachine';
+import { ApplyHandlerRegistry, StateMachine } from '@mindlog/statemachine';
 import { counterHandler } from './counter-handler.js';
 
-/** A single-node pipeline (log + state machine + proposer) over the given stores. */
-export async function startNode(
-  logStore: KvStore = new MemoryStore(),
-  stateStore: KvStore = new MemoryStore(),
-  options: LocalProposerOptions = {},
-) {
+/** A state machine with the counter handler over the given state store. */
+export async function startNode(stateStore: KvStore = new MemoryStore()) {
   const handlers = new ApplyHandlerRegistry();
   handlers.register(counterHandler);
   const logger = new MemoryLogger();
@@ -25,7 +20,5 @@ export async function startNode(
     logger,
     metrics,
   });
-  const log = await LocalLog.open(logStore);
-  const proposer = new LocalProposer({ log, machine, logger, metrics, options });
-  return { logStore, stateStore, machine, log, proposer, logger, metrics };
+  return { stateStore, machine, logger, metrics };
 }

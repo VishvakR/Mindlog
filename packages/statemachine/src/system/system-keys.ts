@@ -41,9 +41,27 @@ export function logPrefix(rangeId: bigint): Uint8Array {
 }
 
 /**
- * Last index removed by log compaction (ADR-0005), so an empty log still
- * knows where it ends; the role of Raft's truncated state.
+ * Last entry removed by compaction or replaced by a snapshot, with its term
+ * (ADR-0026), so an empty log still knows where it ends.
  */
-export function logTruncatedKey(rangeId: bigint): Uint8Array {
-  return systemKey(['raftlog-truncated', rangeId]);
+export function raftTruncatedKey(rangeId: bigint): Uint8Array {
+  return systemKey(['raft-truncated', rangeId]);
 }
+
+/** Raft term, vote and commit of a range (ADR-0026). */
+export function raftStateKey(rangeId: bigint): Uint8Array {
+  return systemKey(['raft-state', rangeId]);
+}
+
+/** Applied membership of a range, written with the apply that changed it (ADR-0006). */
+export function confStateKey(rangeId: bigint): Uint8Array {
+  return systemKey(['conf-state', rangeId]);
+}
+
+/** On-disk format version of a store (ADR-0026). */
+export function formatKey(): Uint8Array {
+  return systemKey(['format']);
+}
+
+/** Every key of a store: encoded keys never start with 0xff (a tuple type code). */
+export const WHOLE_STORE = { start: new Uint8Array(), end: Uint8Array.of(0xff) } as const;

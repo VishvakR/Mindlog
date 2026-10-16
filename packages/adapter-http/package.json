@@ -32,6 +32,7 @@
     "@mindlog/kv": "workspace:*",
     "@mindlog/statemachine": "workspace:*",
     "@mindlog/storage": "workspace:*",
-    "@types/ws": "^8.18.2"
+    "@types/ws": "^8.18.2",
+    "@mindlog/multiraft": "workspace:*"
   }
 }

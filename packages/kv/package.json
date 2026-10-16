@@ -26,6 +26,7 @@
     "@mindlog/storage": "workspace:*"
   },
   "devDependencies": {
-    "@mindlog/eventbus": "workspace:*"
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/multiraft": "workspace:*"
   }
 }

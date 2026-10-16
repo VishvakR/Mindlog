@@ -28,6 +28,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@mindlog/eventbus": "workspace:*"
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/multiraft": "workspace:*"
   }
 }

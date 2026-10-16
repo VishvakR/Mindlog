@@ -25,19 +25,23 @@ import {
   kvBatchHandler,
   kvWriteHandler,
 } from '@mindlog/kv';
+import type { ReplicaOptions } from '@mindlog/multiraft';
+import {
+  DEFAULT_REPLICA_OPTIONS,
+  Replica,
+  SystemScheduler,
+  startSingleNode,
+} from '@mindlog/multiraft';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
 import {
   ApplyHandlerRegistry,
   CommandStamper,
-  LocalLog,
-  LocalProposer,
+  RaftLogStore,
   StateMachine,
-  recover,
+  ensureStoreFormat,
 } from '@mindlog/statemachine';
 import { LevelDbStore } from '@mindlog/storage';
-
-/** Clock skew tolerated by the HLC (PLAN 8.4). */
-const MAX_CLOCK_OFFSET_MS = 500n;
+import { ConnectTransport } from '@mindlog/transport';
 
 export interface CoreDeps {
   readonly logger: Logger;
@@ -46,17 +50,20 @@ export interface CoreDeps {
   readonly tracer: Tracer;
 }
 
-/** Storage, log, state machine and the KV service, without any listener. */
+/** Storage, the range replica, the state machine and the KV service, without client listeners. */
 export interface NodeCore {
   readonly dataDir: string;
   readonly machine: StateMachine;
-  readonly proposer: LocalProposer;
+  /** The range replica: the Proposer and ReadBarrier of this node. */
+  readonly replica: Replica;
+  /** Internal Raft listener; absent for a single-voter node. */
+  readonly transport: ConnectTransport | undefined;
   readonly stamper: CommandStamper;
   readonly stateStore: LevelDbStore;
   readonly service: KvService;
-  /** Log entries replayed into state at startup (ADR-0005). */
+  /** Log entries applied while opening (ADR-0005). */
   readonly replayed: number;
-  /** Finishes pending proposals, checkpoints and closes both stores. */
+  /** Stops the replica, flushes state and closes the stores. */
   close(): Promise<void>;
 }
 
@@ -70,18 +77,64 @@ async function openStores(dataDir: string) {
     await log.value.close();
     return state;
   }
+  const formats = [
+    await ensureStoreFormat(log.value, 'log'),
+    await ensureStoreFormat(state.value, 'state'),
+  ];
+  for (const format of formats) {
+    if (format.ok) continue;
+    await Promise.all([log.value.close(), state.value.close()]);
+    return format;
+  }
   return ok({ log: log.value, state: state.value });
 }
 
+/** A node with no `cluster.peers` (and not joining) runs as a one-voter range. */
+export const isSingleNode = (config: MindlogConfig): boolean =>
+  config.cluster.peers.length === 0 && !config.cluster.join;
+
+function replicaOptions(config: MindlogConfig): ReplicaOptions {
+  const r = config.raft;
+  return {
+    ...DEFAULT_REPLICA_OPTIONS,
+    tickMs: r.tickMs,
+    electionTicks: [r.electionTicks[0], r.electionTicks[1]],
+    heartbeatTicks: r.heartbeatTicks,
+    leaseTicks: r.leaseTicks,
+    maxInflightMsgs: r.maxInflightMsgs,
+    maxInflightBytes: r.maxInflightBytes,
+    maxEntryBatchBytes: r.maxEntryBatchBytes,
+    snapshotEntries: r.snapshotEntries,
+    trailingEntries: r.trailingEntries,
+    snapshotChunkBytes: r.snapshotChunkBytes,
+    maxPendingProposals: config.limits.maxPendingProposals,
+  };
+}
+
 /**
- * Opens a node's data directory and recovers it: the part shared by the
- * server and offline CLI commands such as `superuser upsert`.
+ * Opens a node's data directory and its range replica: the part shared by
+ * the server and offline CLI commands such as `superuser upsert`. A single
+ * node elects itself before this returns; a cluster member starts its
+ * internal listener and finds its peers in the background.
  */
 export async function openNodeCore(
   config: MindlogConfig,
   deps: CoreDeps,
 ): Promise<Result<NodeCore, MindlogError>> {
   const { logger, metrics, clock, tracer } = deps;
+  const raftId = BigInt(config.node.raftId);
+  const single = isSingleNode(config);
+  if (
+    !single &&
+    !config.cluster.join &&
+    !config.cluster.peers.some((p) => BigInt(p.id) === raftId)
+  ) {
+    return err(
+      mindlogError('CONFIG_INVALID', `node.raftId ${raftId} is not listed in cluster.peers`, {
+        fields: { 'node.raftId': 'must be one of cluster.peers[].id' },
+      }),
+    );
+  }
   const dataDir = resolve(config.node.dataDir);
   const stores = await openStores(dataDir);
   if (!stores.ok) {
@@ -110,24 +163,70 @@ export async function openNodeCore(
     logger,
     metrics,
   });
-  const log = await LocalLog.open(logStore);
-  const replayed = await recover(log, machine);
-  const proposer = new LocalProposer({
-    log,
-    machine,
-    logger,
-    metrics,
-    tracer,
-    options: { maxQueue: config.limits.maxPendingProposals },
-  });
+  const before = machine.appliedIndex;
+  const log = new RaftLogStore(logStore);
+  const options = replicaOptions(config);
+  let transport: ConnectTransport | undefined;
+  let replica: Replica;
+  try {
+    if (single) {
+      replica = await startSingleNode({
+        log,
+        machine,
+        clock,
+        logger,
+        metrics,
+        tracer,
+        raftId,
+        options,
+      });
+    } else {
+      transport = await ConnectTransport.start({
+        host: config.listen.internal.host,
+        port: config.listen.internal.port,
+        logger,
+        metrics,
+      });
+      const peers = config.cluster.peers.map((p) => ({ id: BigInt(p.id), address: p.address }));
+      replica = await Replica.open({
+        rangeId: 1n,
+        raftId,
+        options,
+        log,
+        machine,
+        transport,
+        scheduler: new SystemScheduler(),
+        clock,
+        random: new SystemRandom(),
+        logger,
+        metrics,
+        tracer,
+        ...(config.cluster.join ? {} : { bootstrap: peers }),
+      });
+      replica.start();
+    }
+  } catch (cause: unknown) {
+    await transport?.close();
+    await Promise.all([logStore.close(), stateStore.close()]);
+    return err(
+      mindlogError(
+        'UNAVAILABLE',
+        `cannot start the replica: ${cause instanceof Error ? cause.message : String(cause)}`,
+        {
+          cause,
+        },
+      ),
+    );
+  }
   const stamper = new CommandStamper(
-    new HybridLogicalClock(clock, { maxOffsetMs: MAX_CLOCK_OFFSET_MS }),
+    new HybridLogicalClock(clock, { maxOffsetMs: BigInt(config.cluster.maxClockOffsetMs) }),
     new UlidGenerator(clock, new SystemRandom()),
   );
   const service = new KvService({
     registry,
     store: stateStore,
-    proposer,
+    proposer: replica,
+    readBarrier: replica,
     stamper,
     clock,
     authenticator: new StaticAuthenticator(config.auth.password),
@@ -138,14 +237,16 @@ export async function openNodeCore(
   return ok({
     dataDir,
     machine,
-    proposer,
+    replica,
+    transport,
     stamper,
     stateStore,
     service,
-    replayed,
+    replayed: Number(machine.appliedIndex - before),
     async close() {
-      await proposer.close();
-      await proposer.checkpoint();
+      await replica.close();
+      await transport?.close();
+      await machine.flush();
       await Promise.all([logStore.close(), stateStore.close()]);
     },
   });

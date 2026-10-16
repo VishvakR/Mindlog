@@ -22,6 +22,7 @@ import {
 } from '@mindlog/core';
 import { ExpiryJob, GcJob } from '@mindlog/kv';
 import { AdminService, KvBrowser } from '@mindlog/services';
+import type { Replica } from '@mindlog/multiraft';
 import type { NodeCore } from './open-node-core.js';
 import { openNodeCore } from './open-node-core.js';
 import { mindlogVersion, serverInfo } from './server-info.js';
@@ -38,6 +39,9 @@ export interface RunningNode {
   readonly config: MindlogConfig;
   readonly resp: AddressInfo;
   readonly http: AddressInfo;
+  /** Internal Raft listener; absent for a single-voter node. */
+  readonly internal: AddressInfo | undefined;
+  readonly replica: Replica;
   readonly logger: Logger;
   readonly metrics: Metrics;
   /** Log entries replayed into state at startup (ADR-0005). */
@@ -99,8 +103,9 @@ async function overview(
 }
 
 /**
- * Starts a single node: durable local log, state machine, KV service, RESP
- * and HTTP listeners, and the replicated expiry and GC jobs. The only place
+ * Starts a node: its range replica (one voter, or a cluster member), state
+ * machine, KV service, RESP and HTTP listeners, and the leader-only expiry
+ * and GC jobs. The only place
  * that knows every concrete adapter (CLAUDE.md §3.1).
  */
 export async function startNode(
@@ -124,7 +129,7 @@ export async function startNode(
     return opened;
   }
   const core = opened.value;
-  const { service, proposer, stamper, stateStore, machine } = core;
+  const { service, replica, stamper, stateStore, machine } = core;
 
   const startedAtMs = clock.now();
   const context = {
@@ -191,9 +196,20 @@ export async function startNode(
   context.info = serverInfo(config, respBound.value.port, startedAtMs);
   httpAddress = `${httpBound.value.address}:${String(httpBound.value.port)}`;
 
-  const expiry = new ExpiryJob({ store: stateStore, proposer, stamper, clock, logger, metrics });
+  // Expiry and GC are replicated commands; only the leader proposes them (CLAUDE.md rule 8).
+  const active = () => replica.isLeader();
+  const expiry = new ExpiryJob({
+    store: stateStore,
+    proposer: replica,
+    active,
+    stamper,
+    clock,
+    logger,
+    metrics,
+  });
   const gc = new GcJob({
-    proposer,
+    proposer: replica,
+    active,
     stamper,
     appliedIndex: () => machine.appliedIndex,
     logger,
@@ -207,6 +223,10 @@ export async function startNode(
     dataDir: core.dataDir,
     resp: `${respBound.value.address}:${String(respBound.value.port)}`,
     http: httpAddress,
+    ...(core.transport
+      ? { internal: `${core.transport.address.address}:${String(core.transport.address.port)}` }
+      : {}),
+    raftId: config.node.raftId,
     replayed: core.replayed,
     appliedIndex: machine.appliedIndex,
   });
@@ -231,6 +251,8 @@ export async function startNode(
     config,
     resp: respBound.value,
     http: httpBound.value,
+    internal: core.transport?.address,
+    replica,
     logger,
     metrics,
     replayed: core.replayed,

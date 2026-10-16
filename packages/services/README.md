@@ -18,7 +18,7 @@ execute(session, argv)
   ├─ not authenticated and not AUTH        → NOAUTH
   ├─ AUTH / MULTI / EXEC / DISCARD / WATCH / UNWATCH   (session commands)
   ├─ inside MULTI                          → validate (name, arity) and queue → QUEUED
-  ├─ read-only command                     → KvReadExecutor on applied state
+  ├─ read-only command                     → ReadBarrier (lease) → KvReadExecutor on applied state
   └─ write command                         → stamp (ULID + HLC) → Proposer → KvReply
 ```
 
@@ -28,7 +28,8 @@ execute(session, argv)
 - **Writes are proposed, never executed locally**, so every write is durable and replicated before it is acknowledged.
 - **Bounded transactions.** One MULTI queues at most `maxTransactionCommands` (default 10,000); the next command is rejected and EXEC aborts.
 - **Queue-time validation.** An unknown command or wrong arity inside MULTI aborts the EXEC with `EXECABORT`, as in Valkey. Runtime errors stay per command inside the EXEC reply.
-- **WATCH compares header versions**, so any change (including create-then-delete) aborts EXEC.
+- **WATCH compares header versions**, read after a linearizable ReadBarrier, so any change (including create-then-delete) aborts EXEC.
+- **Reads wait for the ReadBarrier** (ADR-0007): `lease` by default, so a follower or a deposed leader never serves stale data.
 - **Bounded telemetry labels.** Unknown command names are labelled `unknown`.
 
 ## Metrics emitted

@@ -60,6 +60,8 @@ interface Waiter<T> {
 
 interface PendingProposal extends Waiter<Proposal> {
   readonly started: bigint;
+  /** The encoded command, re-proposed when the leader changes (applied once by request id). */
+  readonly data: Uint8Array;
 }
 
 interface PendingConf extends Waiter<ConfState> {
@@ -245,7 +247,8 @@ export class Replica implements Proposer, InboundHandler {
         err(mindlogError('BUSY', 'too many pending writes', { retryAfterMs: 10 })),
       );
     }
-    const proposed = this.#raw.propose(toBinary(CommandSchema, command));
+    const data = toBinary(CommandSchema, command);
+    const proposed = this.#raw.propose(data);
     if (!proposed.ok) {
       this.#m.dropped.inc(1, { reason: 'not_leader' });
       return Promise.resolve(proposed);
@@ -253,7 +256,12 @@ export class Replica implements Proposer, InboundHandler {
     return new Promise((resolve) => {
       const key = hex(command.requestId);
       const list = this.#pending.get(key) ?? [];
-      list.push({ resolve, deadlineTick: this.#deadline(), started: this.#deps.clock.monotonic() });
+      list.push({
+        resolve,
+        deadlineTick: this.#deadline(),
+        started: this.#deps.clock.monotonic(),
+        data,
+      });
       this.#pending.set(key, list);
       this.#schedule();
     });
@@ -609,6 +617,19 @@ export class Replica implements Proposer, InboundHandler {
     this.#m.role.set(ROLE_CODE[role]);
     if (role === 'leader') this.#m.elections.inc();
     this.#deps.logger.info('raft role changed', { role, lead, term: this.#raw.status().term });
+    if (lead !== 0n) this.#reproposePending();
+  }
+
+  /**
+   * A new leader may never have seen proposals forwarded to the old one.
+   * Proposing them again is safe: apply skips a request id it has already
+   * applied and returns the stored result (PLAN 6.2).
+   */
+  #reproposePending(): void {
+    for (const list of this.#pending.values()) {
+      const first = list[0];
+      if (first) this.#raw.propose(first.data);
+    }
   }
 
   // ---- failure ----

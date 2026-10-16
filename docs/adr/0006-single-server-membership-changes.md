@@ -12,7 +12,7 @@ A range must add, remove and replace replicas without losing safety. Raft offers
 ## Decision
 
 - Membership changes are **one server at a time**. `ConfChange` (proto `mindlog.v1.ConfChange`) has three types: `ADD_LEARNER`, `ADD_VOTER` (adds a voter, or promotes a learner) and `REMOVE_NODE`. Each carries the node's internal address, so the address book is replicated with the configuration.
-- New replicas join as **learners**: they receive the log and snapshots but do not vote or count towards commit. An operator (phase 3: `MINDLOG.CLUSTER PROMOTE`; phase 4: the placement driver) promotes them once caught up.
+- New replicas join as **learners**: they receive the log and snapshots but do not vote or count towards commit. An operator (phase 3: `CLUSTER.PROMOTE`; phase 4: the placement driver) promotes them once caught up.
 - A configuration takes effect **when the entry is applied**, as in etcd. The leader refuses a new change while `pendingConfIndex > applied`, and sets `pendingConfIndex = lastIndex` when it becomes leader. Because it also appends a no-op entry on election, no change starts before an entry of the leader's term has committed.
 - A node does not campaign while a committed configuration change is still unapplied.
 - The applied `ConfState` (voters, learners, addresses) is stored in the state store in the same batch as the applied index, and travels inside snapshots.

@@ -515,7 +515,7 @@ The Raft implementation lives in `@mindlog/raft` as a **pure state machine with 
 ### 7.3 Persistence rules
 
 - `currentTerm`, `votedFor` and log entries MUST be fsynced **before** sending any message that depends on them (vote grant, AppendEntries success).
-- The Raft log is stored in LevelDB under `s/raftlog/(rangeId, index)` with hard state at `s/raftstate/(rangeId)`. One LevelDB per node holds all ranges' logs (a separate instance from the state data so log fsyncs do not contend with compaction; ADR-005).
+- The Raft log is stored in LevelDB under `s/raftlog/(rangeId, index)` with hard state at `s/raft-state/(rangeId)` (format: ADR-0026). One LevelDB per node holds all ranges' logs (a separate instance from the state data so log fsyncs do not contend with compaction; ADR-005).
 - Group-commit: many ranges' appends within one event-loop turn are written in one LevelDB batch with one fsync.
 - Every entry stores a CRC32C checksum; a mismatch on read is treated as corruption (section 21).
 
@@ -1025,7 +1025,7 @@ All adapters translate wire formats into the same application-layer request type
 | Connection | `PING` `ECHO` `HELLO` `AUTH` `SELECT 0` `QUIT` `CLIENT …` `RESET` |
 | Server | `INFO` `DBSIZE` `TIME` `COMMAND` `COMMAND DOCS` `CONFIG GET` (read-only subset) |
 | Keys | `DEL` `UNLINK` `EXISTS` `EXPIRE` `PEXPIRE` `EXPIREAT` `TTL` `PTTL` `PERSIST` `TYPE` `RENAME` `SCAN` `KEYS` (guarded) |
-| Strings | `GET` `SET` (EX/PX/NX/XX/GET/KEEPTTL) `MGET` `MSET` `INCR` `INCRBY` `DECR` `APPEND` `GETDEL` `GETEX` `STRLEN` `SETRANGE` `GETRANGE` |
+| Strings | `GET` `SET` (EX/PX/NX/XX/GET/KEEPTTL/IFEQ) `MGET` `MSET` `INCR` `INCRBY` `DECR` `APPEND` `GETDEL` `GETEX` `STRLEN` `SETRANGE` `GETRANGE` |
 | Hashes | `HGET` `HSET` `HMGET` `HDEL` `HGETALL` `HKEYS` `HVALS` `HLEN` `HEXISTS` `HINCRBY` `HSCAN` |
 | Lists | `LPUSH` `RPUSH` `LPOP` `RPOP` `LRANGE` `LLEN` `LINDEX` `LSET` `LTRIM` `BLPOP`/`BRPOP` (stretch) |
 | Sets | `SADD` `SREM` `SMEMBERS` `SISMEMBER` `SCARD` `SPOP` `SINTER` `SUNION` `SDIFF` `SSCAN` |
@@ -1038,7 +1038,7 @@ All adapters translate wire formats into the same application-layer request type
 | Memory | `MEM.ADD` `MEM.SEARCH` `MEM.PACK` `MEM.GET` `MEM.HISTORY` `MEM.FORGET` `MEM.IMPROVE` `MEM.BRANCH` `MEM.MERGE` `MEM.DROP` `MEM.DIFF` `MEM.CONFLICTS` `MEM.RESOLVE` `MEM.WATCH` `MEM.EXPORT` `MEM.IMPORT` |
 | Graph | `GRAPH.QUERY scope entity [DEPTH n]` `GRAPH.ENTITY` `GRAPH.PPR scope entity…` |
 | Cache | `CACHE.GET` `CACHE.SET` `CACHE.DEL` `CACHE.STATS` |
-| Admin | `CLUSTER.INFO` `CLUSTER.RANGES` `ADMIN …` (superuser) |
+| Admin | `CLUSTER.INFO` `CLUSTER.ADDLEARNER` `CLUSTER.PROMOTE` `CLUSTER.REMOVE` `CLUSTER.TRANSFER` (phase 3, ADR-0006) `CLUSTER.RANGES` `ADMIN …` (superuser) |
 
 Unsupported commands return `-ERR unknown command` with a link to the compatibility table in docs. Compatibility is verified by running a subset of the official Redis test suite and popular client libraries' integration tests (ioredis, redis-py) against Mindlog.
 
@@ -1759,6 +1759,8 @@ References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly]
 | 022 | Collection generations for O(1) delete; dead generations removed by replicated GC |
 | 023 | Dashboard as a React + shadcn/ui static app |
 | 024 | HTTP adapter on Fastify; superusers in the system tenant with bearer tokens |
+| 025 | Raft transport on Connect (gRPC over HTTP/2) |
+| 026 | Raft log format v2, snapshots and data-directory format markers |
 
 ---
 
@@ -1969,9 +1971,13 @@ Prompt to give Claude Code for an analysis:
 ```yaml
 node:
   id: node-1
+  raftId: 1                     # non-zero, never reused (ADR-0006)
   dataDir: ./data
   zone: local-a
 cluster:
+  peers:                        # phase 3 static bootstrap until PD (phase 4)
+    - { id: 1, address: 127.0.0.1:7000 }
+  join: false                   # true: start with no configuration and wait to be added as a learner
   pdEndpoints: ["127.0.0.1:7100"]
   joinToken: ${MINDLOG_JOIN_TOKEN}
   maxClockOffsetMs: 500
@@ -1984,9 +1990,15 @@ listen:
 raft:
   tickMs: 100
   electionTicks: [10, 20]
-  leaseTicks: 9
+  heartbeatTicks: 1
+  leaseTicks: 9                 # < electionTicks[0] (ADR-0007)
   maxInflightMsgs: 256
+  maxInflightBytes: 16777216
+  maxEntryBatchBytes: 1048576
   snapshotEntries: 10000
+  snapshotBytes: 67108864
+  trailingEntries: 1000
+  snapshotChunkBytes: 1048576
 ranges:
   maxBytes: 67108864
   mergeBelowBytes: 16777216

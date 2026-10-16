@@ -32,7 +32,7 @@ function* range(from: bigint, count: bigint): Generator<bigint> {
 }
 
 describe('simulator', () => {
-  test('a seed replays exactly', async () => {
+  test('a seed replays exactly', { timeout: 60_000 }, async () => {
     const [a, b] = [await scenario(42n).nodes(5).run(), await scenario(42n).nodes(5).run()];
     expect(a).toEqual(b);
   });

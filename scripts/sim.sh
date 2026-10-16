@@ -9,6 +9,7 @@ SHARDS=${2:-4}
 FIRST=${3:-1}
 PER=$(( (SEEDS + SHARDS - 1) / SHARDS ))
 LOGS=$(mktemp -d)
+trap 'rm -rf "$LOGS"' EXIT
 for ((i = 0; i < SHARDS; i++)); do
   OFFSET=$(( i * PER ))
   COUNT=$(( OFFSET + PER > SEEDS ? SEEDS - OFFSET : PER ))

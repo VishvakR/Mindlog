@@ -12,11 +12,11 @@ Every acknowledged write must survive kill -9 (PLAN 1.5, the phase 1 gate). An f
 ## Decision
 
 - Each node opens **two LevelDB instances** under `node.dataDir`:
-  - `raftlog/`: log entries `s/raftlog/(rangeId, index)` and hard state, written with **`sync: true`** and group-committed, so one fsync covers every append in an event-loop turn;
+  - `raftlog/`: log entries `s/raftlog/(rangeId, index)` and hard state (`s/raft-state/(rangeId)`, ADR-0026), written with **`sync: true`** and group-committed, so one fsync covers every append in an event-loop turn;
   - `state/`: MVCC data, indexes and `appliedIndex`, written **without fsync**.
 - `appliedIndex` is written in the **same batch** as the effects of each apply. After a crash, recovery replays the log from `appliedIndex + 1`.
 - The log is **never compacted past an index until the state store has been flushed with `sync: true` at or beyond it**. The snapshot and compaction routine does that flush first (CLAUDE.md rule 7).
-- Compaction records the last removed index at `s/raftlog-truncated/(rangeId)` in the same synced batch (Raft's truncated state), so a fully compacted log still knows its last index and new entries never reuse an index.
+- Compaction records the last removed index and its term at `s/raft-truncated/(rangeId)` (ADR-0026; phase 1 stored only the index at `s/raftlog-truncated/(rangeId)`) in the same synced batch (Raft's truncated state), so a fully compacted log still knows its last index and new entries never reuse an index.
 - A write is acknowledged only after its log entry is fsynced and the command is applied.
 
 In phase 1 a local single-node log takes Raft's place behind the `Proposer` port; the storage layout is the same.

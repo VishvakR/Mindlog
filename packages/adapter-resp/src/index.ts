@@ -35,6 +35,13 @@ export {
 export { clientCommand } from './connection/handlers/client.js';
 export { configCommand } from './connection/handlers/config.js';
 export { infoCommand } from './connection/handlers/info.js';
+export {
+  clusterAddLearnerCommand,
+  clusterInfoCommand,
+  clusterPromoteCommand,
+  clusterRemoveCommand,
+  clusterTransferCommand,
+} from './connection/handlers/cluster.js';
 export { createConnectionCommands } from './connection/handlers/all-handlers.js';
 export type { RespServerDeps, RespServerOptions } from './server/resp-server.js';
 export { RespServer } from './server/resp-server.js';

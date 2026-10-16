@@ -1,0 +1,49 @@
+{
+  "CLUSTER.INFO": {
+    "summary": "Returns this node's Raft role, term, leader, indexes and the range membership.",
+    "complexity": "O(N) where N is the number of members",
+    "group": "cluster",
+    "since": "0.3.0",
+    "arity": 1,
+    "command_flags": ["READONLY", "STALE"]
+  },
+  "CLUSTER.ADDLEARNER": {
+    "summary": "Adds a node as a non-voting learner (ADR-0006).",
+    "complexity": "O(1)",
+    "group": "cluster",
+    "since": "0.3.0",
+    "arity": 3,
+    "command_flags": [],
+    "arguments": [
+      { "name": "node-id", "type": "integer" },
+      { "name": "address", "type": "string" }
+    ]
+  },
+  "CLUSTER.PROMOTE": {
+    "summary": "Promotes a caught-up learner to voter.",
+    "complexity": "O(1)",
+    "group": "cluster",
+    "since": "0.3.0",
+    "arity": 2,
+    "command_flags": [],
+    "arguments": [{ "name": "node-id", "type": "integer" }]
+  },
+  "CLUSTER.REMOVE": {
+    "summary": "Removes a voter or learner from the range.",
+    "complexity": "O(1)",
+    "group": "cluster",
+    "since": "0.3.0",
+    "arity": 2,
+    "command_flags": [],
+    "arguments": [{ "name": "node-id", "type": "integer" }]
+  },
+  "CLUSTER.TRANSFER": {
+    "summary": "Hands leadership to a caught-up voter.",
+    "complexity": "O(1)",
+    "group": "cluster",
+    "since": "0.3.0",
+    "arity": 2,
+    "command_flags": [],
+    "arguments": [{ "name": "node-id", "type": "integer" }]
+  }
+}

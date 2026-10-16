@@ -1,6 +1,6 @@
 import type { Clock, Logger, Tracer } from '@mindlog/core';
 import type { KvReply } from '@mindlog/proto';
-import type { KvService, Session } from '@mindlog/services';
+import type { ClusterService, KvService, Session } from '@mindlog/services';
 import type { CommandTable } from '../commands/command-table.js';
 import type { ClientRegistry, ClientState } from './client-state.js';
 
@@ -19,6 +19,8 @@ export interface ServerInfo {
 /** Node-wide dependencies shared by every connection. */
 export interface ServerContext {
   readonly service: KvService;
+  /** CLUSTER.* admin commands; absent in tests without a replica. */
+  readonly cluster?: ClusterService;
   readonly commands: CommandTable;
   readonly clients: ClientRegistry;
   readonly clock: Clock;

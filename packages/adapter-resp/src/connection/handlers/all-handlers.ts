@@ -1,5 +1,12 @@
 import { ConnectionCommandRegistry } from '../connection-command.js';
 import { clientCommand } from './client.js';
+import {
+  clusterAddLearnerCommand,
+  clusterInfoCommand,
+  clusterPromoteCommand,
+  clusterRemoveCommand,
+  clusterTransferCommand,
+} from './cluster.js';
 import { commandCommand } from './command.js';
 import { configCommand } from './config.js';
 import { helloCommand } from './hello.js';
@@ -17,5 +24,10 @@ export function createConnectionCommands(): ConnectionCommandRegistry {
     infoCommand,
     configCommand,
     commandCommand,
+    clusterInfoCommand,
+    clusterAddLearnerCommand,
+    clusterPromoteCommand,
+    clusterRemoveCommand,
+    clusterTransferCommand,
   ]);
 }

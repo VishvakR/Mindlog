@@ -12,4 +12,6 @@ export { KvBrowser } from './kv-browser/kv-browser.js';
 export * from './kv-browser/schemas.js';
 export type { AdminServiceDeps } from './admin/admin-service.js';
 export { AdminService } from './admin/admin-service.js';
+export type { ClusterAdmin, ClusterStatus } from './cluster/cluster-service.js';
+export { ClusterService } from './cluster/cluster-service.js';
 export * from './admin/schemas.js';

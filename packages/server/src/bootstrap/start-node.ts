@@ -21,7 +21,7 @@ import {
   ok,
 } from '@mindlog/core';
 import { ExpiryJob, GcJob } from '@mindlog/kv';
-import { AdminService, KvBrowser } from '@mindlog/services';
+import { AdminService, ClusterService, KvBrowser } from '@mindlog/services';
 import type { Replica } from '@mindlog/multiraft';
 import type { NodeCore } from './open-node-core.js';
 import { openNodeCore } from './open-node-core.js';
@@ -134,6 +134,7 @@ export async function startNode(
   const startedAtMs = clock.now();
   const context = {
     service,
+    cluster: new ClusterService(replica),
     commands: new CommandTable(loadCommandSpecs()),
     clients: new ClientRegistry(),
     clock,

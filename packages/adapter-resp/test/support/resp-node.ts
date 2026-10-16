@@ -15,7 +15,7 @@ import {
   kvBatchHandler,
   kvWriteHandler,
 } from '@mindlog/kv';
-import { KvService, StaticAuthenticator } from '@mindlog/services';
+import { ClusterService, KvService, StaticAuthenticator } from '@mindlog/services';
 import { startSingleNode } from '@mindlog/multiraft';
 import {
   ApplyHandlerRegistry,
@@ -91,6 +91,7 @@ export async function respServer(
   });
   const server: ServerContext = {
     service,
+    cluster: new ClusterService(proposer),
     commands: new CommandTable(specs),
     clients: new ClientRegistry(),
     clock,

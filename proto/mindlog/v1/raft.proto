@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+// Raft log, persistent state and messages of one range (PLAN 7, ADR-0026).
+// The pure core in @mindlog/raft works on these types directly; the transport
+// (ADR-0025) carries them between nodes.
+
+enum EntryType {
+  ENTRY_TYPE_UNSPECIFIED = 0;
+  // `data` is a Command, or empty for the leader's no-op.
+  ENTRY_TYPE_NORMAL = 1;
+  // `data` is a ConfChange (ADR-0006).
+  ENTRY_TYPE_CONF_CHANGE = 2;
+}
+
+message Entry {
+  uint64 term = 1;
+  uint64 index = 2;
+  EntryType type = 3;
+  bytes data = 4;
+}
+
+// Persisted before any message that depends on it (PLAN 7.3).
+message HardState {
+  uint64 term = 1;
+  // Node voted for in `term`; 0 means none.
+  uint64 vote = 2;
+  uint64 commit = 3;
+}
+
+// Last log entry removed by compaction or replaced by a snapshot.
+message TruncatedState {
+  uint64 index = 1;
+  uint64 term = 2;
+}
+
+// Membership of a range, with each member's internal address.
+message ConfState {
+  repeated uint64 voters = 1;
+  repeated uint64 learners = 2;
+  map<uint64, string> addresses = 3;
+}
+
+enum ConfChangeType {
+  CONF_CHANGE_TYPE_UNSPECIFIED = 0;
+  CONF_CHANGE_TYPE_ADD_LEARNER = 1;
+  // Adds a voter, or promotes a learner.
+  CONF_CHANGE_TYPE_ADD_VOTER = 2;
+  CONF_CHANGE_TYPE_REMOVE_NODE = 3;
+}
+
+// One single-server membership change (ADR-0006).
+message ConfChange {
+  ConfChangeType type = 1;
+  uint64 node_id = 2;
+  // Internal address of the node; empty on removal.
+  string address = 3;
+}
+
+message SnapshotMeta {
+  uint64 index = 1;
+  uint64 term = 2;
+  ConfState conf_state = 3;
+}
+
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  // A follower forwards proposals to the leader.
+  MESSAGE_TYPE_PROPOSE = 1;
+  MESSAGE_TYPE_APPEND = 2;
+  MESSAGE_TYPE_APPEND_RESPONSE = 3;
+  MESSAGE_TYPE_VOTE = 4;
+  MESSAGE_TYPE_VOTE_RESPONSE = 5;
+  MESSAGE_TYPE_PRE_VOTE = 6;
+  MESSAGE_TYPE_PRE_VOTE_RESPONSE = 7;
+  MESSAGE_TYPE_HEARTBEAT = 8;
+  MESSAGE_TYPE_HEARTBEAT_RESPONSE = 9;
+  // Carries only the metadata; the data streams separately (RaftService.Snapshot).
+  MESSAGE_TYPE_SNAPSHOT = 10;
+  MESSAGE_TYPE_TIMEOUT_NOW = 11;
+  MESSAGE_TYPE_READ_INDEX = 12;
+  MESSAGE_TYPE_READ_INDEX_RESPONSE = 13;
+}
+
+message Message {
+  MessageType type = 1;
+  uint64 from = 2;
+  uint64 to = 3;
+  uint64 term = 4;
+  // Term of the entry at `index` (append: the previous entry; reject: hint).
+  uint64 log_term = 5;
+  uint64 index = 6;
+  repeated Entry entries = 7;
+  uint64 commit = 8;
+  bool reject = 9;
+  // On a rejected append: the follower's suggested probe index.
+  uint64 reject_hint = 10;
+  SnapshotMeta snapshot = 11;
+  // ReadIndex request id; on votes, marks a leadership transfer.
+  bytes context = 12;
+  uint64 range_id = 13;
+  // Leader tick when sent, echoed in responses for leases (ADR-0007).
+  uint64 lease_tick = 14;
+}
+
+message KeyValue {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+message SendRequest {
+  repeated Message messages = 1;
+}
+
+message SendResponse {}
+
+// The first chunk carries the snapshot message; every chunk may carry pairs.
+message SnapshotRequest {
+  Message message = 1;
+  repeated KeyValue pairs = 2;
+}
+
+message SnapshotResponse {}
+
+// Node-to-node Raft transport on the internal port (ADR-0025).
+service RaftService {
+  rpc Send(stream SendRequest) returns (SendResponse);
+  rpc Snapshot(stream SnapshotRequest) returns (SnapshotResponse);
+}

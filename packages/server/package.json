@@ -12,7 +12,8 @@
     }
   },
   "bin": {
-    "mindlog-server": "./dist/bin.js"
+    "mindlog-server": "./dist/bin.js",
+    "mindlog-maelstrom": "./dist/maelstrom/main.js"
   },
   "files": [
     "dist",
@@ -23,12 +24,14 @@
     "test": "vitest run --root ../.. packages/server/"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
     "@mindlog/adapter-http": "workspace:*",
     "@mindlog/adapter-resp": "workspace:*",
     "@mindlog/core": "workspace:*",
     "@mindlog/eventbus": "workspace:*",
     "@mindlog/kv": "workspace:*",
     "@mindlog/multiraft": "workspace:*",
+    "@mindlog/proto": "workspace:*",
     "@mindlog/services": "workspace:*",
     "@mindlog/statemachine": "workspace:*",
     "@mindlog/storage": "workspace:*",

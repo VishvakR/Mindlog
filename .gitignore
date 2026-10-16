@@ -43,3 +43,6 @@ __pycache__/
 
 # Built dashboard (web/ → vite build)
 /packages/server/dashboard/
+
+# Maelstrom results (test/maelstrom/run.sh)
+test/maelstrom/store/

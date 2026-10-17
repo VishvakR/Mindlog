@@ -1,0 +1,35 @@
+{
+  "name": "@mindlog/pd",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Placement driver: range directory, ids, TSO, store heartbeats, schedulers and operators",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/pd/"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@connectrpc/connect": "2.2.0",
+    "@connectrpc/connect-node": "2.2.0",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/multiraft": "workspace:*",
+    "@mindlog/proto": "workspace:*",
+    "@mindlog/statemachine": "workspace:*",
+    "@mindlog/storage": "workspace:*"
+  },
+  "devDependencies": {
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/raft": "workspace:*"
+  }
+}

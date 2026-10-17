@@ -39,6 +39,9 @@
     },
     {
       "path": "packages/transport"
+    },
+    {
+      "path": "packages/pd"
     }
   ]
 }

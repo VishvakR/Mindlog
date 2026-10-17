@@ -80,6 +80,12 @@
       "path": "packages/transport"
     },
     {
+      "path": "packages/pd"
+    },
+    {
+      "path": "packages/pd/test"
+    },
+    {
       "path": "packages/transport/test"
     }
   ]

@@ -41,6 +41,7 @@
     "@mindlog/eventbus": "workspace:*",
     "@mindlog/kv": "workspace:*",
     "@mindlog/multiraft": "workspace:*",
+    "@mindlog/pd": "workspace:*",
     "@mindlog/proto": "workspace:*",
     "@mindlog/raft": "workspace:*",
     "@mindlog/server": "workspace:*",

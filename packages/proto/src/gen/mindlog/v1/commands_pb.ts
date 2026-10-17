@@ -8,6 +8,8 @@ import type { ErrorDetail } from "./common_pb.js";
 import { file_mindlog_v1_common } from "./common_pb.js";
 import type { Expire, KvBatch, KvReply, KvWrite } from "./kv_pb.js";
 import { file_mindlog_v1_kv } from "./kv_pb.js";
+import type { PdAllocIds, PdPutNode, PdPutRange, PdRecordOperator, PdRemoveRange, PdSetTso, PdSetVersion } from "./pd_pb.js";
+import { file_mindlog_v1_pd } from "./pd_pb.js";
 import type { Freeze, Merge, Split } from "./range_pb.js";
 import { file_mindlog_v1_range } from "./range_pb.js";
 import type { Message } from "@bufbuild/protobuf";
@@ -16,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/commands.proto.
  */
 export const file_mindlog_v1_commands: GenFile = /*@__PURE__*/
-  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIogDCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIiCgVzcGxpdBhQIAEoCzIRLm1pbmRsb2cudjEuU3BsaXRIABIkCgZmcmVlemUYUSABKAsyEi5taW5kbG9nLnYxLkZyZWV6ZUgAEiIKBW1lcmdlGFIgASgLMhEubWluZGxvZy52MS5NZXJnZUgAQgYKBGJvZHlKBAgOEFBKBAhTEGQiTAoLR2NUaHJlc2hvbGQSFwoLYmVsb3dfaW5kZXgYASABKARCAhgBEg0KBWxpbWl0GAIgASgNEhUKDWJlbG93X3ZlcnNpb24YAyABKAQiZwoNQ29tbWFuZFJlc3VsdBIhCgJrdhgBIAEoCzITLm1pbmRsb2cudjEuS3ZSZXBseUgAEigKBWVycm9yGAIgASgLMhcubWluZGxvZy52MS5FcnJvckRldGFpbEgAQgkKB291dGNvbWViBnByb3RvMw", [file_mindlog_v1_common, file_mindlog_v1_kv, file_mindlog_v1_range]);
+  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIu4FCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIiCgVzcGxpdBhQIAEoCzIRLm1pbmRsb2cudjEuU3BsaXRIABIkCgZmcmVlemUYUSABKAsyEi5taW5kbG9nLnYxLkZyZWV6ZUgAEiIKBW1lcmdlGFIgASgLMhEubWluZGxvZy52MS5NZXJnZUgAEi4KDHBkX2FsbG9jX2lkcxhaIAEoCzIWLm1pbmRsb2cudjEuUGRBbGxvY0lkc0gAEiwKC3BkX3B1dF9ub2RlGFsgASgLMhUubWluZGxvZy52MS5QZFB1dE5vZGVIABIuCgxwZF9wdXRfcmFuZ2UYXCABKAsyFi5taW5kbG9nLnYxLlBkUHV0UmFuZ2VIABI0Cg9wZF9yZW1vdmVfcmFuZ2UYXSABKAsyGS5taW5kbG9nLnYxLlBkUmVtb3ZlUmFuZ2VIABIqCgpwZF9zZXRfdHNvGF4gASgLMhQubWluZGxvZy52MS5QZFNldFRzb0gAEjIKDnBkX3NldF92ZXJzaW9uGF8gASgLMhgubWluZGxvZy52MS5QZFNldFZlcnNpb25IABI6ChJwZF9yZWNvcmRfb3BlcmF0b3IYYCABKAsyHC5taW5kbG9nLnYxLlBkUmVjb3JkT3BlcmF0b3JIAEIGCgRib2R5SgQIDhBQSgQIUxBaSgQIYRBkIkwKC0djVGhyZXNob2xkEhcKC2JlbG93X2luZGV4GAEgASgEQgIYARINCgVsaW1pdBgCIAEoDRIVCg1iZWxvd192ZXJzaW9uGAMgASgEImcKDUNvbW1hbmRSZXN1bHQSIQoCa3YYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHlIABIoCgVlcnJvchgCIAEoCzIXLm1pbmRsb2cudjEuRXJyb3JEZXRhaWxIAEIJCgdvdXRjb21lYgZwcm90bzM", [file_mindlog_v1_common, file_mindlog_v1_kv, file_mindlog_v1_pd, file_mindlog_v1_range]);
 
 /**
  * Envelope of every replicated command in a range's Raft log (PLAN 6.1,
@@ -111,6 +113,48 @@ export type Command = Message<"mindlog.v1.Command"> & {
      */
     value: Merge;
     case: "merge";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.PdAllocIds pd_alloc_ids = 90;
+     */
+    value: PdAllocIds;
+    case: "pdAllocIds";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.PdPutNode pd_put_node = 91;
+     */
+    value: PdPutNode;
+    case: "pdPutNode";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.PdPutRange pd_put_range = 92;
+     */
+    value: PdPutRange;
+    case: "pdPutRange";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.PdRemoveRange pd_remove_range = 93;
+     */
+    value: PdRemoveRange;
+    case: "pdRemoveRange";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.PdSetTso pd_set_tso = 94;
+     */
+    value: PdSetTso;
+    case: "pdSetTso";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.PdSetVersion pd_set_version = 95;
+     */
+    value: PdSetVersion;
+    case: "pdSetVersion";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.PdRecordOperator pd_record_operator = 96;
+     */
+    value: PdRecordOperator;
+    case: "pdRecordOperator";
   } | { case: undefined; value?: undefined };
 };
 

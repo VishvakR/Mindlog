@@ -1,5 +1,6 @@
 from mindlog.v1 import common_pb2 as _common_pb2
 from mindlog.v1 import kv_pb2 as _kv_pb2
+from mindlog.v1 import pd_pb2 as _pd_pb2
 from mindlog.v1 import range_pb2 as _range_pb2
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -9,7 +10,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Command(_message.Message):
-    __slots__ = ("request_id", "principal", "hlc", "branch", "tenant", "kv_write", "kv_batch", "expire", "gc_threshold", "split", "freeze", "merge")
+    __slots__ = ("request_id", "principal", "hlc", "branch", "tenant", "kv_write", "kv_batch", "expire", "gc_threshold", "split", "freeze", "merge", "pd_alloc_ids", "pd_put_node", "pd_put_range", "pd_remove_range", "pd_set_tso", "pd_set_version", "pd_record_operator")
     REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
     PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
     HLC_FIELD_NUMBER: _ClassVar[int]
@@ -22,6 +23,13 @@ class Command(_message.Message):
     SPLIT_FIELD_NUMBER: _ClassVar[int]
     FREEZE_FIELD_NUMBER: _ClassVar[int]
     MERGE_FIELD_NUMBER: _ClassVar[int]
+    PD_ALLOC_IDS_FIELD_NUMBER: _ClassVar[int]
+    PD_PUT_NODE_FIELD_NUMBER: _ClassVar[int]
+    PD_PUT_RANGE_FIELD_NUMBER: _ClassVar[int]
+    PD_REMOVE_RANGE_FIELD_NUMBER: _ClassVar[int]
+    PD_SET_TSO_FIELD_NUMBER: _ClassVar[int]
+    PD_SET_VERSION_FIELD_NUMBER: _ClassVar[int]
+    PD_RECORD_OPERATOR_FIELD_NUMBER: _ClassVar[int]
     request_id: bytes
     principal: str
     hlc: int
@@ -34,7 +42,14 @@ class Command(_message.Message):
     split: _range_pb2.Split
     freeze: _range_pb2.Freeze
     merge: _range_pb2.Merge
-    def __init__(self, request_id: _Optional[bytes] = ..., principal: _Optional[str] = ..., hlc: _Optional[int] = ..., branch: _Optional[str] = ..., tenant: _Optional[str] = ..., kv_write: _Optional[_Union[_kv_pb2.KvWrite, _Mapping]] = ..., kv_batch: _Optional[_Union[_kv_pb2.KvBatch, _Mapping]] = ..., expire: _Optional[_Union[_kv_pb2.Expire, _Mapping]] = ..., gc_threshold: _Optional[_Union[GcThreshold, _Mapping]] = ..., split: _Optional[_Union[_range_pb2.Split, _Mapping]] = ..., freeze: _Optional[_Union[_range_pb2.Freeze, _Mapping]] = ..., merge: _Optional[_Union[_range_pb2.Merge, _Mapping]] = ...) -> None: ...
+    pd_alloc_ids: _pd_pb2.PdAllocIds
+    pd_put_node: _pd_pb2.PdPutNode
+    pd_put_range: _pd_pb2.PdPutRange
+    pd_remove_range: _pd_pb2.PdRemoveRange
+    pd_set_tso: _pd_pb2.PdSetTso
+    pd_set_version: _pd_pb2.PdSetVersion
+    pd_record_operator: _pd_pb2.PdRecordOperator
+    def __init__(self, request_id: _Optional[bytes] = ..., principal: _Optional[str] = ..., hlc: _Optional[int] = ..., branch: _Optional[str] = ..., tenant: _Optional[str] = ..., kv_write: _Optional[_Union[_kv_pb2.KvWrite, _Mapping]] = ..., kv_batch: _Optional[_Union[_kv_pb2.KvBatch, _Mapping]] = ..., expire: _Optional[_Union[_kv_pb2.Expire, _Mapping]] = ..., gc_threshold: _Optional[_Union[GcThreshold, _Mapping]] = ..., split: _Optional[_Union[_range_pb2.Split, _Mapping]] = ..., freeze: _Optional[_Union[_range_pb2.Freeze, _Mapping]] = ..., merge: _Optional[_Union[_range_pb2.Merge, _Mapping]] = ..., pd_alloc_ids: _Optional[_Union[_pd_pb2.PdAllocIds, _Mapping]] = ..., pd_put_node: _Optional[_Union[_pd_pb2.PdPutNode, _Mapping]] = ..., pd_put_range: _Optional[_Union[_pd_pb2.PdPutRange, _Mapping]] = ..., pd_remove_range: _Optional[_Union[_pd_pb2.PdRemoveRange, _Mapping]] = ..., pd_set_tso: _Optional[_Union[_pd_pb2.PdSetTso, _Mapping]] = ..., pd_set_version: _Optional[_Union[_pd_pb2.PdSetVersion, _Mapping]] = ..., pd_record_operator: _Optional[_Union[_pd_pb2.PdRecordOperator, _Mapping]] = ...) -> None: ...
 
 class GcThreshold(_message.Message):
     __slots__ = ("below_index", "limit", "below_version")

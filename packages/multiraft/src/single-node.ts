@@ -19,7 +19,7 @@ export type SingleNodeDeps = Omit<
   ReplicaDeps,
   'rangeId' | 'raftId' | 'options' | 'transport' | 'scheduler' | 'random' | 'bootstrap'
 > &
-  Partial<Pick<ReplicaDeps, 'raftId' | 'scheduler' | 'random'>> & {
+  Partial<Pick<ReplicaDeps, 'rangeId' | 'raftId' | 'scheduler' | 'random'>> & {
     readonly options?: Partial<ReplicaOptions>;
   };
 
@@ -32,7 +32,7 @@ export async function startSingleNode(deps: SingleNodeDeps): Promise<Replica> {
   const raftId = deps.raftId ?? 1n;
   const replica = await Replica.open({
     ...deps,
-    rangeId: 1n,
+    rangeId: deps.rangeId ?? 1n,
     raftId,
     options: { ...DEFAULT_REPLICA_OPTIONS, ...deps.options },
     transport: SINGLE_NODE_TRANSPORT,

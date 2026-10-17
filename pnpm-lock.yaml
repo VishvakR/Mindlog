@@ -44,6 +44,9 @@ importers:
       '@mindlog/multiraft':
         specifier: workspace:*
         version: link:packages/multiraft
+      '@mindlog/pd':
+        specifier: workspace:*
+        version: link:packages/pd
       '@mindlog/proto':
         specifier: workspace:*
         version: link:packages/proto
@@ -282,6 +285,40 @@ importers:
       '@mindlog/eventbus':
         specifier: workspace:*
         version: link:../eventbus
+
+  packages/pd:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
+      '@connectrpc/connect':
+        specifier: 2.2.0
+        version: 2.2.0(@bufbuild/protobuf@2.16.0)
+      '@connectrpc/connect-node':
+        specifier: 2.2.0
+        version: 2.2.0(@bufbuild/protobuf@2.16.0)(@connectrpc/connect@2.2.0(@bufbuild/protobuf@2.16.0))
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/multiraft':
+        specifier: workspace:*
+        version: link:../multiraft
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
+      '@mindlog/statemachine':
+        specifier: workspace:*
+        version: link:../statemachine
+      '@mindlog/storage':
+        specifier: workspace:*
+        version: link:../storage
+    devDependencies:
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
+      '@mindlog/raft':
+        specifier: workspace:*
+        version: link:../raft
 
   packages/proto:
     dependencies:

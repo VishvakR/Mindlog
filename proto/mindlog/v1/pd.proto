@@ -1,0 +1,218 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+import "mindlog/v1/range.proto";
+
+// Placement driver (PLAN 8.3, ADR-0010): replicated PD commands (Command bodies 90-95),
+// the PD client/server RPCs, and the operators PD hands to range leaders.
+
+enum NodeState {
+  NODE_STATE_UNSPECIFIED = 0;
+  NODE_STATE_JOINING = 1;
+  NODE_STATE_LIVE = 2;
+  NODE_STATE_SUSPECT = 3;
+  NODE_STATE_DEAD = 4;
+  NODE_STATE_DRAINING = 5;
+  NODE_STATE_DECOMMISSIONED = 6;
+}
+
+message NodeInfo {
+  uint64 node_id = 1;
+  // Internal (Raft) address.
+  string address = 2;
+  string zone = 3;
+  NodeState state = 4;
+  uint32 binary_version = 5;
+  repeated string labels = 6;
+}
+
+// ---- replicated PD commands ----
+
+// Allocates `count` consecutive ids; replies with the first one (integer).
+message PdAllocIds {
+  uint32 count = 1;
+}
+
+// Registers a node or changes its state, address, zone or labels.
+message PdPutNode {
+  NodeInfo node = 1;
+}
+
+// Updates the directory entry of a range. Ignored (replies 0) when the stored
+// epoch is newer; replies 1 when applied.
+message PdPutRange {
+  RangeDescriptor range = 1;
+}
+
+message PdRemoveRange {
+  uint64 range_id = 1;
+}
+
+// Raises the TSO upper bound (HLC value). Monotonic; replies with the stored bound.
+message PdSetTso {
+  uint64 max = 1;
+}
+
+// Raises the cluster version.
+message PdSetVersion {
+  uint32 version = 1;
+}
+
+// Keeps the last operators with their explanations, for the dashboard.
+message PdRecordOperator {
+  Operator operator = 1;
+}
+
+// ---- operators ----
+
+enum StepKind {
+  STEP_KIND_UNSPECIFIED = 0;
+  STEP_KIND_ADD_LEARNER = 1;
+  STEP_KIND_PROMOTE = 2;
+  STEP_KIND_TRANSFER_LEADER = 3;
+  STEP_KIND_REMOVE_VOTER = 4;
+  STEP_KIND_SPLIT = 5;
+  STEP_KIND_MERGE = 6;
+}
+
+message OperatorStep {
+  StepKind kind = 1;
+  // The replica the step is about (learner to add or promote, voter to remove, leader target).
+  uint64 replica_id = 2;
+  uint64 node_id = 3;
+  string address = 4;
+  // Split: the new range's id. Merge: the left range to merge into.
+  uint64 new_range_id = 5;
+}
+
+message Operator {
+  uint64 id = 1;
+  uint64 range_id = 2;
+  // The scheduler that made it, e.g. "replica-balance".
+  string scheduler = 3;
+  repeated OperatorStep steps = 4;
+  uint32 step = 5;
+  // Why this operator was chosen: the numbers behind the decision.
+  string explanation = 6;
+  uint64 created_ms = 7;
+  string status = 8;
+}
+
+// ---- RPCs ----
+
+message StoreStats {
+  NodeInfo node = 1;
+  uint64 capacity_bytes = 2;
+  uint64 used_bytes = 3;
+  uint32 range_count = 4;
+  uint32 leader_count = 5;
+  double qps = 6;
+  double cpu = 7;
+}
+
+message FollowerProgress {
+  uint64 replica_id = 1;
+  uint64 match = 2;
+}
+
+message RangeStats {
+  RangeDescriptor range = 1;
+  uint64 leader_replica_id = 2;
+  uint64 bytes = 3;
+  double qps = 4;
+  repeated FollowerProgress followers = 5;
+  // The state of the range's replicas, from the leader's view of its own membership.
+  repeated uint64 learners = 6;
+}
+
+message AllocIdsRequest {
+  uint32 count = 1;
+}
+message AllocIdsResponse {
+  uint64 first = 1;
+}
+
+message TsoRequest {
+  uint32 count = 1;
+}
+message TsoResponse {
+  // The last timestamp of the batch (HLC layout); the batch is last - count + 1 .. last.
+  uint64 last = 1;
+}
+
+message GetRangeRequest {
+  bytes key = 1;
+}
+message GetRangeResponse {
+  RangeDescriptor range = 1;
+  uint64 leader_replica_id = 2;
+}
+
+message ScanRangesRequest {
+  bytes start_key = 1;
+  uint32 limit = 2;
+}
+message ScanRangesResponse {
+  repeated RangeDescriptor ranges = 1;
+}
+
+message StoreHeartbeatRequest {
+  StoreStats stats = 1;
+}
+
+message StoreHeartbeatResponse {
+  uint32 cluster_version = 1;
+  // Addresses of the other nodes, so a store can reach replicas PD places on it.
+  repeated NodeInfo nodes = 2;
+}
+
+message RangeHeartbeatRequest {
+  RangeStats stats = 1;
+}
+
+message RangeHeartbeatResponse {
+  // The operator step the range leader should execute now (absent: nothing to do).
+  Operator operator = 1;
+}
+
+message ClusterRequest {}
+message ClusterResponse {
+  repeated NodeInfo nodes = 1;
+  repeated StoreStats stores = 2;
+  repeated RangeDescriptor ranges = 3;
+  repeated Operator operators = 4;
+  repeated Operator recent = 5;
+  uint32 cluster_version = 6;
+}
+
+message AdminRequest {
+  oneof action {
+    uint64 drain_node = 1;
+    uint64 undrain_node = 2;
+    TransferLeaderAction transfer_leader = 3;
+    SplitAction split = 4;
+    uint64 remove_node = 5;
+  }
+}
+message TransferLeaderAction {
+  uint64 range_id = 1;
+  uint64 replica_id = 2;
+}
+message SplitAction {
+  uint64 range_id = 1;
+}
+message AdminResponse {
+  string message = 1;
+}
+
+service PdService {
+  rpc AllocIds(AllocIdsRequest) returns (AllocIdsResponse);
+  rpc Tso(TsoRequest) returns (TsoResponse);
+  rpc GetRange(GetRangeRequest) returns (GetRangeResponse);
+  rpc ScanRanges(ScanRangesRequest) returns (ScanRangesResponse);
+  rpc StoreHeartbeat(StoreHeartbeatRequest) returns (StoreHeartbeatResponse);
+  rpc RangeHeartbeat(RangeHeartbeatRequest) returns (RangeHeartbeatResponse);
+  rpc Cluster(ClusterRequest) returns (ClusterResponse);
+  rpc Admin(AdminRequest) returns (AdminResponse);
+}

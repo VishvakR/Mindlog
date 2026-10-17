@@ -68,6 +68,8 @@ export interface ReplicaDeps {
   readonly logger: Logger;
   readonly metrics: Metrics;
   readonly tracer?: Tracer;
+  /** While `fenced`, lease reads use ReadIndex: this node's clock is out of line with its peers (ADR-0007). */
+  readonly fence?: { readonly fenced: boolean };
   /** Split and merge side effects on the node's other ranges; absent outside a Store. */
   readonly ranges?: RangeEvents;
   /** Initial voters of a brand-new range, written as its state at index 5 (ADR-0028); ignored once it has state. */
@@ -420,7 +422,12 @@ export class Replica implements Proposer, InboundHandler {
       if (machine.appliedHlc > 0n && age <= BigInt(maxStalenessMs))
         return Promise.resolve(ok(undefined));
     }
-    if (level === 'lease' && this.#tickIsFresh() && this.#leaseBlockTicks === 0) {
+    if (
+      level === 'lease' &&
+      this.#tickIsFresh() &&
+      this.#leaseBlockTicks === 0 &&
+      !this.#deps.fence?.fenced
+    ) {
       const index = this.#raw.leaseRead();
       if (index !== undefined) return this.#whenApplied(index).then(() => ok(undefined));
     }

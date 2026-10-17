@@ -116,6 +116,8 @@ message SendRequest {
   // Internal address of the sending node, so a new replica can reply before
   // it knows its range's members, and as a liveness signal (ADR-0028).
   string from_address = 2;
+  // Sender's HLC (PLAN 8.7); receivers merge it into theirs.
+  uint64 hlc = 3;
 }
 
 message SendResponse {}
@@ -124,6 +126,10 @@ message SendResponse {}
 message SnapshotRequest {
   Message message = 1;
   repeated KeyValue pairs = 2;
+  // Sender's HLC, on the first request of a stream.
+  uint64 hlc = 3;
+  // Internal address of the sending node, on the first request of a stream.
+  string from_address = 4;
 }
 
 message SnapshotResponse {}

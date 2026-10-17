@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type {
   Clock,
+  Hlc,
   Logger,
   Metrics,
   MindlogConfig,
@@ -10,7 +11,7 @@ import type {
   Tracer,
 } from '@mindlog/core';
 import {
-  HybridLogicalClock,
+  ClockSync,
   SYSTEM_TENANT,
   SystemRandom,
   UlidGenerator,
@@ -162,11 +163,19 @@ export async function openNodeCore(
   ]) {
     handlers.register(handler);
   }
-  const stamper = new CommandStamper(
-    new HybridLogicalClock(clock, { maxOffsetMs: BigInt(config.cluster.maxClockOffsetMs) }),
-    new UlidGenerator(clock, new SystemRandom()),
-  );
+  const options = replicaOptions(config);
+  const clockSync = new ClockSync({
+    clock,
+    maxOffsetMs: BigInt(config.cluster.maxClockOffsetMs),
+    holdMs: 2 * options.electionTicks[1] * options.tickMs,
+    metrics,
+    logger,
+  });
+  const stamper = new CommandStamper(clockSync.hlc, new UlidGenerator(clock, new SystemRandom()));
   const events = new InMemoryEventBus({ logger, metrics });
+  events.subscribe('CommandApplied', (e) => {
+    clockSync.observe(e.command.hlc as Hlc);
+  });
   const openMachine = (rangeId: bigint) =>
     StateMachine.open({
       store: stateStore,
@@ -183,7 +192,6 @@ export async function openNodeCore(
   // One fsync per turn for the log appends of every range (PLAN 8.2).
   const groupLog = new GroupCommitStore(logStore);
   const log = new RaftLogStore(groupLog);
-  const options = replicaOptions(config);
   let transport: ConnectTransport | undefined;
   let store: Store | undefined;
   let replica: Replica;
@@ -197,6 +205,7 @@ export async function openNodeCore(
         host: config.listen.internal.host,
         port: config.listen.internal.port,
         ...(advertise ? { advertise } : {}),
+        clock: clockSync,
         logger,
         metrics,
       });
@@ -212,6 +221,7 @@ export async function openNodeCore(
         transport: views.transport,
         scheduler: views.scheduler,
         ranges: views.ranges,
+        fence: clockSync,
         clock,
         random: new SystemRandom(),
         logger,

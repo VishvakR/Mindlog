@@ -22,6 +22,8 @@ export { UlidGenerator, isUlid, ulidTime } from './ids/ulid.js';
 
 export type { Hlc, HlcOptions } from './hlc/hlc.js';
 export { HybridLogicalClock, hlcLogical, hlcPhysical, packHlc } from './hlc/hlc.js';
+export type { ClockSyncOptions } from './hlc/clock-sync.js';
+export { ClockSync } from './hlc/clock-sync.js';
 
 export { ByteWriter } from './keys/byte-writer.js';
 export { TupleCode } from './keys/tuple-codes.js';

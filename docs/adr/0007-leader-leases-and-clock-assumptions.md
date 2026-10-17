@@ -41,6 +41,6 @@ A linearizable read needs proof that the node is still leader. ReadIndex gets it
 - Each node also tracks the offset between a remote HLC's physical part and its own wall time. When `update()` rejects a remote timestamp, or the measured offset of a quorum of peers exceeds `cluster.maxClockOffsetMs`, the node **fences** itself for `2 × electionTimeout`:
   - lease reads fall back to ReadIndex;
   - it ignores its lease when deciding whether to serve;
-  - it logs an error and sets `mindlog_clock_fenced` to 1.
+  - it logs an error and sets `mindlog_clock_fenced_info` to 1.
 - `mindlog_clock_offset_seconds` (a gauge, one series per peer) is exported.
 - Correctness does not depend on the fence: leases use tick rates, not offsets. The fence protects the ADR-0027 snapshot-read bound, which assumes clock offsets stay within `maxClockOffsetMs`.

@@ -19,6 +19,7 @@ Shared foundations for every Mindlog package (PLAN 4.2, layer `core`). It has no
 | Randomness | `Random`, `SystemRandom`, `SeededRandom` | `SeededRandom` (xoshiro128** seeded by SplitMix64) reproduces any `bigint` seed exactly |
 | Ids | `UlidGenerator`, `isUlid`, `ulidTime` | Monotonic ULIDs from the Clock and Random ports |
 | HLC | `HybridLogicalClock`, `Hlc`, `packHlc`, `hlcPhysical`, `hlcLogical` | 48-bit ms + 16-bit counter in one `bigint` (fits proto `uint64`) |
+| Clock sync | `ClockSync` | The node's HLC plus its view of peers' clocks: `stamp()` outgoing RPCs, `receive(peer, hlc)` incoming ones, `observe(hlc)` applied commands. A peer further than `maxOffsetMs` (either way) sets `fenced` for `holdMs`; emits `mindlog_clock_offset_seconds{peer}` and `mindlog_clock_fenced_info` (ADR-0007) |
 | Keys | `SYSTEM_TENANT`, `NODE_TENANT`, `isUserTenant`, `encodeTuple`, `appendTuple`, `decodeTuple`, `encodeKey`, `decodeKey`, `keyPrefix`, `prefixRange`, `versionsRange`, `KeyFamily`, `ByteWriter`, `appendVersion`, `TupleCode` | See "Key encoding" below |
 | Config | `resolveConfig`, `configSchema`, `MindlogConfig` | Pure: defaults → YAML → `MINDLOG_*` env → flags |
 | Logging | `Logger`, `createLogger`, `MemoryLogger` | pino JSON lines, secrets redacted, bigints exact |

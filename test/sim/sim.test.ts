@@ -37,6 +37,18 @@ describe('simulator', () => {
     expect(a).toEqual(b);
   });
 
+  test(
+    'a node with a skewed clock fences its peers; reads stay linearizable',
+    { timeout: 120_000 },
+    async () => {
+      for (const seed of [1n, 2n, 3n]) {
+        const result = await scenario(seed).nodes(3).faults({ skewMs: 8_000 }).run();
+        expect(result.violations).toEqual([]);
+        expect(result.stats.fencedSteps).toBeGreaterThan(0);
+      }
+    },
+  );
+
   test('regression seeds', { timeout: 600_000 }, async () => {
     await check(REGRESSION_SEEDS);
   });

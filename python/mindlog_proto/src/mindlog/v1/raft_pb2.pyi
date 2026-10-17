@@ -167,24 +167,30 @@ class KeyValue(_message.Message):
     def __init__(self, key: _Optional[bytes] = ..., value: _Optional[bytes] = ...) -> None: ...
 
 class SendRequest(_message.Message):
-    __slots__ = ("messages", "from_address")
+    __slots__ = ("messages", "from_address", "hlc")
     MESSAGES_FIELD_NUMBER: _ClassVar[int]
     FROM_ADDRESS_FIELD_NUMBER: _ClassVar[int]
+    HLC_FIELD_NUMBER: _ClassVar[int]
     messages: _containers.RepeatedCompositeFieldContainer[Message]
     from_address: str
-    def __init__(self, messages: _Optional[_Iterable[_Union[Message, _Mapping]]] = ..., from_address: _Optional[str] = ...) -> None: ...
+    hlc: int
+    def __init__(self, messages: _Optional[_Iterable[_Union[Message, _Mapping]]] = ..., from_address: _Optional[str] = ..., hlc: _Optional[int] = ...) -> None: ...
 
 class SendResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
 class SnapshotRequest(_message.Message):
-    __slots__ = ("message", "pairs")
+    __slots__ = ("message", "pairs", "hlc", "from_address")
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     PAIRS_FIELD_NUMBER: _ClassVar[int]
+    HLC_FIELD_NUMBER: _ClassVar[int]
+    FROM_ADDRESS_FIELD_NUMBER: _ClassVar[int]
     message: Message
     pairs: _containers.RepeatedCompositeFieldContainer[KeyValue]
-    def __init__(self, message: _Optional[_Union[Message, _Mapping]] = ..., pairs: _Optional[_Iterable[_Union[KeyValue, _Mapping]]] = ...) -> None: ...
+    hlc: int
+    from_address: str
+    def __init__(self, message: _Optional[_Union[Message, _Mapping]] = ..., pairs: _Optional[_Iterable[_Union[KeyValue, _Mapping]]] = ..., hlc: _Optional[int] = ..., from_address: _Optional[str] = ...) -> None: ...
 
 class SnapshotResponse(_message.Message):
     __slots__ = ()

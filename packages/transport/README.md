@@ -11,6 +11,7 @@ Node-to-node Raft messaging over Connect's gRPC protocol on HTTP/2 (ADR-0025, la
 ## Behaviour
 
 - `Send` is one long-lived client stream per peer node, carrying the messages of all ranges in batches (`SendRequest`, stamped with `from_address`), in order.
+- Every `SendRequest` and the first `SnapshotRequest` of a stream carry the sender's HLC (`ClockSync`, optional): the receiver merges it and is fenced if the peer's clock is too far off (ADR-0007).
 - `Snapshot` is one client stream per snapshot: the SNAPSHOT message first, then key/value chunks of `raft.snapshotChunkBytes`.
 - Best effort, like Raft:
   - each peer has a bounded queue (`maxQueuedBatches`), and overflow is dropped and counted;

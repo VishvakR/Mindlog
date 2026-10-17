@@ -8,7 +8,7 @@ import {
   connectNodeAdapter,
   createGrpcTransport,
 } from '@connectrpc/connect-node';
-import type { Counter, Logger, Metrics } from '@mindlog/core';
+import type { ClockSync, Counter, Hlc, Logger, Metrics } from '@mindlog/core';
 import type { NodeInboundHandler, NodeTransport } from '@mindlog/multiraft';
 import type { KeyValue, Message, SendRequest, SnapshotRequest } from '@mindlog/proto';
 import { RaftService } from '@mindlog/proto';
@@ -26,6 +26,8 @@ export interface ConnectTransportOptions {
   readonly reconnectMs?: number;
   readonly logger: Logger;
   readonly metrics: Metrics;
+  /** Stamps outgoing RPCs with the node's HLC and merges incoming ones (PLAN 8.7). */
+  readonly clock?: ClockSync;
 }
 
 interface Peer {
@@ -79,14 +81,18 @@ export class ConnectTransport implements NodeTransport {
         routes: (router) => {
           router.service(RaftService, {
             send: async (requests: AsyncIterable<SendRequest>) => {
-              for await (const request of requests)
+              for await (const request of requests) {
+                options.clock?.receive(request.fromAddress, request.hlc as Hlc);
                 inbound.handler?.onMessages(request.messages, request.fromAddress);
+              }
               return {};
             },
             snapshot: async (requests: AsyncIterable<SnapshotRequest>) => {
               let message: Message | undefined;
               const pairs: KeyValue[] = [];
               for await (const request of requests) {
+                if (request.hlc !== 0n)
+                  options.clock?.receive(request.fromAddress, request.hlc as Hlc);
                 message ??= request.message;
                 pairs.push(...request.pairs);
               }
@@ -126,6 +132,7 @@ export class ConnectTransport implements NodeTransport {
       $typeName: 'mindlog.v1.SendRequest',
       messages: [...messages],
       fromAddress: this.#self,
+      hlc: this.#options.clock?.stamp() ?? 0n,
     };
     if (queue?.push(request)) this.#sent.inc(messages.length);
     else this.#dropped.inc(messages.length);
@@ -137,9 +144,18 @@ export class ConnectTransport implements NodeTransport {
     chunks: AsyncIterable<KeyValue[]>,
   ): Promise<boolean> {
     const peer = this.#peer(address);
+    const clock = this.#options.clock;
+    const self = this.#self;
     async function* body(): AsyncIterable<SnapshotRequest> {
-      yield { $typeName: 'mindlog.v1.SnapshotRequest', message, pairs: [] };
-      for await (const pairs of chunks) yield { $typeName: 'mindlog.v1.SnapshotRequest', pairs };
+      yield {
+        $typeName: 'mindlog.v1.SnapshotRequest',
+        message,
+        pairs: [],
+        hlc: clock?.stamp() ?? 0n,
+        fromAddress: self,
+      };
+      for await (const pairs of chunks)
+        yield { $typeName: 'mindlog.v1.SnapshotRequest', pairs, hlc: 0n, fromAddress: '' };
     }
     try {
       await peer.client.snapshot(body());

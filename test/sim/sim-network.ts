@@ -1,4 +1,5 @@
 import { clone } from '@bufbuild/protobuf';
+import type { ClockSync, Hlc } from '@mindlog/core';
 import type { NodeInboundHandler, NodeTransport } from '@mindlog/multiraft';
 import type { KeyValue, Message } from '@mindlog/proto';
 import { MessageSchema } from '@mindlog/proto';
@@ -22,6 +23,7 @@ export class SimNetwork {
   readonly faults: NetworkFaults = { drop: 0, duplicate: 0, latency: [1, 5] };
   readonly #world: World;
   readonly #handlers = new Map<bigint, NodeInboundHandler>();
+  readonly #clocks = new Map<bigint, ClockSync>();
   /** Partition group per node; nodes in different groups cannot talk. */
   #groups = new Map<bigint, number>();
 
@@ -30,13 +32,15 @@ export class SimNetwork {
   }
 
   /** The node's transport; node `n` is reached at address `n<n>`. */
-  transport(id: bigint): NodeTransport {
+  transport(id: bigint, sync: ClockSync): NodeTransport {
     return {
       attach: (handler) => {
         this.#handlers.set(id, handler);
+        this.#clocks.set(id, sync);
       },
       send: (address, messages) => {
-        for (const m of messages) this.#deliver(id, nodeOf(address), m);
+        const hlc = sync.stamp();
+        for (const m of messages) this.#deliver(id, nodeOf(address), m, hlc);
       },
       sendSnapshot: async (
         address: string,
@@ -48,7 +52,9 @@ export class SimNetwork {
         for await (const chunk of chunks) pairs.push(...chunk);
         if (!this.#connected(id, to) || this.#world.chance(this.faults.drop)) return false;
         const copy = clone(MessageSchema, message);
+        const hlc = sync.stamp();
         this.#world.at(this.#world.now + this.#latency(), () => {
+          this.#clocks.get(to)?.receive(`n${id}`, hlc);
           this.#handlers.get(to)?.onSnapshot(copy, pairs);
         });
         return true;
@@ -59,6 +65,7 @@ export class SimNetwork {
   /** The node is down: nothing reaches it until it attaches again. */
   detach(id: bigint): void {
     this.#handlers.delete(id);
+    this.#clocks.delete(id);
   }
 
   partition(groups: ReadonlyArray<readonly bigint[]>): void {
@@ -78,7 +85,7 @@ export class SimNetwork {
     return this.#world.between(lo, hi);
   }
 
-  #deliver(from: bigint, to: bigint, m: Message): void {
+  #deliver(from: bigint, to: bigint, m: Message, hlc: Hlc): void {
     const world = this.#world;
     if (!this.#connected(from, to) || world.chance(this.faults.drop)) return;
     const copies = world.chance(this.faults.duplicate) ? 2 : 1;
@@ -86,7 +93,9 @@ export class SimNetwork {
       const copy = clone(MessageSchema, m);
       world.at(world.now + this.#latency(), () => {
         // Checked again on arrival: a partition may have started in flight.
-        if (this.#connected(from, to)) this.#handlers.get(to)?.onMessages([copy], `n${from}`);
+        if (!this.#connected(from, to)) return;
+        this.#clocks.get(to)?.receive(`n${from}`, hlc);
+        this.#handlers.get(to)?.onMessages([copy], `n${from}`);
       });
     }
   }

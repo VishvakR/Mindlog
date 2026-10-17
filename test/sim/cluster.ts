@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import type { Clock } from '@mindlog/core';
+import type { Clock, Hlc } from '@mindlog/core';
 import {
-  HybridLogicalClock,
+  ClockSync,
   MemoryLogger,
   MemoryMetrics,
   SYSTEM_TENANT,
@@ -59,6 +59,8 @@ export interface FaultOptions {
   readonly merges: boolean;
   readonly transfers: boolean;
   readonly membership: boolean;
+  /** One node's clock is `skewMs` ahead from the start: its peers must fence and reads stay linearizable. */
+  readonly skewMs: number;
 }
 
 export interface ScenarioOptions {
@@ -84,6 +86,8 @@ export interface SimResult {
     merges: number;
     transfers: number;
     membership: number;
+    /** Event steps during which some node was fenced for clock skew. */
+    fencedSteps: number;
   };
 }
 
@@ -96,6 +100,7 @@ const SIM_OPTIONS: ReplicaOptions = {
   snapshotChunkBytes: 4096,
 };
 const QUIET_MS = 30_000;
+const MAX_OFFSET_MS = 5_000n;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -110,6 +115,7 @@ interface Incarnation {
   /** Newest epoch version this incarnation saw per range: it must never go back. */
   readonly epochs: Map<bigint, bigint>;
   readonly stamper: CommandStamper;
+  readonly sync: ClockSync;
   readonly clock: Clock;
   readonly metrics: MemoryMetrics;
   readonly logger: MemoryLogger;
@@ -118,6 +124,8 @@ interface Incarnation {
 interface SimNode {
   readonly id: bigint;
   readonly rate: number;
+  /** Constant offset of this node's clock from true time (the skew fault). */
+  readonly skewMs: number;
   readonly log: SimDisk;
   readonly state: SimDisk;
   up: Incarnation | undefined;
@@ -126,8 +134,8 @@ interface SimNode {
 }
 
 /** A clock that reads simulated time at this node's rate. */
-const simClock = (world: World, rate: number): Clock => ({
-  now: () => BigInt(START_MS + Math.floor(world.now * rate)),
+const simClock = (world: World, rate: number, skewMs: number): Clock => ({
+  now: () => BigInt(START_MS + skewMs + Math.floor(world.now * rate)),
   monotonic: () => BigInt(Math.floor(world.now * rate * 1e6)),
 });
 
@@ -146,6 +154,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     merges: 0,
     transfers: 0,
     membership: 0,
+    fencedSteps: 0,
   };
   const say = (line: string): void => {
     if (o.verbose) console.log(`[${world.now.toFixed(1)}ms] ${line}`);
@@ -155,12 +164,14 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
   const nodes = ids.map((id): SimNode => ({
     id,
     rate: world.between(1 - o.faults.drift, 1 + o.faults.drift),
+    skewMs: 0,
     log: new SimDisk(),
     state: new SimDisk(),
     up: undefined,
     booting: false,
     generation: 0,
   }));
+  if (o.faults.skewMs !== 0) (world.pick(nodes) as { skewMs: number }).skewMs = o.faults.skewMs;
   const registry = createKvRegistry();
   const leaders = new Map<string, bigint>();
   const appliedAt = new Map<string, string>();
@@ -174,7 +185,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     node.booting = true;
     const generation = ++node.generation;
     const scheduler = new NodeScheduler(world, node.rate);
-    const clock = simClock(world, node.rate);
+    const clock = simClock(world, node.rate, node.skewMs);
     const logger = new MemoryLogger('info');
     const metrics = new MemoryMetrics();
     const handlers = new ApplyHandlerRegistry();
@@ -197,10 +208,19 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       else if (seen !== id) violate(`n${node.id} applied ${id} at ${at}, others applied ${seen}`);
     });
     const seed = o.seed * 31n + node.id * 1000n + BigInt(generation);
-    const stamper = new CommandStamper(
-      new HybridLogicalClock(clock, { maxOffsetMs: 500n }),
-      new UlidGenerator(clock, new SeededRandom(seed)),
-    );
+    // The offset limit is above what the drift option reaches over a run (5% of 70 s), so only
+    // the skew fault fences nodes.
+    const sync = new ClockSync({
+      clock,
+      maxOffsetMs: MAX_OFFSET_MS,
+      holdMs: 2 * SIM_OPTIONS.electionTicks[1] * SIM_OPTIONS.tickMs,
+      metrics,
+      logger,
+    });
+    const stamper = new CommandStamper(sync.hlc, new UlidGenerator(clock, new SeededRandom(seed)));
+    events.subscribe('CommandApplied', (e) => {
+      sync.observe(e.command.hlc as Hlc);
+    });
     const openReplica = async (rangeId: bigint, views: ReplicaViews) => {
       const machine = await StateMachine.open({
         store: stateStore,
@@ -221,6 +241,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
         transport: views.transport,
         scheduler: views.scheduler,
         ranges: views.ranges,
+        fence: sync,
         clock,
         random: new SeededRandom(
           o.seed * 7919n + node.id * 104_729n + BigInt(generation) * 13n + rangeId,
@@ -232,7 +253,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     };
     const store = Store.start({
       nodeId: node.id,
-      transport: net.transport(node.id),
+      transport: net.transport(node.id, sync),
       scheduler,
       clock,
       logger,
@@ -256,6 +277,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       sessions: new Map(),
       epochs: new Map(),
       stamper,
+      sync,
       clock,
       metrics,
       logger,
@@ -315,6 +337,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
 
   function checkStep(): void {
     stats.events++;
+    if (nodes.some((n) => n.up?.sync.fenced)) stats.fencedSteps++;
     for (const node of nodes) {
       const up = node.up;
       if (!up) continue;
@@ -692,6 +715,7 @@ export function scenario(seed: bigint) {
       merges: true,
       transfers: true,
       membership: true,
+      skewMs: 0,
     },
     verbose: false,
   };

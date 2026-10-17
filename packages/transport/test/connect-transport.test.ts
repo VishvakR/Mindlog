@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import { MemoryLogger, MemoryMetrics } from '@mindlog/core';
+import { ClockSync, ManualClock, MemoryLogger, MemoryMetrics, hlcPhysical } from '@mindlog/core';
 import type { NodeInboundHandler } from '@mindlog/multiraft';
 import type { KeyValue, Message } from '@mindlog/proto';
 import { MessageSchema, MessageType } from '@mindlog/proto';
@@ -11,13 +11,24 @@ afterEach(async () => {
   await Promise.all(opened.splice(0).map((t) => t.close()));
 });
 
-async function start(): Promise<ConnectTransport> {
+function sync(startMs: bigint): ClockSync {
+  return new ClockSync({
+    clock: new ManualClock(startMs),
+    maxOffsetMs: 500n,
+    holdMs: 1000,
+    logger: new MemoryLogger(),
+    metrics: new MemoryMetrics(),
+  });
+}
+
+async function start(clock?: ClockSync): Promise<ConnectTransport> {
   const t = await ConnectTransport.start({
     host: '127.0.0.1',
     port: 0,
     reconnectMs: 20,
     logger: new MemoryLogger(),
     metrics: new MemoryMetrics(),
+    ...(clock ? { clock } : {}),
   });
   opened.push(t);
   return t;
@@ -61,6 +72,33 @@ describe('ConnectTransport', () => {
     await until(() => rb.messages.length === 3);
     expect(rb.messages.map((m) => m.index)).toEqual([1n, 2n, 3n]);
     expect(new Set(rb.senders)).toEqual(new Set([a.self]));
+  });
+
+  test('carries the sender HLC on batches and snapshots; a far-off peer fences the receiver', async () => {
+    const ahead = sync(1_005_000n);
+    const near = sync(1_000_000n);
+    const a = await start(ahead);
+    const b = await start(near);
+    b.attach(recorder().handler);
+    a.send(b.self, [msg(2n, 1n)]);
+    await until(() => near.fenced);
+    expect(hlcPhysical(near.hlc.current())).toBeLessThan(1_005_000n);
+
+    const calm = sync(1_000_300n);
+    const c = await start(calm);
+    const rc = recorder();
+    c.attach(rc.handler);
+    const nearer = await start(sync(1_000_400n));
+    async function* none(): AsyncIterable<KeyValue[]> {
+      yield await Promise.resolve([]);
+    }
+    await nearer.sendSnapshot(
+      c.self,
+      create(MessageSchema, { type: MessageType.SNAPSHOT }),
+      none(),
+    );
+    expect(calm.fenced).toBe(false);
+    expect(hlcPhysical(calm.hlc.current())).toBeGreaterThanOrEqual(1_000_400n);
   });
 
   test('streams a snapshot in chunks', async () => {

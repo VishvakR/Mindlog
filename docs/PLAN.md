@@ -661,7 +661,7 @@ v1 scope: implement the protocol for collections' unique-index writes; keep the 
 
 ### 10.2 MVCC
 
-- Version = commit index (inverted for newest-first ordering) per range. `ASOF` by time maps HLC → index via an index-time table `s/idxtime/(rangeId, hlcBucket)` written once per second of activity.
+- Version = a per-range HLC timestamp, `max(cmd.hlc, lastVersion + 1)` assigned in apply (inverted for newest-first ordering); ADR-0027 replaced the phase 1 "commit index" rule so versions survive splits and merges and compare with TSO timestamps. `ASOF` by time reads at that HLC directly.
 - Read at version V: seek to `key@~V`, take the first entry with the same user key.
 - Deletes write tombstones.
 - **GC**: a leader-only job proposes `GcThreshold(index)` commands; apply removes versions older than the threshold except the newest one ≤ threshold. Threshold = now − retention window (default 7 days for KV, 30 days for memory; per-scope override). Branch fork points pin their versions until the branch is dropped.
@@ -902,7 +902,7 @@ Worker rules: bounded concurrency per node, per-tenant budget of model-seconds p
 ### 13.3 Point-in-time recall (`ASOF`)
 
 - `ASOF index` → MVCC read at that index.
-- `ASOF time` → map HLC to index via `s/idxtime` (10.2), then read.
+- `ASOF time` → read at that HLC (versions are HLC timestamps, 10.2 / ADR-0027).
 - Indexes: HNSW is current-state only, so `ASOF` recall runs vector search on current index with `k × 4`, then reads each candidate at the `ASOF` version and drops those that did not exist then; for old timestamps beyond index coverage it falls back to scanning BM25 + entity retrievers over the version-filtered records. Document the accuracy trade-off.
 - Bitemporal queries: `VALID_AT t` filters on world-time `validFrom/validTo` (Graphiti-style), independent of `ASOF` (system time).
 
@@ -1761,6 +1761,10 @@ References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly]
 | 024 | HTTP adapter on Fastify; superusers in the system tenant with bearer tokens |
 | 025 | Raft transport on Connect (gRPC over HTTP/2) |
 | 026 | Raft log format v2, snapshots and data-directory format markers |
+| 027 | MVCC versions are per-range HLC timestamps (store format 3) |
+| 028 | Range-local system state, PD-allocated replica ids, the multi-range store |
+| 029 | Request routing, forwarding and range epochs (`CROSS_RANGE`) |
+| 030 | Cross-range transactions with Percolator |
 
 ---
 

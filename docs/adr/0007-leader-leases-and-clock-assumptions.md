@@ -32,3 +32,15 @@ A linearizable read needs proof that the node is still leader. ReadIndex gets it
 
 - A process paused for longer than the lease (GC pause, SIGSTOP) can resume and serve one stale lease read before its next tick notices the lease ran out. The tick counter only advances when ticks run, so a paused leader's lease does not expire in its own view. Mitigation: the replica refuses lease reads (falling back to ReadIndex) when more than two tick intervals of monotonic time have passed since its last tick.
 - The simulator runs nodes with different clock rates within the drift bound and checks linearizability of lease reads.
+
+## Amendment (2026-10-17, phase 4): HLC on every RPC and offset fencing
+
+- One `HybridLogicalClock` per node, shared by the command stamper, the Raft transport, the PD client and the router's forward RPCs.
+- The HLC travels on every node-to-node message, as an `hlc` field on `SendRequest`, `SnapshotRequest`, the PD requests and `Kv.Execute`. Receivers call `update()`.
+- Apply merges `cmd.hlc` into the local clock, so followers' clocks never lag committed history.
+- Each node also tracks the offset between a remote HLC's physical part and its own wall time. When `update()` rejects a remote timestamp, or the measured offset of a quorum of peers exceeds `cluster.maxClockOffsetMs`, the node **fences** itself for `2 × electionTimeout`:
+  - lease reads fall back to ReadIndex;
+  - it ignores its lease when deciding whether to serve;
+  - it logs an error and sets `mindlog_clock_fenced` to 1.
+- `mindlog_clock_offset_seconds` (a gauge, one series per peer) is exported.
+- Correctness does not depend on the fence: leases use tick rates, not offsets. The fence protects the ADR-0027 snapshot-read bound, which assumes clock offsets stay within `maxClockOffsetMs`.

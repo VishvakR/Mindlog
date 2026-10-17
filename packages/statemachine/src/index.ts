@@ -18,7 +18,15 @@ export {
   rangeLocalKey,
   rangeLocalPrefix,
 } from './system/system-keys.js';
-export { SpanReader, inSpan, spanIntervals, wholeKeyspace } from './range/span.js';
+export {
+  RANGE_INIT_INDEX,
+  SpanReader,
+  inSpan,
+  isUninitialised,
+  spanIntervals,
+  uninitialised,
+  wholeKeyspace,
+} from './range/span.js';
 export { errorResult } from './apply/command-results.js';
 export type { AppliedPoint, StateMachineDeps, StateSnapshot } from './apply/state-machine.js';
 export { StateMachine } from './apply/state-machine.js';

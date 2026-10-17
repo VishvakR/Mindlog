@@ -52,15 +52,35 @@ A snapshot install deletes exactly that set and writes the new one. Before insta
   3. send all messages, grouped by destination node;
   4. apply each range in order, then `advance`.
 
-**Coalesced heartbeats.** All heartbeats and heartbeat responses to one node in a send cycle travel as one `HeartbeatBatch` field in `SendRequest`. Each entry is `{rangeId, from, to, term, commit, leaseTick, context}`. The receiver expands them back into Raft messages.
+**Bootstrap.** A brand-new range does not start from committed `ADD_VOTER` entries (the phase 3 `bootstrapEntries`). Instead, each of its first nodes writes the range's initial state at `RANGE_INIT_INDEX = 5`, with term 5:
+- applied `{5, 5}`;
+- the initial `ConfState`;
+- the descriptor;
+- `raft-truncated = {5, 5}`.
 
-**Quiescence.** A leader with no pending proposals or reads, whose followers have `match = lastIndex` and an applied commit, sends `quiesce` in its heartbeats. When every follower has acked, or after an election timeout, both sides stop ticking that range for the rest of the term. Any proposal, any non-heartbeat message, or the transport reporting the leader's node unreachable wakes the range.
+This is what TiKV does. Every replica created any other way, whether from a message, a learner add or a re-add, has an empty log, while the leader's log starts at 6. Such a replica therefore always gets a snapshot, which carries its descriptor, and never applies entries without one.
+
+**Messages between nodes.**
+- Each node pair has one stream, carrying the messages of every range (`NodeTransport`, keyed by address).
+- `SendRequest.from_address` names the sending node. The store learns `replicaId → address` from it for replicas whose membership it does not know yet. It also counts each `SendRequest` as a sign that the peer node is alive.
+- A Raft heartbeat stays a per-range message inside the shared batch. The heartbeat saving comes from quiescence: an idle range sends nothing. A quiesced leader sends one keepalive round per peer **node**, not per range, every half election timeout. That is the coalesced heartbeat.
+
+**Quiescence.**
+- A leader quiesces when:
+  - it has no pending proposals, reads, membership changes or snapshots;
+  - commit = applied = last index;
+  - every follower's `match` is the last index.
+- While it stays idle, its heartbeats carry `Message.quiesce`. After `electionTicks.min` idle ticks it stops ticking.
+- A follower that receives a quiesce heartbeat from its leader stops ticking.
+- Any proposal, read, membership change, transfer, snapshot, or message other than a heartbeat (or heartbeat response) wakes the range.
+- A quiesced follower whose leader's node has sent nothing for `electionTicks.min` ticks wakes up and can campaign.
 
 ## Alternatives considered
 
 - **Keep raft id = node id**: less code, but safety would depend on destroying state before every re-add.
 - **One LevelDB per range**: simple isolation, but one fsync per range per cycle and thousands of open files.
 - **TiKV's span check on every message**: needs the span in every Raft message; checking at snapshot install is enough.
+- **A `HeartbeatBatch` proto** (CockroachDB's coalesced heartbeats): saves bytes, not round trips, once messages already share one stream per node pair. Quiescence plus a per-node keepalive removes the per-range traffic of idle ranges.
 
 ## Consequences
 

@@ -13,6 +13,22 @@ const NODE_KEYS: KeyRange = (() => {
   return prefixRange(prefix.value);
 })();
 
+/**
+ * Applied index (and term) of a range's initial state, written by bootstrap
+ * or by the split that created it (TiKV's RAFT_INIT_LOG_INDEX). Replicas that
+ * start empty are therefore always caught up by a snapshot (ADR-0028).
+ */
+export const RANGE_INIT_INDEX = 5n;
+
+const NOTHING = Uint8Array.of(0);
+
+/** A replica that has no data yet: its span is empty until a snapshot or split. */
+export const uninitialised = (rangeId: bigint): RangeDescriptor =>
+  create(RangeDescriptorSchema, { rangeId, startKey: NOTHING, endKey: NOTHING });
+
+export const isUninitialised = (d: RangeDescriptor): boolean =>
+  d.endKey.length > 0 && compareBytes(d.startKey, d.endKey) >= 0;
+
 /** The first range of a cluster: every replicated key (ADR-0009). */
 export const wholeKeyspace = (rangeId: bigint): RangeDescriptor =>
   create(RangeDescriptorSchema, { rangeId, epoch: create(RangeEpochSchema, {}) });

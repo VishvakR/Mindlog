@@ -126,7 +126,7 @@ class SnapshotMeta(_message.Message):
     def __init__(self, index: _Optional[int] = ..., term: _Optional[int] = ..., conf_state: _Optional[_Union[ConfState, _Mapping]] = ...) -> None: ...
 
 class Message(_message.Message):
-    __slots__ = ("type", "to", "term", "log_term", "index", "entries", "commit", "reject", "reject_hint", "snapshot", "context", "range_id", "lease_tick")
+    __slots__ = ("type", "to", "term", "log_term", "index", "entries", "commit", "reject", "reject_hint", "snapshot", "context", "range_id", "lease_tick", "quiesce")
     TYPE_FIELD_NUMBER: _ClassVar[int]
     FROM_FIELD_NUMBER: _ClassVar[int]
     TO_FIELD_NUMBER: _ClassVar[int]
@@ -141,6 +141,7 @@ class Message(_message.Message):
     CONTEXT_FIELD_NUMBER: _ClassVar[int]
     RANGE_ID_FIELD_NUMBER: _ClassVar[int]
     LEASE_TICK_FIELD_NUMBER: _ClassVar[int]
+    QUIESCE_FIELD_NUMBER: _ClassVar[int]
     type: MessageType
     to: int
     term: int
@@ -154,7 +155,8 @@ class Message(_message.Message):
     context: bytes
     range_id: int
     lease_tick: int
-    def __init__(self, type: _Optional[_Union[MessageType, str]] = ..., to: _Optional[int] = ..., term: _Optional[int] = ..., log_term: _Optional[int] = ..., index: _Optional[int] = ..., entries: _Optional[_Iterable[_Union[Entry, _Mapping]]] = ..., commit: _Optional[int] = ..., reject: _Optional[bool] = ..., reject_hint: _Optional[int] = ..., snapshot: _Optional[_Union[SnapshotMeta, _Mapping]] = ..., context: _Optional[bytes] = ..., range_id: _Optional[int] = ..., lease_tick: _Optional[int] = ..., **kwargs) -> None: ...
+    quiesce: bool
+    def __init__(self, type: _Optional[_Union[MessageType, str]] = ..., to: _Optional[int] = ..., term: _Optional[int] = ..., log_term: _Optional[int] = ..., index: _Optional[int] = ..., entries: _Optional[_Iterable[_Union[Entry, _Mapping]]] = ..., commit: _Optional[int] = ..., reject: _Optional[bool] = ..., reject_hint: _Optional[int] = ..., snapshot: _Optional[_Union[SnapshotMeta, _Mapping]] = ..., context: _Optional[bytes] = ..., range_id: _Optional[int] = ..., lease_tick: _Optional[int] = ..., quiesce: _Optional[bool] = ..., **kwargs) -> None: ...
 
 class KeyValue(_message.Message):
     __slots__ = ("key", "value")
@@ -165,10 +167,12 @@ class KeyValue(_message.Message):
     def __init__(self, key: _Optional[bytes] = ..., value: _Optional[bytes] = ...) -> None: ...
 
 class SendRequest(_message.Message):
-    __slots__ = ("messages",)
+    __slots__ = ("messages", "from_address")
     MESSAGES_FIELD_NUMBER: _ClassVar[int]
+    FROM_ADDRESS_FIELD_NUMBER: _ClassVar[int]
     messages: _containers.RepeatedCompositeFieldContainer[Message]
-    def __init__(self, messages: _Optional[_Iterable[_Union[Message, _Mapping]]] = ...) -> None: ...
+    from_address: str
+    def __init__(self, messages: _Optional[_Iterable[_Union[Message, _Mapping]]] = ..., from_address: _Optional[str] = ...) -> None: ...
 
 class SendResponse(_message.Message):
     __slots__ = ()

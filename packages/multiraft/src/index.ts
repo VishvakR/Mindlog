@@ -10,3 +10,6 @@ export type { ReadLevel, ReplicaDeps, ReplicaOptions } from './replica.js';
 export { Replica, addressesOf } from './replica.js';
 export type { SingleNodeDeps } from './single-node.js';
 export { DEFAULT_REPLICA_OPTIONS, startSingleNode } from './single-node.js';
+export type { NodeInboundHandler, NodeTransport } from './ports.js';
+export type { ReplicaViews, StoreDeps } from './store.js';
+export { Store } from './store.js';

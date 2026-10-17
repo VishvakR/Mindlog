@@ -8,7 +8,7 @@ A pure Raft consensus state machine for one range (PLAN 7), modelled on etcd's `
 |---|---|
 | `RawNode` | Drive with `tick()` and `step(message)`. Inputs: `propose`, `proposeConfChange`, `readIndex`, `leaseRead`, `transferLeader`, `reportUnreachable`, `reportSnapshot`. Drain with `hasReady()`, `ready()` and `advance(ready)`. Also `applyConfChange`, `compact`, `status`, `checkInvariants` |
 | `Ready` | Work for the host: persist `hardState` / `entries` / `snapshot` (fsync when `mustSync`) → send `messages` → install `snapshot` and apply `committedEntries` → `advance` |
-| `bootstrapEntries(peers)` | Committed ADD_VOTER entries at term 1 that every initial node of a new range writes, so membership always comes from the log |
+| `bootstrapEntries(peers)` | Committed ADD_VOTER entries at term 1 for a new group (used by the core's tests; the server bootstraps ranges from a snapshot-like initial state instead, ADR-0028) |
 | `validateConfChange`, `applyToConfState` | Single-server membership rules (ADR-0006) |
 | `DEFAULT_RAFT_OPTIONS`, `validateRaftOptions` | PLAN 7.4 timings; rejects `leaseTicks >= electionTicks[0]` (ADR-0007) |
 

@@ -11,7 +11,13 @@ import {
 import type { KvStore } from '@mindlog/storage';
 import { MemoryStore, MvccReader, MvccWriter } from '@mindlog/storage';
 import type { ApplyHandler } from '@mindlog/statemachine';
-import { ApplyHandlerRegistry, StateMachine, rangeDescriptorKey } from '@mindlog/statemachine';
+import {
+  ApplyHandlerRegistry,
+  RANGE_INIT_INDEX,
+  StateMachine,
+  isUninitialised,
+  rangeDescriptorKey,
+} from '@mindlog/statemachine';
 import { counterHandler, counterKey, writeCommand } from './support/counter-handler.js';
 
 const utf8 = new TextEncoder();
@@ -71,13 +77,20 @@ const integer = (r: Awaited<ReturnType<StateMachine['apply']>>) =>
     : undefined;
 
 describe('range state (ADR-0027, ADR-0028)', () => {
-  test('a new range covers the whole keyspace', async () => {
-    const machine = await open(new MemoryStore(), 3n);
-    expect(machine.descriptor).toMatchObject({
+  test('a bootstrapped range starts at the init index with the whole keyspace', async () => {
+    const store = new MemoryStore();
+    const machine = await open(store, 3n);
+    expect(isUninitialised(machine.descriptor)).toBe(true);
+    await machine.bootstrap(create(ConfStateSchema, { voters: [1n] }));
+    expect(machine.applied).toEqual({ index: RANGE_INIT_INDEX, term: RANGE_INIT_INDEX });
+    const reopened = await open(store, 3n);
+    expect(reopened.descriptor).toMatchObject({
       rangeId: 3n,
       startKey: new Uint8Array(),
       endKey: new Uint8Array(),
     });
+    expect(reopened.confState.voters).toEqual([1n]);
+    await expect(reopened.bootstrap(create(ConfStateSchema, {}))).rejects.toThrow(/brand-new/);
   });
 
   test('versions are max(hlc, last + 1) and survive a restart', async () => {

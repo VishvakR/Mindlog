@@ -6,7 +6,7 @@ import { InMemoryEventBus } from '@mindlog/eventbus';
 import { CommandSchema, ConfStateSchema } from '@mindlog/proto';
 import type { KvStore } from '@mindlog/storage';
 import { MemoryStore, MvccReader } from '@mindlog/storage';
-import { ApplyHandlerRegistry, StateMachine } from '@mindlog/statemachine';
+import { ApplyHandlerRegistry, StateMachine, wholeKeyspace } from '@mindlog/statemachine';
 import { counterHandler, counterKey, writeCommand } from './support/counter-handler.js';
 
 async function setup(store: KvStore = new MemoryStore()) {
@@ -26,6 +26,7 @@ async function setup(store: KvStore = new MemoryStore()) {
     clock: new ManualClock(),
     logger,
     metrics,
+    descriptor: wholeKeyspace(1n),
   });
   return { store, machine, seen, metrics };
 }

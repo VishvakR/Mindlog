@@ -1,4 +1,4 @@
-import { equals, fromBinary, toBinary } from '@bufbuild/protobuf';
+import { create, equals, fromBinary, toBinary } from '@bufbuild/protobuf';
 import type {
   Clock,
   Counter,
@@ -15,9 +15,15 @@ import type {
 import { err, hlcPhysical, mindlogError, ok } from '@mindlog/core';
 import type { Hlc } from '@mindlog/core';
 import type { Command, ConfChange, ConfState, Entry, KeyValue, Message } from '@mindlog/proto';
-import { CommandSchema, ConfChangeSchema, EntryType, MessageType } from '@mindlog/proto';
+import {
+  CommandSchema,
+  ConfChangeSchema,
+  ConfStateSchema,
+  EntryType,
+  MessageType,
+} from '@mindlog/proto';
 import type { BootstrapPeer, RaftOptions, RaftStatus, Ready } from '@mindlog/raft';
-import { RawNode, bootstrapEntries } from '@mindlog/raft';
+import { RawNode } from '@mindlog/raft';
 import type { Proposal, Proposer, RaftLogStore, StateMachine } from '@mindlog/statemachine';
 import type { InboundHandler, RaftTransport, Scheduler } from './ports.js';
 
@@ -46,7 +52,7 @@ export interface ReplicaDeps {
   readonly logger: Logger;
   readonly metrics: Metrics;
   readonly tracer?: Tracer;
-  /** Initial members of a brand-new range; ignored once the log has entries. */
+  /** Initial voters of a brand-new range, written as its state at index 5 (ADR-0028); ignored once it has state. */
   readonly bootstrap?: readonly BootstrapPeer[];
 }
 
@@ -99,6 +105,10 @@ export class Replica implements Proposer, InboundHandler {
   #failure: unknown;
   #closed = false;
   #autoCampaigned = false;
+  /** Leader ticks spent idle; heartbeats ask followers to quiesce while > 0. */
+  #idleTicks = 0;
+  #quiesced = false;
+  readonly #labels: { readonly range: string };
   readonly #m: {
     term: Gauge;
     role: Gauge;
@@ -114,36 +124,49 @@ export class Replica implements Proposer, InboundHandler {
     this.#deps = deps;
     this.#raw = raw;
     this.#lastTickNs = deps.clock.monotonic();
+    this.#labels = { range: deps.rangeId.toString() };
     const m = deps.metrics;
     this.#m = {
-      term: m.gauge({ name: 'mindlog_raft_term_count', help: 'Current Raft term' }),
+      term: m.gauge({
+        name: 'mindlog_raft_term_count',
+        help: 'Current Raft term',
+        labelNames: ['range'],
+      }),
       role: m.gauge({
         name: 'mindlog_raft_role_info',
         help: '0 follower, 1 pre-candidate, 2 candidate, 3 leader',
+        labelNames: ['range'],
       }),
-      commit: m.gauge({ name: 'mindlog_raft_commit_index_entries', help: 'Raft commit index' }),
+      commit: m.gauge({
+        name: 'mindlog_raft_commit_index_entries',
+        help: 'Raft commit index',
+        labelNames: ['range'],
+      }),
       applied: m.gauge({
         name: 'mindlog_raft_applied_index_entries',
         help: 'Last applied log index',
+        labelNames: ['range'],
       }),
       elections: m.counter({
         name: 'mindlog_raft_elections_total',
         help: 'Times this node became leader',
+        labelNames: ['range'],
       }),
       commitLatency: m.histogram({
         name: 'mindlog_raft_commit_latency_seconds',
         help: 'Proposal to apply on the proposing node',
         buckets: [0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5],
+        labelNames: ['range'],
       }),
       dropped: m.counter({
         name: 'mindlog_raft_proposals_dropped_total',
         help: 'Proposals that failed before being applied, by reason',
-        labelNames: ['reason'],
+        labelNames: ['range', 'reason'],
       }),
       snapshots: m.counter({
         name: 'mindlog_raft_snapshots_total',
         help: 'Snapshots sent or installed',
-        labelNames: ['direction'],
+        labelNames: ['range', 'direction'],
       }),
     };
   }
@@ -151,15 +174,17 @@ export class Replica implements Proposer, InboundHandler {
   /** Loads the log, reconciles it with the state store (ADR-0026) and builds the core. */
   static async open(deps: ReplicaDeps): Promise<Replica> {
     let stored = await deps.log.load();
-    const applied = deps.machine.applied;
     const fresh =
-      stored.entries.length === 0 && stored.truncated.index === 0n && applied.index === 0n;
+      stored.entries.length === 0 &&
+      stored.truncated.index === 0n &&
+      deps.machine.applied.index === 0n;
     if (fresh && deps.bootstrap && deps.bootstrap.length > 0) {
-      const entries = bootstrapEntries(deps.bootstrap);
-      const hardState = { ...stored.hardState, term: 1n, commit: BigInt(entries.length) };
-      await deps.log.persist({ hardState, entries, sync: true });
-      stored = { hardState, truncated: stored.truncated, entries };
+      const point = await deps.machine.bootstrap(initialMembers(deps.bootstrap));
+      const hardState = { ...stored.hardState, term: point.term, commit: point.index };
+      await deps.log.persist({ hardState, entries: [], snapshot: point, sync: true });
+      stored = { hardState, truncated: point, entries: [] };
     }
+    const applied = deps.machine.applied;
     const last = stored.truncated.index + BigInt(stored.entries.length);
     if (applied.index < stored.truncated.index) {
       throw new Error(
@@ -224,6 +249,26 @@ export class Replica implements Proposer, InboundHandler {
     });
   }
 
+  /** True while the range is idle and not ticking (ADR-0028). */
+  get quiesced(): boolean {
+    return this.#quiesced;
+  }
+
+  /** Resumes ticking: work arrived, or the store lost contact with the leader's node. */
+  wake(): void {
+    if (!this.#quiesced && this.#idleTicks === 0) return;
+    this.#quiesced = false;
+    this.#idleTicks = 0;
+    this.#schedule();
+  }
+
+  /** On a quiesced leader: one round of quiesce heartbeats, so followers keep trusting it. */
+  keepalive(): void {
+    if (!this.#quiesced || !this.isLeader()) return;
+    this.#raw.tick();
+    this.#schedule();
+  }
+
   isLeader(): boolean {
     return this.#raw.status().role === 'leader';
   }
@@ -239,10 +284,11 @@ export class Replica implements Proposer, InboundHandler {
   // ---- Proposer ----
 
   propose(command: Command): Promise<Result<Proposal, MindlogError>> {
+    this.wake();
     const stopped = this.#stopped();
     if (stopped) return Promise.resolve(err(stopped));
     if (this.#pendingCount() >= this.#deps.options.maxPendingProposals) {
-      this.#m.dropped.inc(1, { reason: 'busy' });
+      this.#m.dropped.inc(1, { ...this.#labels, reason: 'busy' });
       return Promise.resolve(
         err(mindlogError('BUSY', 'too many pending writes', { retryAfterMs: 10 })),
       );
@@ -250,7 +296,7 @@ export class Replica implements Proposer, InboundHandler {
     const data = toBinary(CommandSchema, command);
     const proposed = this.#raw.propose(data);
     if (!proposed.ok) {
-      this.#m.dropped.inc(1, { reason: 'not_leader' });
+      this.#m.dropped.inc(1, { ...this.#labels, reason: 'not_leader' });
       return Promise.resolve(proposed);
     }
     return new Promise((resolve) => {
@@ -275,6 +321,7 @@ export class Replica implements Proposer, InboundHandler {
    * the last applied write is recent enough (bounded_staleness).
    */
   read(level: ReadLevel, maxStalenessMs = 500): Promise<Result<void, MindlogError>> {
+    this.wake();
     const stopped = this.#stopped();
     if (stopped) return Promise.resolve(err(stopped));
     const machine = this.#deps.machine;
@@ -297,6 +344,7 @@ export class Replica implements Proposer, InboundHandler {
 
   /** Proposes one membership change; resolves with the new ConfState once applied here. */
   changeMembership(cc: ConfChange): Promise<Result<ConfState, MindlogError>> {
+    this.wake();
     const stopped = this.#stopped();
     if (stopped) return Promise.resolve(err(stopped));
     const proposed = this.#raw.proposeConfChange(cc);
@@ -314,6 +362,7 @@ export class Replica implements Proposer, InboundHandler {
   }
 
   transferLeader(to: bigint): Result<void, MindlogError> {
+    this.wake();
     const result = this.#raw.transferLeader(to);
     this.#schedule();
     return result;
@@ -323,12 +372,19 @@ export class Replica implements Proposer, InboundHandler {
 
   onMessages(messages: readonly Message[]): void {
     if (this.#closed) return;
-    for (const m of messages) this.#raw.step(m);
+    for (const m of messages) {
+      this.#raw.step(m);
+      if (m.type === MessageType.HEARTBEAT_RESPONSE) continue;
+      const fromLeader = m.type === MessageType.HEARTBEAT && m.from === this.#raw.status().lead;
+      if (fromLeader && m.quiesce) this.#quiesced = true;
+      else this.wake();
+    }
     this.#schedule();
   }
 
   onSnapshot(message: Message, pairs: readonly KeyValue[]): void {
     if (this.#closed || !message.snapshot) return;
+    this.wake();
     this.#staged = { index: message.snapshot.index, pairs };
     this.#raw.step(message);
     this.#schedule();
@@ -384,9 +440,9 @@ export class Replica implements Proposer, InboundHandler {
     this.#notifyApplied();
     const s = this.#raw.status();
     if (s.lead !== 0n) for (const done of this.#leaderWaiters.splice(0)) done();
-    this.#m.term.set(Number(s.term));
-    this.#m.commit.set(Number(s.commit));
-    this.#m.applied.set(Number(this.#deps.machine.appliedIndex));
+    this.#m.term.set(Number(s.term), this.#labels);
+    this.#m.commit.set(Number(s.commit), this.#labels);
+    this.#m.applied.set(Number(this.#deps.machine.appliedIndex), this.#labels);
   }
 
   async #installSnapshot(rd: Ready): Promise<void> {
@@ -397,7 +453,7 @@ export class Replica implements Proposer, InboundHandler {
     await this.#deps.machine.installSnapshot(meta, staged.pairs);
     this.#staged = undefined;
     this.#deps.transport.setPeers(addressesOf(this.#deps.machine.confState));
-    this.#m.snapshots.inc(1, { direction: 'installed' });
+    this.#m.snapshots.inc(1, { ...this.#labels, direction: 'installed' });
   }
 
   async #apply(entry: Entry): Promise<void> {
@@ -425,7 +481,7 @@ export class Replica implements Proposer, InboundHandler {
     this.#pending.delete(key);
     const now = this.#deps.clock.monotonic();
     for (const w of waiting) {
-      this.#m.commitLatency.observe(Number(now - w.started) / 1e9);
+      this.#m.commitLatency.observe(Number(now - w.started) / 1e9, this.#labels);
       w.resolve(ok({ index: entry.index, result }));
     }
   }
@@ -455,9 +511,10 @@ export class Replica implements Proposer, InboundHandler {
 
   #send(messages: readonly Message[]): void {
     const regular: Message[] = [];
+    const quiesce = this.#quiesced || this.#idleTicks > 0;
     for (const m of messages) {
       if (m.type === MessageType.SNAPSHOT) void this.#sendSnapshot(m);
-      else regular.push(m);
+      else regular.push(quiesce && m.type === MessageType.HEARTBEAT ? { ...m, quiesce } : m);
     }
     if (regular.length > 0) this.#deps.transport.send(regular);
   }
@@ -476,7 +533,7 @@ export class Replica implements Proposer, InboundHandler {
       } finally {
         await snapshot.release();
       }
-      this.#m.snapshots.inc(1, { direction: 'sent' });
+      this.#m.snapshots.inc(1, { ...this.#labels, direction: 'sent' });
     } catch (cause: unknown) {
       this.#deps.logger.warn('snapshot send failed', { to: m.to, error: String(cause) });
     } finally {
@@ -539,12 +596,25 @@ export class Replica implements Proposer, InboundHandler {
   // ---- ticks, deadlines, compaction ----
 
   #onTick(): void {
-    if (this.#failure !== undefined || this.#closed) return;
+    if (this.#failure !== undefined || this.#closed || this.#quiesced) return;
     this.#tick += 1n;
     this.#lastTickNs = this.#deps.clock.monotonic();
+    this.#idleTicks = this.#canQuiesce() ? this.#idleTicks + 1 : 0;
+    // Followers get an election timeout of quiesce heartbeats before the leader goes silent.
+    if (this.#idleTicks > this.#deps.options.electionTicks[0]) this.#quiesced = true;
     this.#raw.tick();
     this.#expire();
     this.#schedule();
+  }
+
+  /** A leader may quiesce when nothing is pending and every follower has everything. */
+  #canQuiesce(): boolean {
+    const s = this.#raw.status();
+    if (s.role !== 'leader' || s.leadTransferee !== 0n || s.commit !== s.lastIndex) return false;
+    if (this.#deps.machine.appliedIndex !== s.commit || this.#snapshotting.size > 0) return false;
+    if (this.#pending.size > 0 || this.#readBatch.length > 0 || this.#reads.size > 0) return false;
+    if (this.#confWaiters.length > 0) return false;
+    return s.progress.every((p) => p.match === s.lastIndex);
   }
 
   #deadline(): bigint {
@@ -563,7 +633,7 @@ export class Replica implements Proposer, InboundHandler {
       if (live.length === 0) this.#pending.delete(key);
       else this.#pending.set(key, live);
       if (live.length < list.length)
-        this.#m.dropped.inc(list.length - live.length, { reason: 'deadline' });
+        this.#m.dropped.inc(list.length - live.length, { ...this.#labels, reason: 'deadline' });
     }
     const noLeader = mindlogError('NOT_LEADER', 'leadership could not be confirmed in time', {
       retryAfterMs: 100,
@@ -614,8 +684,8 @@ export class Replica implements Proposer, InboundHandler {
   }
 
   #onSoftState(role: RaftStatus['role'], lead: bigint): void {
-    this.#m.role.set(ROLE_CODE[role]);
-    if (role === 'leader') this.#m.elections.inc();
+    this.#m.role.set(ROLE_CODE[role], this.#labels);
+    if (role === 'leader') this.#m.elections.inc(1, this.#labels);
     this.#deps.logger.info('raft role changed', { role, lead, term: this.#raw.status().term });
     if (lead !== 0n) this.#reproposePending();
   }
@@ -674,4 +744,12 @@ export class Replica implements Proposer, InboundHandler {
 
 export function addressesOf(confState: ConfState): Map<bigint, string> {
   return new Map(Object.entries(confState.addresses).map(([id, address]) => [BigInt(id), address]));
+}
+
+/** The ConfState of a range's first voters. */
+function initialMembers(peers: readonly BootstrapPeer[]): ConfState {
+  return create(ConfStateSchema, {
+    voters: [...peers].map((p) => p.id).sort((a, b) => (a < b ? -1 : 1)),
+    addresses: Object.fromEntries(peers.map((p) => [p.id.toString(), p.address])),
+  });
 }

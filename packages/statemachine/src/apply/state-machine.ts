@@ -26,7 +26,14 @@ import {
   rangeDescriptorKey,
   rangeLocalPrefix,
 } from '../system/system-keys.js';
-import { SpanReader, spanIntervals, wholeKeyspace } from '../range/span.js';
+import {
+  RANGE_INIT_INDEX,
+  SpanReader,
+  isUninitialised,
+  spanIntervals,
+  uninitialised,
+  wholeKeyspace,
+} from '../range/span.js';
 import type { ApplyHandlerRegistry } from './apply-handler-registry.js';
 import { errorResult } from './command-results.js';
 
@@ -39,7 +46,7 @@ export interface StateMachineDeps {
   readonly logger: Logger;
   readonly metrics: Metrics;
   readonly rangeId?: bigint;
-  /** Descriptor to start from when the store has none (default: the whole keyspace). */
+  /** Descriptor when the store has none; without one the replica is uninitialised (ADR-0028). */
   readonly descriptor?: RangeDescriptor;
 }
 
@@ -112,7 +119,7 @@ export class StateMachine {
     this.#idempotency = new IdempotencyTable(deps.store, rangeId);
     this.#applied = state.applied;
     this.#confState = state.confState;
-    this.#descriptor = state.descriptor ?? deps.descriptor ?? wholeKeyspace(rangeId);
+    this.#descriptor = state.descriptor ?? deps.descriptor ?? uninitialised(rangeId);
     this.#lastVersion = state.lastVersion;
     this.#latency = deps.metrics.histogram({
       name: 'mindlog_statemachine_apply_latency_seconds',
@@ -129,13 +136,35 @@ export class StateMachine {
   static async open(deps: StateMachineDeps): Promise<StateMachine> {
     const rangeId = deps.rangeId ?? 1n;
     const state = await readRangeState(deps.store, rangeId);
-    const machine = new StateMachine(deps, rangeId, state);
-    if (!state.descriptor) {
+    if (!state.descriptor && deps.descriptor) {
       const batch = deps.store.batch();
-      batch.put(rangeDescriptorKey(rangeId), toBinary(RangeDescriptorSchema, machine.#descriptor));
+      batch.put(rangeDescriptorKey(rangeId), toBinary(RangeDescriptorSchema, deps.descriptor));
       await batch.write();
     }
-    return machine;
+    return new StateMachine(deps, rangeId, state);
+  }
+
+  /**
+   * Writes the initial state of a brand-new range on one of its first nodes:
+   * applied at `RANGE_INIT_INDEX`, the initial members and the descriptor
+   * (the whole keyspace unless the deps gave one). Replicas created any other
+   * way start empty and get all of this from a snapshot (ADR-0028).
+   */
+  async bootstrap(confState: ConfState): Promise<AppliedPoint> {
+    if (this.#applied.index !== 0n) throw new Error('only a brand-new range can be bootstrapped');
+    const descriptor = isUninitialised(this.#descriptor)
+      ? wholeKeyspace(this.#rangeId)
+      : this.#descriptor;
+    const applied = { index: RANGE_INIT_INDEX, term: RANGE_INIT_INDEX };
+    const batch = this.#deps.store.batch();
+    batch.put(confStateKey(this.#rangeId), toBinary(ConfStateSchema, confState));
+    batch.put(rangeDescriptorKey(this.#rangeId), toBinary(RangeDescriptorSchema, descriptor));
+    batch.put(appliedIndexKey(this.#rangeId), encodeApplied(applied));
+    await batch.write({ sync: true });
+    this.#applied = applied;
+    this.#confState = confState;
+    this.#descriptor = descriptor;
+    return applied;
   }
 
   get rangeId(): bigint {
@@ -274,7 +303,7 @@ export class StateMachine {
     if (!incoming) throw new Error(`snapshot of range ${this.#rangeId} has no descriptor`);
     const next = fromBinary(RangeDescriptorSchema, incoming.value);
     const batch = store.batch();
-    for (const part of [...this.#ownKeys(this.#installedSpan()), ...this.#ownKeys(next)])
+    for (const part of [...this.#ownKeys(this.#descriptor), ...this.#ownKeys(next)])
       for await (const [key] of store.iterate(part)) batch.del(key);
     for (const { key, value } of pairs) batch.put(key, value);
     await batch.write({ sync: true });
@@ -287,13 +316,6 @@ export class StateMachine {
     this.#confState = state.confState;
     this.#descriptor = next;
     this.#lastVersion = state.lastVersion;
-  }
-
-  /** The span whose data this replica holds: none before its first apply or install. */
-  #installedSpan(): RangeDescriptor {
-    return this.#applied.index > 0n
-      ? this.#descriptor
-      : create(RangeDescriptorSchema, { rangeId: this.#rangeId, endKey: new Uint8Array([0]) });
   }
 
   #ownKeys(descriptor: RangeDescriptor) {

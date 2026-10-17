@@ -102,6 +102,8 @@ message Message {
   uint64 range_id = 13;
   // Leader tick when sent, echoed in responses for leases (ADR-0007).
   uint64 lease_tick = 14;
+  // On a heartbeat: the range is idle; stop ticking until woken (ADR-0028).
+  bool quiesce = 15;
 }
 
 message KeyValue {
@@ -111,6 +113,9 @@ message KeyValue {
 
 message SendRequest {
   repeated Message messages = 1;
+  // Internal address of the sending node, so a new replica can reply before
+  // it knows its range's members, and as a liveness signal (ADR-0028).
+  string from_address = 2;
 }
 
 message SendResponse {}

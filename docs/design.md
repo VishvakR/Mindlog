@@ -341,7 +341,7 @@ How phase 3 builds it (ADR-0006, 0025, 0026):
   - each Ready is one log batch and one fsync;
   - proposals resolve by request id when this node applies them, so writes on a follower are forwarded and answered there;
   - on a leader change, pending proposals are proposed again (apply deduplicates by request id), so failover is bounded by the election (about 1.5 s median).
-- A new range writes its initial membership as committed `ADD_VOTER` entries, so membership always comes from the log or a snapshot.
+- A new range writes its initial state (membership and descriptor) at index 5 on its first nodes; every other replica starts empty and is caught up by a snapshot (ADR-0028).
 - Snapshots are the whole state store at its applied point. They stream in chunks over the Connect transport and install as one atomic batch, with boot reconciliation for a crash halfway (ADR-0026).
 - `--single-node` is the same code with one voter.
 

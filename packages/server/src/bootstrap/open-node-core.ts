@@ -25,10 +25,11 @@ import {
   kvBatchHandler,
   kvWriteHandler,
 } from '@mindlog/kv';
-import type { ReplicaOptions } from '@mindlog/multiraft';
+import type { ReplicaOptions, ReplicaViews } from '@mindlog/multiraft';
 import {
   DEFAULT_REPLICA_OPTIONS,
   Replica,
+  Store,
   SystemScheduler,
   startSingleNode,
 } from '@mindlog/multiraft';
@@ -40,7 +41,7 @@ import {
   StateMachine,
   ensureStoreFormat,
 } from '@mindlog/statemachine';
-import { LevelDbStore } from '@mindlog/storage';
+import { GroupCommitStore, LevelDbStore } from '@mindlog/storage';
 import { ConnectTransport } from '@mindlog/transport';
 
 export interface CoreDeps {
@@ -56,6 +57,8 @@ export interface NodeCore {
   readonly machine: StateMachine;
   /** The range replica: the Proposer and ReadBarrier of this node. */
   readonly replica: Replica;
+  /** All replicas of this node; absent for a single-voter node. */
+  readonly store: Store | undefined;
   /** Internal Raft listener; absent for a single-voter node. */
   readonly transport: ConnectTransport | undefined;
   readonly stamper: CommandStamper;
@@ -155,18 +158,17 @@ export async function openNodeCore(
   ]) {
     handlers.register(handler);
   }
-  const machine = await StateMachine.open({
-    store: stateStore,
-    handlers,
-    events: new InMemoryEventBus({ logger, metrics }),
-    clock,
-    logger,
-    metrics,
-  });
+  const events = new InMemoryEventBus({ logger, metrics });
+  const openMachine = (rangeId: bigint) =>
+    StateMachine.open({ store: stateStore, handlers, events, clock, logger, metrics, rangeId });
+  const machine = await openMachine(1n);
   const before = machine.appliedIndex;
-  const log = new RaftLogStore(logStore);
+  // One fsync per turn for the log appends of every range (PLAN 8.2).
+  const groupLog = new GroupCommitStore(logStore);
+  const log = new RaftLogStore(groupLog);
   const options = replicaOptions(config);
   let transport: ConnectTransport | undefined;
+  let store: Store | undefined;
   let replica: Replica;
   try {
     if (single) {
@@ -181,31 +183,46 @@ export async function openNodeCore(
         options,
       });
     } else {
+      const peers = config.cluster.peers.map((p) => ({ id: BigInt(p.id), address: p.address }));
+      const advertise = peers.find((p) => p.id === raftId)?.address;
       transport = await ConnectTransport.start({
         host: config.listen.internal.host,
         port: config.listen.internal.port,
+        ...(advertise ? { advertise } : {}),
         logger,
         metrics,
       });
-      const peers = config.cluster.peers.map((p) => ({ id: BigInt(p.id), address: p.address }));
-      replica = await Replica.open({
-        rangeId: 1n,
-        raftId,
-        options,
-        log,
-        machine,
+      const bootstrap = config.cluster.join ? {} : { bootstrap: peers };
+      const openReplica = async (rangeId: bigint, views: ReplicaViews) =>
+        Replica.open({
+          rangeId,
+          raftId,
+          options,
+          log: rangeId === 1n ? log : new RaftLogStore(groupLog, rangeId),
+          machine: rangeId === 1n ? machine : await openMachine(rangeId),
+          transport: views.transport,
+          scheduler: views.scheduler,
+          clock,
+          random: new SystemRandom(),
+          logger,
+          metrics,
+          tracer,
+          ...(rangeId === 1n ? bootstrap : {}),
+        });
+      store = Store.start({
+        nodeId: raftId,
         transport,
         scheduler: new SystemScheduler(),
         clock,
-        random: new SystemRandom(),
         logger,
-        metrics,
-        tracer,
-        ...(config.cluster.join ? {} : { bootstrap: peers }),
+        tickMs: options.tickMs,
+        electionTicks: options.electionTicks[0],
+        openReplica,
       });
-      replica.start();
+      replica = await store.addRange(1n);
     }
   } catch (cause: unknown) {
+    await store?.close();
     await transport?.close();
     await Promise.all([logStore.close(), stateStore.close()]);
     return err(
@@ -238,13 +255,15 @@ export async function openNodeCore(
     dataDir,
     machine,
     replica,
+    store,
     transport,
     stamper,
     stateStore,
     service,
     replayed: Number(machine.appliedIndex - before),
     async close() {
-      await replica.close();
+      if (store) await store.close();
+      else await replica.close();
       await transport?.close();
       await machine.flush();
       await Promise.all([logStore.close(), stateStore.close()]);

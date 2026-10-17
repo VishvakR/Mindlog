@@ -4,11 +4,11 @@ import type { KvStore } from '@mindlog/storage';
 import { WHOLE_STORE, formatKey } from './system-keys.js';
 
 /** Current on-disk format of the log and state stores (ADR-0026). */
-export const STORE_FORMAT = 2;
+export const STORE_FORMAT = 3;
 
 /**
  * Stamps an empty store with the current format, or checks a used one. A store
- * with data but another (or no) format is refused: phase 1–2 directories are
+ * with data but another (or no) format is refused: phase 1–3 directories are
  * not migrated.
  */
 export async function ensureStoreFormat(
@@ -33,5 +33,5 @@ export async function ensureStoreFormat(
 const formatError = (name: string, found: string): MindlogError =>
   mindlogError(
     'CONFIG_INVALID',
-    `the ${name} store has ${found}, but this version needs format ${STORE_FORMAT} (ADR-0026); wipe the data directory to start fresh`,
+    `the ${name} store has ${found}, but this version needs format ${STORE_FORMAT} (ADR-0027); wipe the data directory to start fresh`,
   );

@@ -1,13 +1,32 @@
 import type { Clock, Counter, Hlc, Histogram, Logger, Metrics } from '@mindlog/core';
-import { SeededRandom, hlcPhysical } from '@mindlog/core';
+import { SeededRandom, hlcPhysical, prefixRange } from '@mindlog/core';
 import type { EventBus } from '@mindlog/eventbus';
 import { create, fromBinary, toBinary } from '@bufbuild/protobuf';
-import type { Command, CommandResult, ConfState, KeyValue, SnapshotMeta } from '@mindlog/proto';
-import { ConfStateSchema, SnapshotMetaSchema } from '@mindlog/proto';
-import type { KvStore, WriteBatch } from '@mindlog/storage';
+import type {
+  Command,
+  CommandResult,
+  ConfState,
+  KeyValue,
+  RangeDescriptor,
+  SnapshotMeta,
+} from '@mindlog/proto';
+import {
+  ConfStateSchema,
+  RangeDescriptorSchema,
+  RangeEpochSchema,
+  SnapshotMetaSchema,
+} from '@mindlog/proto';
+import type { KvReader, KvStore, WriteBatch } from '@mindlog/storage';
 import { MvccTxn } from '@mindlog/storage';
 import { IdempotencyTable } from '../system/idempotency-table.js';
-import { WHOLE_STORE, appliedIndexKey, confStateKey } from '../system/system-keys.js';
+import {
+  appliedIndexKey,
+  confStateKey,
+  lastVersionKey,
+  rangeDescriptorKey,
+  rangeLocalPrefix,
+} from '../system/system-keys.js';
+import { SpanReader, spanIntervals, wholeKeyspace } from '../range/span.js';
 import type { ApplyHandlerRegistry } from './apply-handler-registry.js';
 import { errorResult } from './command-results.js';
 
@@ -20,6 +39,8 @@ export interface StateMachineDeps {
   readonly logger: Logger;
   readonly metrics: Metrics;
   readonly rangeId?: bigint;
+  /** Descriptor to start from when the store has none (default: the whole keyspace). */
+  readonly descriptor?: RangeDescriptor;
 }
 
 /** Applied index and the term of that entry (ADR-0026). */
@@ -50,11 +71,28 @@ export interface StateSnapshot {
   release(): Promise<void>;
 }
 
+const encodeU64 = (n: bigint): Uint8Array => {
+  const out = new Uint8Array(8);
+  new DataView(out.buffer).setBigUint64(0, n);
+  return out;
+};
+
+const decodeU64 = (bytes: Uint8Array): bigint =>
+  new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigUint64(0);
+
+interface RangeState {
+  readonly applied: AppliedPoint;
+  readonly confState: ConfState;
+  readonly descriptor: RangeDescriptor | undefined;
+  readonly lastVersion: bigint;
+}
+
 /**
  * Applies committed commands in log order (PLAN 6.2). Each apply is one write
- * batch holding the handler's MVCC changes, the idempotency record and the new
- * applied index, so state and applied index never disagree. Handlers see only
- * deterministic inputs; a thrown error stops the replica (fail-stop).
+ * batch holding the handler's MVCC changes, the idempotency record, the range
+ * version and the new applied index, so they never disagree. Handlers see
+ * only deterministic inputs and only their range's keys; a thrown error stops
+ * the replica (fail-stop).
  */
 export class StateMachine {
   readonly #deps: StateMachineDeps;
@@ -64,14 +102,18 @@ export class StateMachine {
   readonly #appliedTotal: Counter;
   #applied: AppliedPoint;
   #confState: ConfState;
+  #descriptor: RangeDescriptor;
+  #lastVersion: bigint;
   #appliedHlc = 0n;
 
-  private constructor(deps: StateMachineDeps, applied: AppliedPoint, confState: ConfState) {
+  private constructor(deps: StateMachineDeps, rangeId: bigint, state: RangeState) {
     this.#deps = deps;
-    this.#rangeId = deps.rangeId ?? 1n;
-    this.#idempotency = new IdempotencyTable(deps.store);
-    this.#applied = applied;
-    this.#confState = confState;
+    this.#rangeId = rangeId;
+    this.#idempotency = new IdempotencyTable(deps.store, rangeId);
+    this.#applied = state.applied;
+    this.#confState = state.confState;
+    this.#descriptor = state.descriptor ?? deps.descriptor ?? wholeKeyspace(rangeId);
+    this.#lastVersion = state.lastVersion;
     this.#latency = deps.metrics.histogram({
       name: 'mindlog_statemachine_apply_latency_seconds',
       help: 'Time to apply one committed command',
@@ -85,8 +127,19 @@ export class StateMachine {
   }
 
   static async open(deps: StateMachineDeps): Promise<StateMachine> {
-    const [applied, confState] = await readAppliedState(deps.store, deps.rangeId ?? 1n);
-    return new StateMachine(deps, applied, confState);
+    const rangeId = deps.rangeId ?? 1n;
+    const state = await readRangeState(deps.store, rangeId);
+    const machine = new StateMachine(deps, rangeId, state);
+    if (!state.descriptor) {
+      const batch = deps.store.batch();
+      batch.put(rangeDescriptorKey(rangeId), toBinary(RangeDescriptorSchema, machine.#descriptor));
+      await batch.write();
+    }
+    return machine;
+  }
+
+  get rangeId(): bigint {
+    return this.#rangeId;
   }
 
   get appliedIndex(): bigint {
@@ -100,6 +153,16 @@ export class StateMachine {
   /** Membership as of the applied index (ADR-0006). */
   get confState(): ConfState {
     return this.#confState;
+  }
+
+  /** The range's span and epoch as of the applied index (ADR-0009). */
+  get descriptor(): RangeDescriptor {
+    return this.#descriptor;
+  }
+
+  /** Newest MVCC version this range assigned (ADR-0027). */
+  get lastVersion(): bigint {
+    return this.#lastVersion;
   }
 
   /** HLC of the last applied command, for bounded-staleness reads (ADR-0007). */
@@ -126,8 +189,11 @@ export class StateMachine {
     const batch = this.#deps.store.batch();
     let result = await this.#idempotency.lookup(command.requestId);
     if (!result) {
-      result = await this.#execute(index, command, batch);
-      this.#idempotency.record(batch, command.requestId, result, index);
+      const version = command.hlc > this.#lastVersion ? command.hlc : this.#lastVersion + 1n;
+      result = await this.#execute(index, version, command, batch);
+      this.#idempotency.record(batch, command.requestId, result, version);
+      batch.put(lastVersionKey(this.#rangeId), encodeU64(version));
+      this.#lastVersion = version;
     }
     await this.#commit(batch, { index, term });
     if (command.hlc > this.#appliedHlc) this.#appliedHlc = command.hlc;
@@ -150,26 +216,43 @@ export class StateMachine {
     this.#checkOrder(index);
     const batch = this.#deps.store.batch();
     batch.put(confStateKey(this.#rangeId), toBinary(ConfStateSchema, confState));
+    const epoch = this.#descriptor.epoch ?? create(RangeEpochSchema, {});
+    const descriptor = create(RangeDescriptorSchema, {
+      ...this.#descriptor,
+      epoch: create(RangeEpochSchema, { ...epoch, confVersion: epoch.confVersion + 1n }),
+    });
+    batch.put(rangeDescriptorKey(this.#rangeId), toBinary(RangeDescriptorSchema, descriptor));
     await this.#commit(batch, { index, term });
     this.#confState = confState;
+    this.#descriptor = descriptor;
   }
 
-  /** A consistent view of the whole state store, labelled with its applied point. */
+  /**
+   * A consistent view of the range: its keys and its range-local `$node`
+   * state (ADR-0028), labelled with its applied point.
+   */
   async snapshot(): Promise<StateSnapshot> {
     const view = await this.#deps.store.snapshot();
-    const [applied, confState] = await readAppliedState(view, this.#rangeId);
+    const state = await readRangeState(view, this.#rangeId);
+    const parts = this.#ownKeys(state.descriptor ?? this.#descriptor);
     return {
-      meta: create(SnapshotMetaSchema, { index: applied.index, term: applied.term, confState }),
+      meta: create(SnapshotMetaSchema, {
+        index: state.applied.index,
+        term: state.applied.term,
+        confState: state.confState,
+      }),
       async *chunks(chunkBytes: number) {
         let chunk: KeyValue[] = [];
         let bytes = 0;
-        for await (const [key, value] of view.iterate(WHOLE_STORE)) {
-          chunk.push({ $typeName: 'mindlog.v1.KeyValue', key, value });
-          bytes += key.length + value.length;
-          if (bytes >= chunkBytes) {
-            yield chunk;
-            chunk = [];
-            bytes = 0;
+        for (const part of parts) {
+          for await (const [key, value] of view.iterate(part)) {
+            chunk.push({ $typeName: 'mindlog.v1.KeyValue', key, value });
+            bytes += key.length + value.length;
+            if (bytes >= chunkBytes) {
+              yield chunk;
+              chunk = [];
+              bytes = 0;
+            }
           }
         }
         if (chunk.length > 0) yield chunk;
@@ -179,23 +262,42 @@ export class StateMachine {
   }
 
   /**
-   * Replaces the whole state with a snapshot's contents in one atomic synced
-   * batch (ADR-0026). The pairs carry the applied point and membership, which
-   * must match `meta`; a mismatch is corruption and throws.
+   * Replaces the range's keys and state with a snapshot's in one atomic
+   * synced batch (ADR-0026). Keys of other ranges in the store are kept. The
+   * pairs carry the applied point, membership and descriptor, which must
+   * match `meta`; a mismatch is corruption and throws.
    */
   async installSnapshot(meta: SnapshotMeta, pairs: readonly KeyValue[]): Promise<void> {
     const store = this.#deps.store;
+    const descKey = rangeDescriptorKey(this.#rangeId);
+    const incoming = pairs.find((p) => Buffer.compare(p.key, descKey) === 0);
+    if (!incoming) throw new Error(`snapshot of range ${this.#rangeId} has no descriptor`);
+    const next = fromBinary(RangeDescriptorSchema, incoming.value);
     const batch = store.batch();
-    for await (const [key] of store.iterate(WHOLE_STORE)) batch.del(key);
+    for (const part of [...this.#ownKeys(this.#installedSpan()), ...this.#ownKeys(next)])
+      for await (const [key] of store.iterate(part)) batch.del(key);
     for (const { key, value } of pairs) batch.put(key, value);
     await batch.write({ sync: true });
-    const [applied, confState] = await readAppliedState(store, this.#rangeId);
-    if (applied.index !== meta.index || applied.term !== meta.term)
+    const state = await readRangeState(store, this.#rangeId);
+    if (state.applied.index !== meta.index || state.applied.term !== meta.term)
       throw new Error(
-        `snapshot data is at ${applied.index}/${applied.term}, not ${meta.index}/${meta.term}`,
+        `snapshot data is at ${state.applied.index}/${state.applied.term}, not ${meta.index}/${meta.term}`,
       );
-    this.#applied = applied;
-    this.#confState = confState;
+    this.#applied = state.applied;
+    this.#confState = state.confState;
+    this.#descriptor = next;
+    this.#lastVersion = state.lastVersion;
+  }
+
+  /** The span whose data this replica holds: none before its first apply or install. */
+  #installedSpan(): RangeDescriptor {
+    return this.#applied.index > 0n
+      ? this.#descriptor
+      : create(RangeDescriptorSchema, { rangeId: this.#rangeId, endKey: new Uint8Array([0]) });
+  }
+
+  #ownKeys(descriptor: RangeDescriptor) {
+    return [...spanIntervals(descriptor), prefixRange(rangeLocalPrefix(this.#rangeId))];
   }
 
   #checkOrder(index: bigint): void {
@@ -212,16 +314,19 @@ export class StateMachine {
 
   async #execute(
     index: bigint,
+    version: bigint,
     command: Command,
-    batch: ReturnType<KvStore['batch']>,
+    batch: WriteBatch,
   ): Promise<CommandResult> {
     const body = command.body.case;
     if (body === undefined) return errorResult('INVALID_ARGUMENT', 'command has no body');
     const handler = this.#deps.handlers.get(body);
     if (!handler) return errorResult('UNIMPLEMENTED', `no apply handler for '${body}'`);
-    const txn = new MvccTxn(this.#deps.store, index);
+    const txn = new MvccTxn(new SpanReader(this.#deps.store, this.#descriptor), version);
     const result = await handler.apply({
       index,
+      version,
+      descriptor: this.#descriptor,
       command,
       txn,
       nowMs: hlcPhysical(command.hlc as Hlc),
@@ -233,14 +338,17 @@ export class StateMachine {
   }
 }
 
-async function readAppliedState(
-  reader: Pick<KvStore, 'get'>,
-  rangeId: bigint,
-): Promise<[AppliedPoint, ConfState]> {
-  const applied = await reader.get(appliedIndexKey(rangeId));
-  const conf = await reader.get(confStateKey(rangeId));
-  return [
-    applied ? decodeApplied(applied) : { index: 0n, term: 0n },
-    conf ? fromBinary(ConfStateSchema, conf) : create(ConfStateSchema, {}),
-  ];
+async function readRangeState(reader: KvReader, rangeId: bigint): Promise<RangeState> {
+  const [applied, conf, descriptor, lastVersion] = await Promise.all([
+    reader.get(appliedIndexKey(rangeId)),
+    reader.get(confStateKey(rangeId)),
+    reader.get(rangeDescriptorKey(rangeId)),
+    reader.get(lastVersionKey(rangeId)),
+  ]);
+  return {
+    applied: applied ? decodeApplied(applied) : { index: 0n, term: 0n },
+    confState: conf ? fromBinary(ConfStateSchema, conf) : create(ConfStateSchema, {}),
+    descriptor: descriptor ? fromBinary(RangeDescriptorSchema, descriptor) : undefined,
+    lastVersion: lastVersion ? decodeU64(lastVersion) : 0n,
+  };
 }

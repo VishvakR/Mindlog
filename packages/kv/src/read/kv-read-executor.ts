@@ -31,7 +31,7 @@ export class KvReadExecutor {
       tenant,
       nowMs,
       view: this.#view,
-      index: 0n,
+      version: 0n,
       random: this.#random,
     });
     return this.#registry.dispatch(keyspace, argv);

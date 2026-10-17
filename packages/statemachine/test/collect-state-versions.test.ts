@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { NODE_TENANT, encodeKey } from '@mindlog/core';
 import { MemoryStore, MvccReader, MvccWriter } from '@mindlog/storage';
-import { collectStateVersions } from '@mindlog/statemachine';
+import { collectStateVersions, wholeKeyspace } from '@mindlog/statemachine';
 
 const utf8 = new TextEncoder();
 const key = (tenant: string, name: string) => {
@@ -41,7 +41,7 @@ describe('collectStateVersions', () => {
     let total = 0;
     for (;;) {
       const batch = store.batch();
-      const result = await collectStateVersions({ reader: store, batch }, 4n, 2);
+      const result = await collectStateVersions({ reader: store, batch }, wholeKeyspace(1n), 4n, 2);
       await batch.write();
       total += result.removed;
       passes++;

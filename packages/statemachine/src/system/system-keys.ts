@@ -1,4 +1,4 @@
-import type { Tuple } from '@mindlog/core';
+import type { Tuple, TupleElement } from '@mindlog/core';
 import { NODE_TENANT, encodeKey, keyPrefix } from '@mindlog/core';
 
 function systemKey(tuple: Tuple): Uint8Array {
@@ -7,26 +7,49 @@ function systemKey(tuple: Tuple): Uint8Array {
   return encoded.value;
 }
 
-/** Last applied log index of a range, written with each apply (ADR-0005). */
-export function appliedIndexKey(rangeId: bigint): Uint8Array {
-  return systemKey(['applied', rangeId]);
+/**
+ * A range-local key: `$node/s/('r', rangeId, tag, ...rest)` (ADR-0028). All of
+ * a range's own state shares one prefix, so a snapshot, split or merge can
+ * find it without knowing the tags.
+ */
+export function rangeLocalKey(rangeId: bigint, tag: string, ...rest: TupleElement[]): Uint8Array {
+  return systemKey(['r', rangeId, tag, ...rest]);
 }
 
-/** Stored result of a request, keyed by its request id (PLAN 6.2). */
-export function idempotencyKey(requestId: Uint8Array): Uint8Array {
-  return systemKey(['idem', requestId]);
-}
-
-/** Time-ordered index of idempotency records, for retention GC. */
-export function idempotencyAgeKey(index: bigint, requestId: Uint8Array): Uint8Array {
-  return systemKey(['idem-at', index, requestId]);
-}
-
-export function idempotencyAgePrefix(): Uint8Array {
-  const prefix = keyPrefix(NODE_TENANT, 's', ['idem-at']);
+/** Prefix of every range-local key of `rangeId`, or of one tag of it. */
+export function rangeLocalPrefix(rangeId: bigint, ...tuple: TupleElement[]): Uint8Array {
+  const prefix = keyPrefix(NODE_TENANT, 's', ['r', rangeId, ...tuple]);
   if (!prefix.ok) throw new RangeError(prefix.error.message);
   return prefix.value;
 }
+
+/** Last applied log index of a range, written with each apply (ADR-0005). */
+export const appliedIndexKey = (rangeId: bigint): Uint8Array => rangeLocalKey(rangeId, 'applied');
+
+/** Applied membership of a range, written with the apply that changed it (ADR-0006). */
+export const confStateKey = (rangeId: bigint): Uint8Array => rangeLocalKey(rangeId, 'conf-state');
+
+/** Applied `RangeDescriptor` (ADR-0009). */
+export const rangeDescriptorKey = (rangeId: bigint): Uint8Array =>
+  rangeLocalKey(rangeId, 'range-desc');
+
+/** Newest MVCC version the range assigned (ADR-0027). */
+export const lastVersionKey = (rangeId: bigint): Uint8Array =>
+  rangeLocalKey(rangeId, 'last-version');
+
+/** Stored result of a request, keyed by its request id (PLAN 6.2). */
+export const idempotencyKey = (rangeId: bigint, requestId: Uint8Array): Uint8Array =>
+  rangeLocalKey(rangeId, 'idem', requestId);
+
+/** Version-ordered index of idempotency records, for retention GC. */
+export const idempotencyAgeKey = (
+  rangeId: bigint,
+  version: bigint,
+  requestId: Uint8Array,
+): Uint8Array => rangeLocalKey(rangeId, 'idem-at', version, requestId);
+
+export const idempotencyAgePrefix = (rangeId: bigint): Uint8Array =>
+  rangeLocalPrefix(rangeId, 'idem-at');
 
 /** One log entry of a range in the log store. */
 export function logEntryKey(rangeId: bigint, index: bigint): Uint8Array {
@@ -51,11 +74,6 @@ export function raftTruncatedKey(rangeId: bigint): Uint8Array {
 /** Raft term, vote and commit of a range (ADR-0026). */
 export function raftStateKey(rangeId: bigint): Uint8Array {
   return systemKey(['raft-state', rangeId]);
-}
-
-/** Applied membership of a range, written with the apply that changed it (ADR-0006). */
-export function confStateKey(rangeId: bigint): Uint8Array {
-  return systemKey(['conf-state', rangeId]);
 }
 
 /** On-disk format version of a store (ADR-0026). */

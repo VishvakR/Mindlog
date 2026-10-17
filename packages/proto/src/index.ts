@@ -78,3 +78,11 @@ export type {
   SnapshotResponse,
   TruncatedState,
 } from './gen/mindlog/v1/raft_pb.js';
+export {
+  RangeDescriptorSchema,
+  RangeEpochSchema,
+  ReplicaDescriptorSchema,
+  ReplicaRole,
+  file_mindlog_v1_range,
+} from './gen/mindlog/v1/range_pb.js';
+export type { RangeDescriptor, RangeEpoch, ReplicaDescriptor } from './gen/mindlog/v1/range_pb.js';

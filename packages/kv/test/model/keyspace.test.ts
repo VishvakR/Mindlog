@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { prefixRange } from '@mindlog/core';
 import { KvType } from '@mindlog/proto';
 import { Keyspace, deadGenerationPrefix, expiryIndexPrefix } from '@mindlog/kv';
 import { MemoryStore, MvccReader, MvccTxn } from '@mindlog/storage';
@@ -12,20 +13,29 @@ async function commit(
   run: (ks: Keyspace) => Promise<void>,
 ) {
   const txn = new MvccTxn(store, index);
-  await run(new Keyspace({ tenant: 't', nowMs, view: txn, writer: txn, index }));
   const batch = store.batch();
+  await run(
+    new Keyspace({
+      tenant: 't',
+      nowMs,
+      view: txn,
+      writer: txn,
+      version: index,
+      local: { rangeId: 1n, batch },
+    }),
+  );
   txn.writeTo(batch);
   await batch.write();
 }
 
 async function count(store: MemoryStore, prefix: Uint8Array): Promise<number> {
   let n = 0;
-  for await (const _ of new MvccReader(store).scan(prefix)) n++;
+  for await (const _ of store.iterate(prefixRange(prefix))) n++;
   return n;
 }
 
 describe('Keyspace', () => {
-  test('a new key gets the creating index as generation and version', async () => {
+  test('a new key gets the creating version as generation and version', async () => {
     const store = new MemoryStore();
     await commit(store, 5n, 0n, (ks) => {
       ks.write(name, ks.fresh(KvType.HASH));
@@ -35,7 +45,7 @@ describe('Keyspace', () => {
       tenant: 't',
       nowMs: 0n,
       view: new MvccReader(store),
-      index: 0n,
+      version: 0n,
     }).header(name);
     expect([header?.type, header?.generation, header?.version]).toEqual([KvType.HASH, 5n, 5n]);
   });
@@ -48,17 +58,17 @@ describe('Keyspace', () => {
       ks.write(name, header);
       return Promise.resolve();
     });
-    expect(await count(store, expiryIndexPrefix())).toBe(1);
+    expect(await count(store, expiryIndexPrefix(1n))).toBe(1);
     const reader = (nowMs: bigint) =>
-      new Keyspace({ tenant: 't', nowMs, view: new MvccReader(store), index: 0n });
+      new Keyspace({ tenant: 't', nowMs, view: new MvccReader(store), version: 0n });
     expect(await reader(100n).header(name)).toBeDefined();
     expect(await reader(101n).header(name)).toBeUndefined();
 
     await commit(store, 2n, 101n, async (ks) => {
       expect(await ks.header(name)).toBeUndefined();
     });
-    expect(await count(store, expiryIndexPrefix())).toBe(0);
-    expect(await count(store, deadGenerationPrefix())).toBe(1);
+    expect(await count(store, expiryIndexPrefix(1n))).toBe(0);
+    expect(await count(store, deadGenerationPrefix(1n))).toBe(1);
     expect(await reader(0n).header(name)).toBeUndefined();
   });
 
@@ -72,7 +82,7 @@ describe('Keyspace', () => {
       const header = await ks.header(name);
       if (header) ks.delete(name, header);
     });
-    expect(await count(store, deadGenerationPrefix())).toBe(0);
+    expect(await count(store, deadGenerationPrefix(1n))).toBe(0);
   });
 
   test('writing outside apply is a programmer error', () => {
@@ -80,7 +90,7 @@ describe('Keyspace', () => {
       tenant: 't',
       nowMs: 0n,
       view: new MvccReader(new MemoryStore()),
-      index: 0n,
+      version: 0n,
     });
     expect(() => {
       ks.write(name, ks.fresh(KvType.STRING));

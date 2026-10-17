@@ -212,7 +212,7 @@ double 0x21 (IEEE sign-flip) │ false 0x26 │ true 0x27 │ version marker 0x4
 
 - Elements are self-delimiting, so a tuple prefix is a byte prefix, and `[prefix, prefix + 0xff)` is the scan range for everything under it.
 - `0x00` inside strings and bytes is escaped as `0x00 0xff`.
-- The version suffix stores the bitwise-NOT of the commit index, so versions of a key are contiguous and the newest sorts first.
+- The version suffix stores the bitwise-NOT of the version (a per-range HLC timestamp, ADR-0027), so versions of a key are contiguous and the newest sorts first.
 - The tenant always comes first, so tenant ranges never overlap (CLAUDE.md rule 10).
 
 ### 5.2 Key families
@@ -411,7 +411,7 @@ flowchart TB
 ```
 
 - **Two LevelDB instances** (classic-level, behind the `KvStore` port; ADR-005). The log instance fsyncs. The state instance can skip fsync because it can be rebuilt from the log: `appliedIndex` is written in the same batch, and a restart re-applies from `appliedIndex + 1`. Therefore **the log is never compacted past an index until the state store has been flushed with `sync` at or beyond it** (CLAUDE.md rule 7).
-- **MVCC**: the version is the commit index, stored inverted after the `0x40` marker. A read at version V seeks to `key@~V`. Deletes write tombstones. GC is a replicated `GcThreshold` command (7 days for KV, 30 for memory by default), and branch fork points pin their versions.
+- **MVCC**: the version is a per-range HLC timestamp, `max(cmd.hlc, lastVersion + 1)` assigned in apply (ADR-0027), stored inverted after the `0x40` marker. A read at version V seeks to `key@~V`. Deletes write tombstones. GC is a replicated `GcThreshold` command (7 days for KV, 30 for memory by default), and branch fork points pin their versions.
 - **Snapshots** are LevelDB snapshots of a range's span, streamed in 1 MiB chunks. The receiver stages them and swaps atomically, then rebuilds in-memory indexes from segments plus newer records.
 - **Tiering**: memories whose forgetting-curve retention drops below a threshold move to the blob store as compressed segments. A stub with the summary and entity links stays hot, so graph walks still work.
 - **Backups**: consistent per-range snapshots at a TSO timestamp plus incremental log segments, which allows point-in-time restore. Backups are verified by scheduled restores.

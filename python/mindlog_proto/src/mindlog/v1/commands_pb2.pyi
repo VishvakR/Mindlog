@@ -30,12 +30,14 @@ class Command(_message.Message):
     def __init__(self, request_id: _Optional[bytes] = ..., principal: _Optional[str] = ..., hlc: _Optional[int] = ..., branch: _Optional[str] = ..., tenant: _Optional[str] = ..., kv_write: _Optional[_Union[_kv_pb2.KvWrite, _Mapping]] = ..., kv_batch: _Optional[_Union[_kv_pb2.KvBatch, _Mapping]] = ..., expire: _Optional[_Union[_kv_pb2.Expire, _Mapping]] = ..., gc_threshold: _Optional[_Union[GcThreshold, _Mapping]] = ...) -> None: ...
 
 class GcThreshold(_message.Message):
-    __slots__ = ("below_index", "limit")
+    __slots__ = ("below_index", "limit", "below_version")
     BELOW_INDEX_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    BELOW_VERSION_FIELD_NUMBER: _ClassVar[int]
     below_index: int
     limit: int
-    def __init__(self, below_index: _Optional[int] = ..., limit: _Optional[int] = ...) -> None: ...
+    below_version: int
+    def __init__(self, below_index: _Optional[int] = ..., limit: _Optional[int] = ..., below_version: _Optional[int] = ...) -> None: ...
 
 class CommandResult(_message.Message):
     __slots__ = ("kv", "error")

@@ -38,6 +38,19 @@ export class KvCommandRegistry {
     return [...this.#commands.values()];
   }
 
+  /** Key arguments of `argv` by the command's key positions (Valkey `key_specs` range). */
+  keysOf(argv: readonly Uint8Array[]): Uint8Array[] {
+    const spec = argv[0] ? this.get(argv[0])?.keys : undefined;
+    if (!spec) return [];
+    const last = spec.last < 0 ? argv.length + spec.last : spec.last;
+    const keys: Uint8Array[] = [];
+    for (let i = spec.first; i <= last && i < argv.length; i += spec.step) {
+      const key = argv[i];
+      if (key) keys.push(key);
+    }
+    return keys;
+  }
+
   /** Validates name and arity, then executes; errors come back as replies. */
   async dispatch(keyspace: Keyspace, argv: readonly Uint8Array[]): Promise<KvReply> {
     const [raw, ...args] = argv;

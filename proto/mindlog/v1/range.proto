@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+// Ranges: contiguous slices of the encoded keyspace, each its own Raft group
+// (PLAN 8.1, ADR-0009, ADR-0028).
+
+// Bumps on membership changes (conf_version) and on splits or merges (version).
+message RangeEpoch {
+  uint64 conf_version = 1;
+  uint64 version = 2;
+}
+
+enum ReplicaRole {
+  REPLICA_ROLE_UNSPECIFIED = 0;
+  REPLICA_ROLE_VOTER = 1;
+  REPLICA_ROLE_LEARNER = 2;
+}
+
+message ReplicaDescriptor {
+  uint64 node_id = 1;
+  // Raft id of this replica; allocated by PD and never reused (ADR-0028).
+  uint64 replica_id = 2;
+  ReplicaRole role = 3;
+}
+
+// The range covers encoded keys in [start_key, end_key); an empty end_key is
+// +infinity. Node-local `$node` keys belong to no range.
+message RangeDescriptor {
+  uint64 range_id = 1;
+  bytes start_key = 2;
+  bytes end_key = 3;
+  RangeEpoch epoch = 4;
+  repeated ReplicaDescriptor replicas = 5;
+}

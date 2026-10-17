@@ -1,5 +1,6 @@
 import { create, fromBinary, toBinary } from '@bufbuild/protobuf';
 import type { Random } from '@mindlog/core';
+import type { WriteBatch } from '@mindlog/storage';
 import type { KvHeader } from '@mindlog/proto';
 import { KvHeaderSchema, KvType } from '@mindlog/proto';
 import { deadGenerationKey, expiryIndexKey, headerKey } from './kv-keys.js';
@@ -13,8 +14,10 @@ export interface KeyspaceContext {
   readonly view: KvView;
   /** Present only inside apply. */
   readonly writer?: KvWriter;
-  /** Commit index of the applying command (0 outside apply). */
-  readonly index: bigint;
+  /** MVCC version of the applying command (0 outside apply, ADR-0027). */
+  readonly version: bigint;
+  /** The range's own `$node` state (expiry index, dead generations); present only inside apply. */
+  readonly local?: { readonly rangeId: bigint; readonly batch: WriteBatch };
   /** Index-seeded inside apply (SPOP); a system source for reads (SRANDMEMBER). */
   readonly random?: Random;
 }
@@ -37,6 +40,11 @@ export class Keyspace {
   get random(): Random {
     if (!this.context.random) throw new Error('no random source in this context');
     return this.context.random;
+  }
+
+  get local(): { readonly rangeId: bigint; readonly batch: WriteBatch } {
+    if (!this.context.local) throw new Error('range-local write outside apply');
+    return this.context.local;
   }
 
   get writer(): KvWriter {
@@ -72,25 +80,26 @@ export class Keyspace {
     return true;
   }
 
-  /** A fresh header for a new key; its generation is the creating command's index. */
+  /** A fresh header for a new key; its generation is the creating command's version. */
   fresh(type: KvType): KvHeader {
-    return create(KvHeaderSchema, { type, generation: this.context.index });
+    return create(KvHeaderSchema, { type, generation: this.context.version });
   }
 
-  /** Stores a header, stamping it with the current command's index. */
+  /** Stores a header, stamping it with the current command's version. */
   write(name: Uint8Array, header: KvHeader): void {
-    header.version = this.context.index;
+    header.version = this.context.version;
     this.writer.put(headerKey(this.tenant, name), toBinary(KvHeaderSchema, header));
   }
 
   /** Deletes a key in O(1): drop the header, record a dead generation for GC. */
   delete(name: Uint8Array, header: KvHeader): void {
     this.writer.delete(headerKey(this.tenant, name));
+    const { rangeId, batch } = this.local;
     if (header.expireAtMs !== 0n)
-      this.writer.delete(expiryIndexKey(header.expireAtMs, this.tenant, name));
+      batch.del(expiryIndexKey(rangeId, header.expireAtMs, this.tenant, name));
     if (isCollection(header.type)) {
-      this.writer.put(
-        deadGenerationKey(this.context.index, this.tenant, name, header.generation),
+      batch.put(
+        deadGenerationKey(rangeId, this.context.version, this.tenant, name, header.generation),
         new Uint8Array(),
       );
     }
@@ -98,9 +107,10 @@ export class Keyspace {
 
   /** Sets (atMs > 0) or clears (0) a key's expiry, keeping the expiry index in sync. */
   setExpiry(name: Uint8Array, header: KvHeader, atMs: bigint): void {
+    const { rangeId, batch } = this.local;
     if (header.expireAtMs !== 0n)
-      this.writer.delete(expiryIndexKey(header.expireAtMs, this.tenant, name));
+      batch.del(expiryIndexKey(rangeId, header.expireAtMs, this.tenant, name));
     header.expireAtMs = atMs;
-    if (atMs !== 0n) this.writer.put(expiryIndexKey(atMs, this.tenant, name), new Uint8Array());
+    if (atMs !== 0n) batch.put(expiryIndexKey(rangeId, atMs, this.tenant, name), new Uint8Array());
   }
 }

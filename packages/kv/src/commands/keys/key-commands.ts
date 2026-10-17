@@ -70,7 +70,7 @@ async function copyElements(ks: Keyspace, from: Uint8Array, header: KvHeader, to
     const decoded = decodeKey(entry.key);
     if (!decoded.ok) continue;
     const [, , ...rest] = decoded.value.tuple;
-    ks.writer.put(encodeElementKey(ks.tenant, to, ks.context.index, rest), entry.value);
+    ks.writer.put(encodeElementKey(ks.tenant, to, ks.context.version, rest), entry.value);
   }
 }
 
@@ -89,7 +89,7 @@ const rename = (name: 'RENAME' | 'RENAMENX'): KvCommand => ({
     if (compareBytes(from, to) === 0) return name === 'RENAME' ? ok() : integer(0);
     if (target) ks.delete(to, target);
     const moved = clone(KvHeaderSchema, source);
-    moved.generation = ks.context.index;
+    moved.generation = ks.context.version;
     if (moved.type !== KvType.STRING && moved.type !== KvType.JSON) {
       await copyElements(ks, from, source, to);
     }

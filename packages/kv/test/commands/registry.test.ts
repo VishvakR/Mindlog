@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { KvCommand } from '@mindlog/kv';
-import { Keyspace, KvCommandRegistry, isWrite, replies } from '@mindlog/kv';
+import { Keyspace, KvCommandRegistry, createKvRegistry, isWrite, replies } from '@mindlog/kv';
 import { MemoryStore, MvccReader } from '@mindlog/storage';
 
 const bytes = (...args: string[]) => args.map((a) => new TextEncoder().encode(a));
@@ -21,11 +21,23 @@ const keyspace = new Keyspace({
   tenant: 't',
   nowMs: 0n,
   view: new MvccReader(new MemoryStore()),
-  index: 0n,
+  version: 0n,
 });
 
 describe('KvCommandRegistry', () => {
   const registry = new KvCommandRegistry().register(echo, touch);
+
+  test('keysOf reads key arguments from the key positions', () => {
+    const real = createKvRegistry();
+    const keys = (...argv: string[]) =>
+      real.keysOf(bytes(...argv)).map((k) => new TextDecoder().decode(k));
+    expect(keys('GET', 'a')).toEqual(['a']);
+    expect(keys('MSET', 'a', '1', 'b', '2')).toEqual(['a', 'b']);
+    expect(keys('DEL', 'a', 'b', 'c')).toEqual(['a', 'b', 'c']);
+    expect(keys('RENAME', 'a', 'b')).toEqual(['a', 'b']);
+    expect(keys('PING')).toEqual([]);
+    expect(keys('NOPE', 'a')).toEqual([]);
+  });
 
   test('dispatches case-insensitively', async () => {
     expect(await registry.dispatch(keyspace, bytes('echo', 'hi'))).toEqual(

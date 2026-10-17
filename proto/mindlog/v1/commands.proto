@@ -34,12 +34,15 @@ message Command {
   reserved 14 to 99;
 }
 
-// Removes MVCC versions older than `below_index` (keeping the newest one at or
+// Removes MVCC versions older than `below_version` (keeping the newest one at or
 // below it) and elements of dead collection generations, at most `limit`
 // entries per command (ADR-0022, PLAN 10.2).
 message GcThreshold {
-  uint64 below_index = 1;
+  // Phase 1-3 meaning (a log index); unused since versions are timestamps (ADR-0027).
+  uint64 below_index = 1 [deprecated = true];
   uint32 limit = 2;
+  // MVCC versions (HLC timestamps) below this are collected.
+  uint64 below_version = 3;
 }
 
 // Outcome of applying one command, stored under its request_id so a retried

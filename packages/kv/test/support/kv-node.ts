@@ -10,8 +10,8 @@ import {
   kvBatchHandler,
   kvWriteHandler,
 } from '@mindlog/kv';
-import type { KvReply } from '@mindlog/proto';
-import { CommandSchema } from '@mindlog/proto';
+import type { KvReply, RangeDescriptor } from '@mindlog/proto';
+import { CommandSchema, KvReplySchema } from '@mindlog/proto';
 import { MemoryStore } from '@mindlog/storage';
 import { startSingleNode } from '@mindlog/multiraft';
 import { ApplyHandlerRegistry, RaftLogStore, StateMachine } from '@mindlog/statemachine';
@@ -56,7 +56,11 @@ export function plain(reply: KvReply): Plain {
  * A single-node KV pipeline for tests: writes go through the proposer and
  * apply (with the clock's time in the HLC); reads run on applied state.
  */
-export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_000_000n) {
+export async function kvNode(
+  registry: KvCommandRegistry,
+  startMs = 1_760_000_000_000n,
+  descriptor?: RangeDescriptor,
+) {
   const clock = new ManualClock(startMs);
   const logger = new MemoryLogger();
   const metrics = new MemoryMetrics();
@@ -73,6 +77,7 @@ export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_00
     clock,
     logger,
     metrics,
+    ...(descriptor ? { descriptor } : {}),
   });
   const proposer = await startSingleNode({
     log: new RaftLogStore(new MemoryStore()),
@@ -98,7 +103,10 @@ export async function kvNode(registry: KvCommandRegistry, startMs = 1_760_000_00
     );
     if (!proposal.ok) throw new Error(proposal.error.message);
     const outcome = proposal.value.result.outcome;
-    if (outcome.case !== 'kv') throw new Error(`unexpected result ${outcome.case ?? 'none'}`);
+    // Envelope errors (e.g. RANGE_MOVED) shown as error replies, as the RESP adapter does.
+    if (outcome.case === 'error')
+      return create(KvReplySchema, { kind: { case: 'error', value: outcome.value } });
+    if (outcome.case !== 'kv') throw new Error('unexpected result');
     return outcome.value;
   }
 

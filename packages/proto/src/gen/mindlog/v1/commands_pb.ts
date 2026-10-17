@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/commands.proto.
  */
 export const file_mindlog_v1_commands: GenFile = /*@__PURE__*/
-  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIpQCCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIAEIGCgRib2R5SgQIDhBkIjEKC0djVGhyZXNob2xkEhMKC2JlbG93X2luZGV4GAEgASgEEg0KBWxpbWl0GAIgASgNImcKDUNvbW1hbmRSZXN1bHQSIQoCa3YYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHlIABIoCgVlcnJvchgCIAEoCzIXLm1pbmRsb2cudjEuRXJyb3JEZXRhaWxIAEIJCgdvdXRjb21lYgZwcm90bzM", [file_mindlog_v1_common, file_mindlog_v1_kv]);
+  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIpQCCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIAEIGCgRib2R5SgQIDhBkIkwKC0djVGhyZXNob2xkEhcKC2JlbG93X2luZGV4GAEgASgEQgIYARINCgVsaW1pdBgCIAEoDRIVCg1iZWxvd192ZXJzaW9uGAMgASgEImcKDUNvbW1hbmRSZXN1bHQSIQoCa3YYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHlIABIoCgVlcnJvchgCIAEoCzIXLm1pbmRsb2cudjEuRXJyb3JEZXRhaWxIAEIJCgdvdXRjb21lYgZwcm90bzM", [file_mindlog_v1_common, file_mindlog_v1_kv]);
 
 /**
  * Envelope of every replicated command in a range's Raft log (PLAN 6.1,
@@ -102,7 +102,7 @@ export const CommandSchema: GenMessage<Command> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_commands, 0);
 
 /**
- * Removes MVCC versions older than `below_index` (keeping the newest one at or
+ * Removes MVCC versions older than `below_version` (keeping the newest one at or
  * below it) and elements of dead collection generations, at most `limit`
  * entries per command (ADR-0022, PLAN 10.2).
  *
@@ -110,7 +110,10 @@ export const CommandSchema: GenMessage<Command> = /*@__PURE__*/
  */
 export type GcThreshold = Message<"mindlog.v1.GcThreshold"> & {
   /**
-   * @generated from field: uint64 below_index = 1;
+   * Phase 1-3 meaning (a log index); unused since versions are timestamps (ADR-0027).
+   *
+   * @generated from field: uint64 below_index = 1 [deprecated = true];
+   * @deprecated
    */
   belowIndex: bigint;
 
@@ -118,6 +121,13 @@ export type GcThreshold = Message<"mindlog.v1.GcThreshold"> & {
    * @generated from field: uint32 limit = 2;
    */
   limit: number;
+
+  /**
+   * MVCC versions (HLC timestamps) below this are collected.
+   *
+   * @generated from field: uint64 below_version = 3;
+   */
+  belowVersion: bigint;
 };
 
 /**

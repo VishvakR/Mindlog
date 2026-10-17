@@ -1,18 +1,21 @@
-import type { Counter, Logger, Metrics } from '@mindlog/core';
+import type { Clock, Counter, Logger, Metrics } from '@mindlog/core';
 import type { CommandStamper, Proposer } from '@mindlog/statemachine';
-import { SYSTEM_TENANT } from '@mindlog/core';
+import { SYSTEM_TENANT, packHlc } from '@mindlog/core';
 
 export interface GcJobDeps {
   readonly proposer: Proposer;
   /** Runs only while this returns true (the range leader); always when absent. */
   readonly active?: () => boolean;
   readonly stamper: CommandStamper;
-  /** The node's applied index (the state machine's). */
+  /** The range's applied index (the state machine's). */
   readonly appliedIndex: () => bigint;
+  readonly clock: Clock;
   readonly logger: Logger;
   readonly metrics: Metrics;
-  /** Keep this many recent log indexes of history (default 100,000). */
-  readonly retainEntries?: bigint;
+  /** Keep this much MVCC history, in ms of version time (default 10 min, ADR-0027). */
+  readonly retainMs?: bigint;
+  /** After a sweep caught up, wait for this many new entries (default 1,000). */
+  readonly idleEntries?: bigint;
   /** Rows removed per GcThreshold command (default 1,000). */
   readonly limit?: number;
 }
@@ -20,7 +23,8 @@ export interface GcJobDeps {
 /**
  * Leader-only garbage collection (PLAN 10.2, ADR-0022). Proposes GcThreshold
  * commands while the previous one still found work, and otherwise only after
- * enough new entries were applied, so an idle node stops writing to the log.
+ * enough new entries were applied, so an idle range stops writing to its log.
+ * Versions are HLC timestamps, so the threshold is "now minus the retention".
  */
 export class GcJob {
   readonly #deps: GcJobDeps;
@@ -41,17 +45,15 @@ export class GcJob {
   async runOnce(): Promise<number> {
     if (this.#deps.active && !this.#deps.active()) return 0;
     const applied = this.#deps.appliedIndex();
-    const retain = this.#deps.retainEntries ?? 100_000n;
     const limit = this.#deps.limit ?? 1000;
-    if (
-      applied <= retain ||
-      (this.#lastIdleAt >= 0n && applied - this.#lastIdleAt < retain / 10n + 1n)
-    ) {
-      return 0;
-    }
+    const idle = this.#deps.idleEntries ?? 1_000n;
+    if (this.#lastIdleAt >= 0n && applied - this.#lastIdleAt < idle) return 0;
+    const retainMs = this.#deps.retainMs ?? 600_000n;
+    const now = this.#deps.clock.now();
+    if (now <= retainMs) return 0;
     const command = this.#deps.stamper.stamp(SYSTEM_TENANT, 'system:gc', {
       case: 'gcThreshold',
-      value: { belowIndex: applied - retain, limit },
+      value: { belowVersion: packHlc(now - retainMs, 0n), limit },
     });
     const proposed = await this.#deps.proposer.propose(command);
     if (!proposed.ok) {

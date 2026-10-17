@@ -201,6 +201,7 @@ export async function startNode(
   const active = () => replica.isLeader();
   const expiry = new ExpiryJob({
     store: stateStore,
+    rangeId: machine.rangeId,
     proposer: replica,
     active,
     stamper,
@@ -213,6 +214,7 @@ export async function startNode(
     active,
     stamper,
     appliedIndex: () => machine.appliedIndex,
+    clock,
     logger,
     metrics,
   });

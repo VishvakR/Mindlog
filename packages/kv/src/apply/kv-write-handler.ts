@@ -5,7 +5,7 @@ import { CommandResultSchema } from '@mindlog/proto';
 import type { ApplyHandler } from '@mindlog/statemachine';
 import { errorResult } from '@mindlog/statemachine';
 import type { KvCommandRegistry } from '../commands/registry.js';
-import { Keyspace } from '../model/keyspace.js';
+import { applyKeyspace, outsideRange } from './apply-keyspace.js';
 
 export const kvResult = (reply: KvReply) =>
   create(CommandResultSchema, { outcome: { case: 'kv', value: reply } });
@@ -17,19 +17,15 @@ export const kvResult = (reply: KvReply) =>
 export function kvWriteHandler(registry: KvCommandRegistry): ApplyHandler {
   return {
     body: 'kvWrite',
-    async apply({ command, txn, index, nowMs, random }) {
+    async apply(context) {
+      const { command } = context;
       if (command.body.case !== 'kvWrite')
         return errorResult('INTERNAL', 'expected a kvWrite body');
       if (!isKvTenant(command.tenant)) return errorResult('INVALID_ARGUMENT', 'invalid tenant');
-      const keyspace = new Keyspace({
-        tenant: command.tenant,
-        nowMs,
-        view: txn,
-        writer: txn,
-        index,
-        random,
-      });
-      return kvResult(await registry.dispatch(keyspace, command.body.value.argv));
+      const { argv } = command.body.value;
+      const moved = outsideRange(context, registry.keysOf(argv));
+      if (moved) return moved;
+      return kvResult(await registry.dispatch(applyKeyspace(context), argv));
     },
   };
 }

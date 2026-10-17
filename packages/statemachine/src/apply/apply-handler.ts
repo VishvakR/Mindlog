@@ -1,5 +1,5 @@
 import type { Random } from '@mindlog/core';
-import type { Command, CommandResult } from '@mindlog/proto';
+import type { Command, CommandResult, RangeDescriptor } from '@mindlog/proto';
 import type { KvReader, MvccTxn, WriteBatch } from '@mindlog/storage';
 
 /** Command body kinds, e.g. `'kvWrite'`. */
@@ -12,16 +12,21 @@ export type BodyCase = NonNullable<Command['body']['case']>;
  */
 export interface ApplyContext {
   readonly index: bigint;
+  /** MVCC version of every write of this apply: max(hlc, last + 1) (ADR-0027). */
+  readonly version: bigint;
+  /** The applying range as of this entry; keys outside it are `RANGE_MOVED` (ADR-0029). */
+  readonly descriptor: RangeDescriptor;
   readonly command: Command;
-  /** Read-your-writes view of latest state; all writes go through it. */
+  /** Read-your-writes view of the range's latest state; all writes go through it. */
   readonly txn: MvccTxn;
   /** Physical milliseconds of the proposer's HLC. */
   readonly nowMs: bigint;
   /** Deterministic randomness, seeded from the log index. */
   readonly random: Random;
   /**
-   * Raw access for maintenance handlers only (GC): physical deletes and
-   * `$node` keys, written in the same atomic batch. Everything else uses `txn`.
+   * Raw access, written in the same atomic batch: physical deletes for GC and
+   * the range-local `$node` keys of this range (`rangeLocalKey`). User data
+   * goes through `txn`.
    */
   readonly raw: { readonly reader: KvReader; readonly batch: WriteBatch };
 }

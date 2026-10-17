@@ -10,7 +10,7 @@ Redis data types and commands as deterministic, replicated operations (PLAN 5.2,
 | `kvWriteHandler`, `kvBatchHandler`, `expireHandler`, `gcThresholdHandler` | Apply handlers for `KvWrite`, `KvBatch` (MULTI/EXEC), `Expire` and `GcThreshold` |
 | `KvReadExecutor` | Runs read-only commands on applied state |
 | `ExpiryJob`, `GcJob` | Leader-only jobs that propose `Expire` and `GcThreshold` commands |
-| `watchVersion` | WATCH version of a key (index of its header's newest change, deletes included) |
+| `watchVersion` | WATCH version of a key (MVCC version of its header's newest change, deletes included) |
 | `Keyspace`, `liveKeys`, key-layout helpers, `parseInteger`, `parseFloat64`, `formatDouble`, `globMatch`, SCAN cursor helpers, `replies` | Building blocks for commands and adapters |
 
 ## Supported commands (phase 1)
@@ -35,11 +35,11 @@ hash     k/(key, gen, 'h', field)        → value
 list     k/(key, gen, 'l', seq)          → value        index i is seq listHead + i
 set      k/(key, gen, 's', member)       → ∅
 zset     k/(key, gen, 'z', member)       → score         and  k/(key, gen, 'Z', score, member) → ∅
-expiry   $system/s/(expire, atMs, tenant, key)
-deadgen  $system/s/(deadgen, deathIndex, tenant, key, gen)
+expiry   $node/s/(r, rangeId, expire, atMs, tenant, key)          range-local (ADR-0028)
+deadgen  $node/s/(r, rangeId, deadgen, deathVersion, tenant, key, gen)
 ```
 
-A collection's generation is the commit index that created it, so a deleted and re-created key can never see old elements. `DEL`, overwrite, `RENAME` away and expiry are a single header write plus a dead-generation record. GC reclaims the rows later.
+A collection's generation is the MVCC version (ADR-0027) of the command that created it, so a deleted and re-created key can never see old elements. `DEL`, overwrite, `RENAME` away and expiry are a single header write plus a dead-generation record. GC reclaims the rows later.
 
 ## Invariants
 
@@ -47,7 +47,8 @@ A collection's generation is the commit index that created it, so a deleted and 
 - **Valkey compatibility.** Argument parsing (`string2ll` integer rules, float forms) and error messages follow Valkey. Tests carry Valkey's test names.
 - **Lazy expiry everywhere.** A key whose `expireAtMs < now` is invisible. Inside apply it is deleted on first touch. The expiry job proposes deletions for keys found due in the expiry index, and apply re-checks before deleting.
 - **Empty collections are deleted**, as in Redis.
-- **WATCH sees every change**, including create-then-delete, because it compares the header's newest MVCC version index.
+- **WATCH sees every change**, including create-then-delete, because it compares the header's newest MVCC version.
+- **Range-checked writes.** Apply rejects a write whose keys are outside the range span with `RANGE_MOVED` (ADR-0029), and apply reads see only the range's keys.
 - **GC never changes what is visible** (property-tested in storage; end-to-end tested here). It is bounded per command and resumable.
 - **Every model test** checks random command sequences against a JavaScript model (strings, hashes, lists, sets, sorted sets).
 

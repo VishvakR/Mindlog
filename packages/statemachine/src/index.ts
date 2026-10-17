@@ -8,11 +8,17 @@ export { ApplyHandlerRegistry } from './apply/apply-handler-registry.js';
 export { IdempotencyTable } from './system/idempotency-table.js';
 export {
   appliedIndexKey,
+  confStateKey,
   idempotencyAgeKey,
   idempotencyKey,
+  lastVersionKey,
   logEntryKey,
   logPrefix,
+  rangeDescriptorKey,
+  rangeLocalKey,
+  rangeLocalPrefix,
 } from './system/system-keys.js';
+export { SpanReader, inSpan, spanIntervals, wholeKeyspace } from './range/span.js';
 export { errorResult } from './apply/command-results.js';
 export type { AppliedPoint, StateMachineDeps, StateSnapshot } from './apply/state-machine.js';
 export { StateMachine } from './apply/state-machine.js';

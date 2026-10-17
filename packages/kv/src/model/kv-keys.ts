@@ -1,5 +1,6 @@
 import type { TupleElement } from '@mindlog/core';
-import { SYSTEM_TENANT, encodeKey, keyPrefix } from '@mindlog/core';
+import { encodeKey, keyPrefix } from '@mindlog/core';
+import { rangeLocalKey, rangeLocalPrefix } from '@mindlog/statemachine';
 
 /** Element tags inside a collection (ADR-0022). */
 export const Tag = {
@@ -19,12 +20,6 @@ function key(tenant: string, tuple: TupleElement[]): Uint8Array {
 
 function prefix(tenant: string, family: 'k' | 's', tuple: TupleElement[]): Uint8Array {
   const encoded = keyPrefix(tenant, family, tuple);
-  if (!encoded.ok) throw new RangeError(encoded.error.message);
-  return encoded.value;
-}
-
-function system(tuple: TupleElement[]): Uint8Array {
-  const encoded = encodeKey({ tenant: SYSTEM_TENANT, family: 's', tuple });
   if (!encoded.ok) throw new RangeError(encoded.error.message);
   return encoded.value;
 }
@@ -64,18 +59,25 @@ export const encodeElementKey = (
   rest: TupleElement[],
 ): Uint8Array => key(tenant, [name, gen, ...rest]);
 
-/** s/(expire, atMs, tenant, key): keys due for expiry, in time order. */
-export const expiryIndexKey = (atMs: bigint, tenant: string, name: Uint8Array): Uint8Array =>
-  system(['expire', atMs, tenant, name]);
+/** Range-local (expire, atMs, tenant, key): the range's keys due for expiry, in time order (ADR-0028). */
+export const expiryIndexKey = (
+  rangeId: bigint,
+  atMs: bigint,
+  tenant: string,
+  name: Uint8Array,
+): Uint8Array => rangeLocalKey(rangeId, 'expire', atMs, tenant, name);
 
-export const expiryIndexPrefix = (): Uint8Array => prefix(SYSTEM_TENANT, 's', ['expire']);
+export const expiryIndexPrefix = (rangeId: bigint): Uint8Array =>
+  rangeLocalPrefix(rangeId, 'expire');
 
-/** s/(deadgen, deathIndex, tenant, key, gen): generations awaiting GC, oldest first. */
+/** Range-local (deadgen, deathVersion, tenant, key, gen): generations awaiting GC, oldest first. */
 export const deadGenerationKey = (
-  deathIndex: bigint,
+  rangeId: bigint,
+  deathVersion: bigint,
   tenant: string,
   name: Uint8Array,
   gen: bigint,
-): Uint8Array => system(['deadgen', deathIndex, tenant, name, gen]);
+): Uint8Array => rangeLocalKey(rangeId, 'deadgen', deathVersion, tenant, name, gen);
 
-export const deadGenerationPrefix = (): Uint8Array => prefix(SYSTEM_TENANT, 's', ['deadgen']);
+export const deadGenerationPrefix = (rangeId: bigint): Uint8Array =>
+  rangeLocalPrefix(rangeId, 'deadgen');

@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest';
-import { HybridLogicalClock, SeededRandom, UlidGenerator } from '@mindlog/core';
+import { HybridLogicalClock, SeededRandom, UlidGenerator, prefixRange } from '@mindlog/core';
 import { ExpiryJob, createKvRegistry, expiryIndexPrefix } from '@mindlog/kv';
 import { CommandStamper } from '@mindlog/statemachine';
-import { MvccReader } from '@mindlog/storage';
 import { kvNode } from '../support/kv-node.js';
 
 let node: Awaited<ReturnType<typeof kvNode>>;
@@ -90,6 +89,7 @@ describe('ExpiryJob', () => {
   const job = (n: typeof node) =>
     new ExpiryJob({
       store: n.store,
+      rangeId: 1n,
       proposer: n.proposer,
       stamper: new CommandStamper(
         new HybridLogicalClock(n.clock, { maxOffsetMs: 500n }),
@@ -102,7 +102,7 @@ describe('ExpiryJob', () => {
 
   const indexSize = async () => {
     let count = 0;
-    for await (const _ of new MvccReader(node.store).scan(expiryIndexPrefix())) count++;
+    for await (const _ of node.store.iterate(prefixRange(expiryIndexPrefix(1n)))) count++;
     return count;
   };
 

@@ -1,12 +1,13 @@
 import type { Clock, Counter, Logger, Metrics } from '@mindlog/core';
-import { decodeKey } from '@mindlog/core';
+import { decodeKey, prefixRange } from '@mindlog/core';
 import type { CommandStamper, Proposer } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
-import { MvccReader } from '@mindlog/storage';
 import { expiryIndexPrefix } from '../model/kv-keys.js';
 
 export interface ExpiryJobDeps {
   readonly store: KvReader;
+  /** The range whose expiry index this job reads (ADR-0028). */
+  readonly rangeId: bigint;
   readonly proposer: Proposer;
   /** Runs only while this returns true (the range leader); always when absent. */
   readonly active?: () => boolean;
@@ -49,10 +50,11 @@ export class ExpiryJob {
     const limit = this.#deps.batchSize ?? 200;
     const byTenant = new Map<string, Due[]>();
     let count = 0;
-    for await (const entry of new MvccReader(this.#deps.store).scan(expiryIndexPrefix())) {
-      const decoded = decodeKey(entry.key);
+    const prefix = expiryIndexPrefix(this.#deps.rangeId);
+    for await (const [indexKey] of this.#deps.store.iterate(prefixRange(prefix))) {
+      const decoded = decodeKey(indexKey);
       if (!decoded.ok) continue;
-      const [, atMs, tenant, key] = decoded.value.tuple;
+      const [, , , atMs, tenant, key] = decoded.value.tuple;
       if (typeof atMs !== 'bigint' || typeof tenant !== 'string' || !(key instanceof Uint8Array))
         continue;
       if (atMs >= now || count >= limit) break;

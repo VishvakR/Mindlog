@@ -8,8 +8,8 @@ Ordered key-value storage behind the `KvStore` port, with MVCC on top (PLAN 10, 
 |---|---|---|
 | Port | `KvStore`, `KvReader`, `WriteBatch`, `StoreSnapshot`, `Entry`, `IterateOptions` | Unsigned byte order; atomic batches with optional fsync; snapshots must be released |
 | Adapters | `LevelDbStore.open(path, options)` → `Result`; `MemoryStore` | LevelDB via classic-level (ADR-0005); the in-memory store is the fake for every other package's tests |
-| MVCC | `MvccWriter`, `MvccReader`, `MvccTxn`, `collectVersions` | Versioned writes at one commit index, reads at a version, prefix scans, read-your-writes transactions for apply, bounded GC |
-| Keys | `versionedKey`, `parseVersionedKey`, `keyAfter`, `compareBytes`, `decodeVersionValue` | `logical · 0x40 · ~index` (PLAN 5.1) |
+| MVCC | `MvccWriter`, `MvccReader`, `MvccTxn`, `collectVersions` | Versioned writes at one version (the command's HLC timestamp in the state machine, ADR-0027), reads at a version, prefix scans, read-your-writes transactions for apply, bounded GC |
+| Keys | `versionedKey`, `parseVersionedKey`, `keyAfter`, `compareBytes`, `decodeVersionValue` | `logical · 0x40 · ~version` (PLAN 5.1) |
 
 ```ts
 const batch = store.batch();

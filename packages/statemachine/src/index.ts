@@ -27,9 +27,14 @@ export {
   uninitialised,
   wholeKeyspace,
 } from './range/span.js';
+export { localRanges } from './range/local-ranges.js';
 export { errorResult } from './apply/command-results.js';
 export type { AppliedPoint, StateMachineDeps, StateSnapshot } from './apply/state-machine.js';
 export { StateMachine } from './apply/state-machine.js';
+export type { RangeHooks, RawState } from './range/range-commands.js';
+export { mergeMembersMatch } from './range/range-commands.js';
+export type { SplitPoint } from './range/split-key.js';
+export { splitBoundary } from './range/split-key.js';
 export type { LogUpdate, StoredLog, TruncatedPoint } from './log/raft-log-store.js';
 export { RaftLogStore } from './log/raft-log-store.js';
 export { STORE_FORMAT, ensureStoreFormat } from './system/store-format.js';

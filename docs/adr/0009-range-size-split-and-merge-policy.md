@@ -26,14 +26,20 @@ Phase 3 runs one Raft group over the whole keyspace. Phase 4 splits the keyspace
 - The store then starts the right replica. No user data moves.
 - If a replica of the right range already exists locally and is initialised (it got a snapshot first), the apply skips the right-hand writes (TiKV `already_exist_regions`).
 
-**Merge execution** (subsume, from CockroachDB):
-1. The left leader checks that both ranges have the same replicas, then proposes `Freeze {mergeInto: leftId}` on the right range. Applying `Freeze` rejects every later command in the right range with `RANGE_MOVED`, and records the freeze index.
-2. The left leader waits until every replica of the right range holds the freeze in its log (the right leader reports its followers' `match` ≥ freeze index through a `RangeStatus` forward RPC). Each of them will then apply it, because the right group keeps running while frozen.
-3. The left leader proposes `Merge {right: descriptor, freezeIndex}` on the left range.
-4. Applying `Merge` waits until the local right replica's applied index ≥ `freezeIndex`. This is the only apply that waits on another range. A replica that is missing or uninitialised blocks the left range; this cannot happen while membership is equal, because the right range committed the freeze on all members first.
-5. The merge apply extends the left span, sets `epoch.version = max(both) + 1`, folds in the right range's idempotency records and expiry entries, sets version = max of the two (ADR-0027), and deletes the right range's `$node` state. The store then destroys the right replica.
+**Merge execution** (subsume, after CockroachDB). The merge runs on the **right range's leader**, and both ranges must have the same members:
+1. Propose `Freeze {mergeInto: leftId}` on the right range, at index F. A frozen range applies nothing but its own unfreeze, and it leaves no trace: no version, no idempotency record, only the applied point. So every replica's frozen state is the same, whenever it reaches the merge.
+2. Propose the same freeze again, at F2 > F, and wait until every member's `match` ≥ F2. Each member then knows F is committed: the append that carried F2 also carried a commit index ≥ F. Every member can therefore apply F from its own log, even after the right range has gone everywhere else. If a member falls short, the merge is abandoned and the range unfrozen.
+3. Propose `Merge {right descriptor, freezeIndex: F}` on the left range, through the local left replica; Raft forwards it to the left leader.
+4. Before applying `Merge`, each left replica waits until its local right replica has applied F, and then stops it. This is the only apply that waits on another range.
+5. Apply checks that the stored right descriptor equals the one in the command, that the ranges are neighbours, that the right is frozen for this left range, and that the members are the same. A failed check is a deterministic `CONFLICT` result; the right replica restarts and the orchestrator unfreezes it.
+6. The merge then:
+   - extends the left span, with `epoch.version = max(both) + 1`;
+   - folds in the right range's idempotency records, plus whatever the range hooks own (the KV expiry index and dead generations);
+   - sets the version to the max of the two (ADR-0027) and adds the sizes;
+   - deletes the right range's range-local state.
+7. The state store is flushed (fsync) before the right range's Raft log is deleted. A power loss can then never leave a merge without its right half.
 
-A merge whose `Freeze` committed but whose `Merge` failed is retried by PD. A frozen right range with no merge in progress is unfrozen by `Unfreeze`, proposed by the right range's leader after `2 × electionTimeout` without a `Merge`, once it has checked with PD that no merge for that pair is in flight.
+A second merge of the same pair finds the right range already gone and is refused the same way everywhere.
 
 ## Alternatives considered
 

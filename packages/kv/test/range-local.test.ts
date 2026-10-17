@@ -1,7 +1,7 @@
 import { create, fromBinary } from '@bufbuild/protobuf';
 import { describe, expect, test } from 'vitest';
 import { SYSTEM_TENANT, keyPrefix, prefixRange } from '@mindlog/core';
-import { createKvRegistry, headerKey } from '@mindlog/kv';
+import { createKvRegistry, headerKey, kvRangeHooks } from '@mindlog/kv';
 import { KvHeaderSchema, RangeDescriptorSchema } from '@mindlog/proto';
 import { rangeLocalPrefix } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
@@ -51,5 +51,34 @@ describe('range-local KV state (ADR-0028, ADR-0029)', () => {
     await node.run('DEL', 'h');
     expect(await count(node.store, rangeLocalPrefix(1n, 'deadgen'))).toBe(1);
     expect(await count(node.store, systemPrefix)).toBe(0);
+  });
+});
+
+describe('kvRangeHooks', () => {
+  async function rows(store: KvReader, rangeId: bigint, tag: string): Promise<number> {
+    return count(store, rangeLocalPrefix(rangeId, tag));
+  }
+
+  test('split moves expiry and dead-generation entries of right-hand keys; merge brings them back', async () => {
+    const node = await kvNode(createKvRegistry());
+    for (const name of ['a', 'z']) {
+      await node.run('SET', `${name}-ttl`, 'v', 'PX', '100000');
+      await node.run('HSET', `${name}-h`, 'f', 'v');
+      await node.run('DEL', `${name}-h`);
+    }
+    const raw = (batch = node.store.batch()) => ({ reader: node.store, batch });
+    const splitKey = headerKey('t', utf8.encode('m'));
+    const s = raw();
+    await kvRangeHooks.split(s, 1n, 2n, splitKey);
+    await s.batch.write();
+    for (const tag of ['expire', 'deadgen']) {
+      expect([await rows(node.store, 1n, tag), await rows(node.store, 2n, tag)]).toEqual([1, 1]);
+    }
+    const m = raw();
+    await kvRangeHooks.merge(m, 1n, 2n);
+    await m.batch.write();
+    for (const tag of ['expire', 'deadgen']) {
+      expect([await rows(node.store, 1n, tag), await rows(node.store, 2n, tag)]).toEqual([2, 0]);
+    }
   });
 });

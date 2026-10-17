@@ -28,9 +28,9 @@ describe('Command envelope', () => {
     expect(decoded.hlc).toBe(max);
   });
 
-  test('uses body numbers 10-13 and keeps 14-99 free', () => {
+  test('uses body numbers 10-13 and 80-82 (ranges) and keeps the rest of 14-99 free', () => {
     const bodyNumbers = CommandSchema.fields.map((f) => f.number).filter((n) => n >= 10);
-    expect(bodyNumbers).toEqual([10, 11, 12, 13]);
+    expect(bodyNumbers).toEqual([10, 11, 12, 13, 80, 81, 82]);
   });
 
   test('carries a tenant and a KvWrite body', () => {

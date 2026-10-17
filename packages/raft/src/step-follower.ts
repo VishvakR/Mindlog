@@ -54,7 +54,8 @@ export function stepFollower(r: Raft, m: Message): void {
     case MessageType.PROPOSE:
     case MessageType.READ_INDEX:
       // Forward to the leader; dropped (and timed out by the host) when none is known.
-      if (r.lead !== 0n) r.msgs.push({ ...m, to: r.lead });
+      // Local requests are built without a range id; a multi-range store routes by it.
+      if (r.lead !== 0n) r.msgs.push({ ...m, to: r.lead, rangeId: r.cfg.rangeId });
       return;
     case MessageType.APPEND:
       r.electionElapsed = 0;

@@ -1,5 +1,12 @@
-import type { Clock, Logger } from '@mindlog/core';
-import type { KeyValue, Message } from '@mindlog/proto';
+import type { MessageInitShape } from '@bufbuild/protobuf';
+import { fromBinary } from '@bufbuild/protobuf';
+import type { Clock, Logger, MindlogError, MindlogErrorCode, Result } from '@mindlog/core';
+import { ERROR_CODES, err, mindlogError, ok } from '@mindlog/core';
+import type { Command, CommandSchema, KeyValue, Message, RangeDescriptor } from '@mindlog/proto';
+import { RangeDescriptorSchema } from '@mindlog/proto';
+import type { Proposal } from '@mindlog/statemachine';
+import { isUninitialised, rangeDescriptorKey } from '@mindlog/statemachine';
+import { compareBytes } from '@mindlog/storage';
 import type {
   InboundHandler,
   NodeInboundHandler,
@@ -7,12 +14,31 @@ import type {
   RaftTransport,
   Scheduler,
 } from './ports.js';
-import type { Replica } from './replica.js';
+import type { RangeEvents, Replica } from './replica.js';
 
 /** What a replica gets from its store instead of its own transport and timers. */
 export interface ReplicaViews {
   readonly transport: RaftTransport;
   readonly scheduler: Scheduler;
+  readonly ranges: RangeEvents;
+}
+
+type CommandBody = NonNullable<MessageInitShape<typeof CommandSchema>['body']>;
+
+/** True if `outer`'s span contains all of `inner`'s. */
+function covers(outer: RangeDescriptor, inner: RangeDescriptor): boolean {
+  const startOk = compareBytes(outer.startKey, inner.startKey) <= 0;
+  const endOk =
+    outer.endKey.length === 0 ||
+    (inner.endKey.length > 0 && compareBytes(inner.endKey, outer.endKey) <= 0);
+  return startOk && endOk;
+}
+
+/** True if two descriptors' spans share a key (an empty end key is +infinity). */
+function overlaps(a: RangeDescriptor, b: RangeDescriptor): boolean {
+  const before = (end: Uint8Array, start: Uint8Array) =>
+    end.length > 0 && compareBytes(end, start) <= 0;
+  return !before(a.endKey, b.startKey) && !before(b.endKey, a.startKey);
 }
 
 export interface StoreDeps {
@@ -24,6 +50,8 @@ export interface StoreDeps {
   readonly tickMs: number;
   /** Minimum election timeout in ticks: a quiesced range's leader node must be heard within it. */
   readonly electionTicks: number;
+  /** Stamps a range command (request id, HLC) for this node to propose. */
+  readonly stamp: (body: CommandBody) => Command;
   /**
    * Opens the local replica of a range (not started). The composition root
    * decides its replica id, stores and whether it bootstraps; a range seen
@@ -51,6 +79,13 @@ export class Store implements NodeInboundHandler {
   readonly #tickers = new Set<() => void>();
   /** Address → tick when anything was last received from it. */
   readonly #heard = new Map<string, bigint>();
+  /** Ranges merged away from this node: messages for them never recreate a replica. */
+  readonly #gone = new Set<bigint>();
+  /** Right-hand replicas stopped for a merge, waiting to be destroyed. */
+  readonly #stopped = new Map<bigint, Replica>();
+  readonly #frozenTicks = new Map<bigint, number>();
+  /** Left ranges with a merge in flight from this node. */
+  readonly #merging = new Set<bigint>();
   #tick = 0n;
   #stopTimer: (() => void) | undefined;
   #closed = false;
@@ -94,6 +129,79 @@ export class Store implements NodeInboundHandler {
     return [...this.#replicas.values()];
   }
 
+  /**
+   * Splits `rangeId` at its byte median into a new range `newRangeId` (ADR-0009).
+   * Run it on the range's leader; resolves once the split applied here.
+   */
+  async split(rangeId: bigint, newRangeId: bigint): Promise<Result<void, MindlogError>> {
+    const replica = this.#replicas.get(rangeId);
+    if (!replica) return err(mindlogError('NOT_FOUND', `this node holds no range ${rangeId}`));
+    const point = await replica.findSplitKey();
+    if (!point)
+      return err(mindlogError('INVALID_ARGUMENT', `range ${rangeId} is too small to split`));
+    const proposed = await replica.propose(
+      this.#deps.stamp({ case: 'split', value: { ...point, newRangeId } }),
+    );
+    return this.#outcome(proposed);
+  }
+
+  /**
+   * Merges the right-hand neighbour of `leftId` into it (ADR-0009). Run it on
+   * the right range's leader. It freezes the right range twice: once every
+   * member holds the second freeze, each of them also knows the first one is
+   * committed, so each can apply it from its own log even after the right
+   * range is gone elsewhere. Then it proposes the merge on the left range.
+   * Both ranges must have the same members; a failed merge unfreezes again.
+   */
+  async merge(leftId: bigint): Promise<Result<void, MindlogError>> {
+    const left = this.#replicas.get(leftId);
+    const end = left?.descriptor.endKey;
+    const right = [...this.#replicas.values()].find(
+      (r) => end && end.length > 0 && compareBytes(r.descriptor.startKey, end) === 0,
+    );
+    if (!left || !right) return err(mindlogError('NOT_FOUND', `no right neighbour of ${leftId}`));
+    if (!right.isLeader())
+      return err(
+        mindlogError('NOT_LEADER', `run the merge on the leader of range ${right.rangeId}`),
+      );
+    if (this.#merging.has(leftId))
+      return err(mindlogError('CONFLICT', `range ${leftId} is already merging`));
+    this.#merging.add(leftId);
+    try {
+      return await this.#merge(left, right);
+    } finally {
+      this.#merging.delete(leftId);
+    }
+  }
+
+  async #merge(left: Replica, right: Replica): Promise<Result<void, MindlogError>> {
+    const leftId = left.rangeId;
+    const freezeBody = { case: 'freeze', value: { mergeInto: leftId } } as const;
+    const frozen = await right.propose(this.#deps.stamp(freezeBody));
+    const freeze = this.#outcome(frozen);
+    if (!freeze.ok || !frozen.ok) return freeze;
+    const again = await right.propose(this.#deps.stamp(freezeBody));
+    const held = again.ok && (await this.#everyMemberHas(right, again.value.index));
+    const merged = !held
+      ? err(mindlogError('UNAVAILABLE', `not every member of ${right.rangeId} holds the freeze`))
+      : this.#outcome(
+          await left.propose(
+            this.#deps.stamp({
+              case: 'merge',
+              value: {
+                right: right.descriptor,
+                freezeIndex: frozen.value.index,
+                rightVoters: right.status().confState.voters,
+                rightLearners: right.status().confState.learners,
+              },
+            }),
+          ),
+        );
+    if (!merged.ok && this.#replicas.has(right.rangeId))
+      await right.propose(this.#deps.stamp({ case: 'freeze', value: { mergeInto: 0n } }));
+    return merged;
+  }
+
   async close(): Promise<void> {
     this.#closed = true;
     this.#stopTimer?.();
@@ -116,12 +224,26 @@ export class Store implements NodeInboundHandler {
     for (const [rangeId, list] of byRange) {
       const handler = this.#handlers.get(rangeId);
       if (handler) handler.onMessages(list);
-      else void this.#open(rangeId).then((h) => h?.onMessages(list));
+      else if (!this.#gone.has(rangeId)) void this.#open(rangeId).then((h) => h?.onMessages(list));
     }
   }
 
   onSnapshot(message: Message, pairs: readonly KeyValue[]): void {
-    if (this.#closed) return;
+    if (this.#closed || this.#gone.has(message.rangeId)) return;
+    const overlapped = this.#overlapsLocal(message.rangeId, pairs);
+    if (overlapped.length > 0) {
+      // A newer snapshot whose span swallows a local range is a merge this node missed:
+      // that range is gone. Any other overlap is a split we have not applied yet (ADR-0028).
+      const incoming = this.#incoming(pairs, message.rangeId);
+      const stale = overlapped.every(
+        (r) =>
+          incoming !== undefined &&
+          covers(incoming, r.replica.descriptor) &&
+          (incoming.epoch?.version ?? 0n) > r.descriptorVersion,
+      );
+      if (!stale) return;
+      for (const r of overlapped) void this.#drop(r.replica);
+    }
     const handler = this.#handlers.get(message.rangeId);
     if (handler) handler.onSnapshot(message, pairs);
     else void this.#open(message.rangeId).then((h) => h?.onSnapshot(message, pairs));
@@ -172,7 +294,123 @@ export class Store implements NodeInboundHandler {
         this.#deps.scheduler.defer(fn);
       },
     };
-    return { transport, scheduler };
+    const ranges: RangeEvents = {
+      split: (rightId, campaign) => {
+        void this.#startSplit(rightId, campaign);
+      },
+      beforeMerge: (rightId, freezeIndex) => this.#stopForMerge(rightId, freezeIndex),
+      mergeAborted: (rightId) => {
+        if (!this.#stopped.delete(rightId)) return;
+        this.#gone.delete(rightId);
+        void this.addRange(rightId);
+      },
+      merged: (rightId) => {
+        const stopped = this.#stopped.get(rightId);
+        this.#stopped.delete(rightId);
+        void stopped?.destroy();
+      },
+    };
+    return { transport, scheduler, ranges };
+  }
+
+  /** Starts (or restarts an uninitialised) replica of a range this node just split off. */
+  async #startSplit(rightId: bigint, campaign: boolean): Promise<void> {
+    const existing = this.#replicas.get(rightId);
+    if (existing && !existing.initialised) {
+      this.#replicas.delete(rightId);
+      this.#handlers.delete(rightId);
+      await existing.close();
+    }
+    const replica = await this.addRange(rightId);
+    if (campaign && replica.initialised) replica.campaign();
+  }
+
+  /** Waits for the local right replica to apply the freeze, then stops it (ADR-0009). */
+  async #stopForMerge(rightId: bigint, freezeIndex: bigint): Promise<void> {
+    // Absent means an earlier merge already folded it in; apply then refuses this one everywhere.
+    const right = this.#replicas.get(rightId);
+    if (!right || this.#gone.has(rightId)) return;
+    // Unbounded on purpose: the merge is committed, so the left range waits for its right half.
+    await this.#untilTick(() => {
+      // The merge proves the freeze is committed; a follower may not have heard the commit.
+      if (right.appliedIndex < freezeIndex) right.commitUpTo(freezeIndex);
+      return right.appliedIndex >= freezeIndex || right.failure !== undefined || this.#closed;
+    });
+    if (right.appliedIndex < freezeIndex) throw new Error(`range ${rightId} stopped`);
+    // From here on no message may recreate it: the merge is about to fold it into the left range.
+    this.#gone.add(rightId);
+    this.#replicas.delete(rightId);
+    this.#handlers.delete(rightId);
+    this.#stopped.set(rightId, right);
+    await right.close();
+  }
+
+  /** On the right range's leader, waits (bounded) until every member's log has `index`. */
+  async #everyMemberHas(right: Replica, index: bigint): Promise<boolean> {
+    const has = () => {
+      const s = right.status();
+      return s.role === 'leader' && s.progress.every((p) => p.match >= index);
+    };
+    await this.#untilTick(
+      () => has() || right.status().role !== 'leader',
+      4 * this.#deps.electionTicks,
+    );
+    return has();
+  }
+
+  /** Resolves on the first store tick where `done()` holds, or after `maxTicks` ticks. */
+  #untilTick(done: () => boolean, maxTicks = Number.POSITIVE_INFINITY): Promise<void> {
+    if (done()) return Promise.resolve();
+    return new Promise((resolve) => {
+      let ticks = 0;
+      const check = () => {
+        if (done() || ++ticks >= maxTicks) {
+          this.#tickers.delete(check);
+          resolve();
+        }
+      };
+      this.#tickers.add(check);
+    });
+  }
+
+  /** A snapshot overlapping another initialised local range waits for a local split (ADR-0028). */
+  #overlapsLocal(
+    rangeId: bigint,
+    pairs: readonly KeyValue[],
+  ): Array<{ replica: Replica; descriptorVersion: bigint }> {
+    const incoming = this.#incoming(pairs, rangeId);
+    if (!incoming) return [];
+    const found: Array<{ replica: Replica; descriptorVersion: bigint }> = [];
+    for (const [id, replica] of this.#replicas) {
+      if (id === rangeId || !replica.initialised || isUninitialised(replica.descriptor)) continue;
+      if (overlaps(incoming, replica.descriptor))
+        found.push({ replica, descriptorVersion: replica.descriptor.epoch?.version ?? 0n });
+    }
+    return found;
+  }
+
+  #incoming(pairs: readonly KeyValue[], rangeId: bigint): RangeDescriptor | undefined {
+    const key = rangeDescriptorKey(rangeId);
+    const pair = pairs.find((p) => compareBytes(p.key, key) === 0);
+    return pair ? fromBinary(RangeDescriptorSchema, pair.value) : undefined;
+  }
+
+  /** Removes a local replica whose range was merged away while this node was behind. */
+  async #drop(replica: Replica): Promise<void> {
+    const id = replica.rangeId;
+    this.#gone.add(id);
+    this.#replicas.delete(id);
+    this.#handlers.delete(id);
+    await replica.destroy();
+  }
+
+  #outcome(proposed: Result<Proposal, MindlogError>): Result<void, MindlogError> {
+    if (!proposed.ok) return proposed;
+    const outcome = proposed.value.result.outcome;
+    if (outcome.case !== 'error') return ok(undefined);
+    const code =
+      outcome.value.code in ERROR_CODES ? (outcome.value.code as MindlogErrorCode) : 'INTERNAL';
+    return err(mindlogError(code, outcome.value.message));
   }
 
   #open(rangeId: bigint): Promise<InboundHandler | undefined> {
@@ -211,6 +449,29 @@ export class Store implements NodeInboundHandler {
     this.#tick += 1n;
     for (const fn of this.#tickers) fn();
     this.#keepQuiescedSafe();
+    this.#unfreezeStale();
+  }
+
+  /**
+   * A frozen range whose merge never came (its orchestrator crashed or lost contact)
+   * is unfrozen by its leader. Safe at any time: a merge that arrives late finds the
+   * range unfrozen and is refused everywhere (ADR-0009).
+   */
+  #unfreezeStale(): void {
+    const limit = 16 * this.#deps.electionTicks;
+    for (const [rangeId, replica] of this.#replicas) {
+      if (replica.frozenFor === 0n || !replica.isLeader()) {
+        this.#frozenTicks.delete(rangeId);
+        continue;
+      }
+      const ticks = (this.#frozenTicks.get(rangeId) ?? 0) + 1;
+      this.#frozenTicks.set(rangeId, ticks);
+      if (ticks < limit) continue;
+      this.#frozenTicks.delete(rangeId);
+      void replica
+        .propose(this.#deps.stamp({ case: 'freeze', value: { mergeInto: 0n } }))
+        .catch(() => undefined);
+    }
   }
 
   /**

@@ -14,17 +14,33 @@ import type {
 } from '@mindlog/core';
 import { err, hlcPhysical, mindlogError, ok } from '@mindlog/core';
 import type { Hlc } from '@mindlog/core';
-import type { Command, ConfChange, ConfState, Entry, KeyValue, Message } from '@mindlog/proto';
+import type {
+  Command,
+  ConfChange,
+  ConfState,
+  Entry,
+  KeyValue,
+  Message,
+  RangeDescriptor,
+} from '@mindlog/proto';
 import {
   CommandSchema,
   ConfChangeSchema,
   ConfStateSchema,
   EntryType,
+  MessageSchema,
   MessageType,
 } from '@mindlog/proto';
 import type { BootstrapPeer, RaftOptions, RaftStatus, Ready } from '@mindlog/raft';
 import { RawNode } from '@mindlog/raft';
-import type { Proposal, Proposer, RaftLogStore, StateMachine } from '@mindlog/statemachine';
+import { mergeMembersMatch } from '@mindlog/statemachine';
+import type {
+  Proposal,
+  Proposer,
+  RaftLogStore,
+  SplitPoint,
+  StateMachine,
+} from '@mindlog/statemachine';
 import type { InboundHandler, RaftTransport, Scheduler } from './ports.js';
 
 /** Replica tunables beyond the Raft core (PLAN 7.4, Appendix B). */
@@ -52,8 +68,25 @@ export interface ReplicaDeps {
   readonly logger: Logger;
   readonly metrics: Metrics;
   readonly tracer?: Tracer;
+  /** Split and merge side effects on the node's other ranges; absent outside a Store. */
+  readonly ranges?: RangeEvents;
   /** Initial voters of a brand-new range, written as its state at index 5 (ADR-0028); ignored once it has state. */
   readonly bootstrap?: readonly BootstrapPeer[];
+}
+
+/**
+ * What a replica asks of its store when a split or merge applies (ADR-0009).
+ * Implemented by `Store`.
+ */
+export interface RangeEvents {
+  /** A split created range `rightId`; this node should start its replica. */
+  split(rightId: bigint, campaign: boolean): void;
+  /** Resolves once the local replica of `rightId` applied `freezeIndex`, then stops it. */
+  beforeMerge(rightId: bigint, freezeIndex: bigint): Promise<void>;
+  /** The merge applied: the stopped right replica can be destroyed. */
+  merged(rightId: bigint): void;
+  /** The merge was refused: restart the right replica that `beforeMerge` stopped. */
+  mergeAborted(rightId: bigint): void;
 }
 
 /** Read consistency levels (PLAN 9.3, ADR-0007). */
@@ -108,6 +141,8 @@ export class Replica implements Proposer, InboundHandler {
   /** Leader ticks spent idle; heartbeats ask followers to quiesce while > 0. */
   #idleTicks = 0;
   #quiesced = false;
+  #leaderlessTicks = 0;
+  #leaseBlockTicks = 0;
   readonly #labels: { readonly range: string };
   readonly #m: {
     term: Gauge;
@@ -201,8 +236,12 @@ export class Replica implements Proposer, InboundHandler {
         applied: applied.index,
         last,
       });
-      await deps.log.persist({ entries: [], snapshot: applied, sync: true });
-      stored = { hardState: stored.hardState, truncated: applied, entries: [] };
+      const term = stored.hardState.term > applied.term ? stored.hardState.term : applied.term;
+      const commit =
+        stored.hardState.commit > applied.index ? stored.hardState.commit : applied.index;
+      const hardState = { ...stored.hardState, term, commit };
+      await deps.log.persist({ hardState, entries: [], snapshot: applied, sync: true });
+      stored = { hardState, truncated: applied, entries: [] };
     }
     const raw = RawNode.create(
       { ...deps.options, id: deps.raftId, rangeId: deps.rangeId, random: deps.random },
@@ -257,6 +296,9 @@ export class Replica implements Proposer, InboundHandler {
   /** Resumes ticking: work arrived, or the store lost contact with the leader's node. */
   wake(): void {
     if (!this.#quiesced && this.#idleTicks === 0) return;
+    // The lease counts ticks, and none passed while quiesced: it proves nothing until a
+    // heartbeat round echoes fresh ticks (ADR-0007), so reads use ReadIndex meanwhile.
+    if (this.#quiesced) this.#leaseBlockTicks = this.#deps.options.electionTicks[0];
     this.#quiesced = false;
     this.#idleTicks = 0;
     this.#schedule();
@@ -279,6 +321,49 @@ export class Replica implements Proposer, InboundHandler {
 
   get appliedIndex(): bigint {
     return this.#deps.machine.appliedIndex;
+  }
+
+  get rangeId(): bigint {
+    return this.#deps.rangeId;
+  }
+
+  /** The range this one is frozen for, or 0 (ADR-0009). */
+  get frozenFor(): bigint {
+    return this.#deps.machine.frozenFor;
+  }
+
+  /** False until a bootstrap, split or snapshot gave the replica its state (ADR-0028). */
+  get initialised(): boolean {
+    return this.#deps.machine.appliedIndex > 0n;
+  }
+
+  /** The range's span and epoch as of the applied index. */
+  get descriptor(): RangeDescriptor {
+    return this.#deps.machine.descriptor;
+  }
+
+  /** Where this range would split now (leader side, ADR-0009). */
+  findSplitKey(): Promise<SplitPoint | undefined> {
+    return this.#deps.machine.findSplitKey();
+  }
+
+  /** See `RawNode.forceCommit`: used only when a committed merge needs this replica's last entries. */
+  commitUpTo(index: bigint): void {
+    this.#raw.forceCommit(index);
+    this.#schedule();
+  }
+
+  /** Starts an election now (a range just split off a range this node leads). */
+  campaign(): void {
+    this.#raw.campaign();
+    this.#schedule();
+  }
+
+  /** Closes the replica and deletes its log (after a merge moved its state away). */
+  async destroy(): Promise<void> {
+    await this.close();
+    await this.#deps.machine.destroyState();
+    await this.#deps.log.destroy();
   }
 
   // ---- Proposer ----
@@ -325,12 +410,17 @@ export class Replica implements Proposer, InboundHandler {
     const stopped = this.#stopped();
     if (stopped) return Promise.resolve(err(stopped));
     const machine = this.#deps.machine;
+    // A frozen range is about to be merged away: reads here could miss writes the left range takes.
+    if (machine.frozenFor !== 0n)
+      return Promise.resolve(
+        err(mindlogError('RANGE_MOVED', `range ${this.#deps.rangeId} is being merged`)),
+      );
     if (level === 'bounded_staleness') {
       const age = this.#deps.clock.now() - hlcPhysical(machine.appliedHlc as Hlc);
       if (machine.appliedHlc > 0n && age <= BigInt(maxStalenessMs))
         return Promise.resolve(ok(undefined));
     }
-    if (level === 'lease' && this.#tickIsFresh()) {
+    if (level === 'lease' && this.#tickIsFresh() && this.#leaseBlockTicks === 0) {
       const index = this.#raw.leaseRead();
       if (index !== undefined) return this.#whenApplied(index).then(() => ok(undefined));
     }
@@ -374,7 +464,8 @@ export class Replica implements Proposer, InboundHandler {
     if (this.#closed) return;
     for (const m of messages) {
       this.#raw.step(m);
-      if (m.type === MessageType.HEARTBEAT_RESPONSE) continue;
+      // Quiesced followers mark their replies, so only a fresh or restarted one wakes the leader.
+      if (m.type === MessageType.HEARTBEAT_RESPONSE && m.quiesce) continue;
       const fromLeader = m.type === MessageType.HEARTBEAT && m.from === this.#raw.status().lead;
       if (fromLeader && m.quiesce) this.#quiesced = true;
       else this.wake();
@@ -470,11 +561,15 @@ export class Replica implements Proposer, InboundHandler {
       return;
     }
     const command = fromBinary(CommandSchema, entry.data);
+    const merge = command.body.case === 'merge' ? command.body.value : undefined;
+    if (merge?.right && this.#deps.ranges && mergeMembersMatch(merge, this.#deps.machine.confState))
+      await this.#deps.ranges.beforeMerge(merge.right.rangeId, merge.freezeIndex);
     const result = await this.#span(
       'statemachine.apply',
       { 'mindlog.index': entry.index, 'mindlog.body': command.body.case ?? 'none' },
       () => machine.apply(entry.index, entry.term, command),
     );
+    await this.#afterRangeCommand(command, result.outcome.case === 'kv');
     const key = hex(command.requestId);
     const waiting = this.#pending.get(key);
     if (!waiting) return;
@@ -484,6 +579,21 @@ export class Replica implements Proposer, InboundHandler {
       this.#m.commitLatency.observe(Number(now - w.started) / 1e9, this.#labels);
       w.resolve(ok({ index: entry.index, result }));
     }
+  }
+
+  async #afterRangeCommand(command: Command, applied: boolean): Promise<void> {
+    const ranges = this.#deps.ranges;
+    const body = command.body;
+    if (!ranges) return;
+    if (body.case === 'split' && applied) ranges.split(body.value.newRangeId, this.isLeader());
+    if (body.case !== 'merge' || !body.value.right) return;
+    if (!applied) {
+      ranges.mergeAborted(body.value.right.rangeId);
+      return;
+    }
+    // The right range's log is deleted next; the merge that replaces it must be durable first.
+    await this.#deps.machine.flush();
+    ranges.merged(body.value.right.rangeId);
   }
 
   #resolveConf(entry: Entry, confState: ConfState): void {
@@ -514,7 +624,12 @@ export class Replica implements Proposer, InboundHandler {
     const quiesce = this.#quiesced || this.#idleTicks > 0;
     for (const m of messages) {
       if (m.type === MessageType.SNAPSHOT) void this.#sendSnapshot(m);
-      else regular.push(quiesce && m.type === MessageType.HEARTBEAT ? { ...m, quiesce } : m);
+      else {
+        const mark =
+          (quiesce && m.type === MessageType.HEARTBEAT) ||
+          (this.#quiesced && m.type === MessageType.HEARTBEAT_RESPONSE);
+        regular.push(mark ? { ...m, quiesce: true } : m);
+      }
     }
     if (regular.length > 0) this.#deps.transport.send(regular);
   }
@@ -599,12 +714,43 @@ export class Replica implements Proposer, InboundHandler {
     if (this.#failure !== undefined || this.#closed || this.#quiesced) return;
     this.#tick += 1n;
     this.#lastTickNs = this.#deps.clock.monotonic();
+    if (this.#leaseBlockTicks > 0) this.#leaseBlockTicks--;
+    this.#pokeIfLeaderless();
     this.#idleTicks = this.#canQuiesce() ? this.#idleTicks + 1 : 0;
     // Followers get an election timeout of quiesce heartbeats before the leader goes silent.
     if (this.#idleTicks > this.#deps.options.electionTicks[0]) this.#quiesced = true;
     this.#raw.tick();
     this.#expire();
     this.#schedule();
+  }
+
+  /**
+   * A follower that has known no leader for an election timeout tells its
+   * peers it is here (a heartbeat response without the quiesce mark): a
+   * quiesced leader wakes and catches it up. Voters would also campaign, but a
+   * learner, or a node that restarted behind a quiesced leader, needs this.
+   */
+  #pokeIfLeaderless(): void {
+    const s = this.#raw.status();
+    if (s.role !== 'follower' || s.lead !== 0n) {
+      this.#leaderlessTicks = 0;
+      return;
+    }
+    if (++this.#leaderlessTicks < this.#deps.options.electionTicks[0]) return;
+    this.#leaderlessTicks = 0;
+    const peers = [...s.confState.voters, ...s.confState.learners].filter((id) => id !== s.id);
+    if (peers.length === 0) return;
+    this.#deps.transport.send(
+      peers.map((to) =>
+        create(MessageSchema, {
+          type: MessageType.HEARTBEAT_RESPONSE,
+          from: s.id,
+          to,
+          term: s.term,
+          rangeId: this.#deps.rangeId,
+        }),
+      ),
+    );
   }
 
   /** A leader may quiesce when nothing is pending and every follower has everything. */

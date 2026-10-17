@@ -35,5 +35,6 @@ export { kvBatchHandler } from './apply/kv-batch-handler.js';
 export type { VersionSource } from './model/watch.js';
 export { watchVersion } from './model/watch.js';
 export { gcThresholdHandler } from './apply/gc-handler.js';
+export { kvRangeHooks } from './apply/kv-range-hooks.js';
 export type { GcJobDeps } from './jobs/gc-job.js';
 export { GcJob } from './jobs/gc-job.js';

@@ -7,7 +7,7 @@ Range replicas and the per-node store (PLAN 8.2, ADR-0028, layer `replication`).
 | Export | Purpose |
 |---|---|
 | `Replica` | The core of a range replica. `propose(command)` implements `Proposer`. `read(level)` implements the services `ReadBarrier`. Also `changeMembership(cc)`, `transferLeader(to)`, `status()`, `isLeader()`, `leaderKnown()`, `start()` and `close()` |
-| `Store` | All replicas of a node. `Store.start(deps)`, `addRange(id)`, `replica(id)`, `replicas()`, `close()`. It routes inbound messages by range, maps replica ids to node addresses, runs one tick timer, creates replicas for ranges first seen in a message, and keeps quiesced ranges live with per-node keepalives |
+| `Store` | All replicas of a node. `Store.start(deps)`, `addRange(id)`, `replica(id)`, `replicas()`, `split(id, newId)` (on the leader; median split key, ADR-0009), `merge(leftId)` (on the right neighbour's leader; double freeze, then merge), `close()`. It routes inbound messages by range, maps replica ids to node addresses, runs one tick timer, creates replicas for ranges first seen in a message (and refuses a snapshot that overlaps another local range), starts the right half of a split and destroys the right half of a merge, and keeps quiesced ranges live with per-node keepalives |
 | `NodeTransport`, `NodeInboundHandler`, `ReplicaViews` | Node-level transport port (by address, one stream per peer node) and the per-range transport and scheduler a store hands each replica |
 | `startSingleNode(deps)` | A started one-voter range that bootstraps and elects itself (`--single-node`, tests) |
 | `RaftTransport`, `InboundHandler` | Per-range transport port (ADR-0025): `send`, `sendSnapshot`, `setPeers`, `attach`; the store's view, the simulator and Maelstrom implement it |
@@ -30,6 +30,7 @@ Proposals, messages and ticks in one event-loop turn are collected, then each Re
 - **Boot reconciliation** (ADR-0026). The state store's applied `{index, term}` must lie on the log. If it is ahead (a crash between snapshot install and log rewrite), the log is reset to that point. If it is behind the compacted log, the replica refuses to start.
 - A new range writes its initial state (members, descriptor) at index 5 (ADR-0028). Any replica that is not bootstrapped starts empty and is caught up by a snapshot.
 - **Quiescence** (ADR-0028). An idle leader whose followers have everything sends quiesce heartbeats for an election timeout, then stops ticking. Followers stop when they get one. Any work or non-heartbeat message wakes the range, and the store wakes a follower whose leader's node goes quiet.
+- Split and merge apply in `@mindlog/statemachine`; the replica tells its store (`RangeEvents`): start the new right range after a split (campaigning at once if this node led the left one), wait for and stop the right replica before a merge applies, destroy it after the merge is flushed.
 - One fsync per turn across ranges: give every range's `RaftLogStore` the same `GroupCommitStore` (from `@mindlog/storage`).
 - Proposals on a follower are forwarded by Raft and resolved when this node applies them. A proposal not applied within `2 × electionTicks.max` ticks fails with `DEADLINE_EXCEEDED`, an indefinite result: the write may still apply.
 - Reads follow ADR-0007:

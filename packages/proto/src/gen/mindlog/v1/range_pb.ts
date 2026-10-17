@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/range.proto.
  */
 export const file_mindlog_v1_range: GenFile = /*@__PURE__*/
-  fileDesc("ChZtaW5kbG9nL3YxL3JhbmdlLnByb3RvEgptaW5kbG9nLnYxIjMKClJhbmdlRXBvY2gSFAoMY29uZl92ZXJzaW9uGAEgASgEEg8KB3ZlcnNpb24YAiABKAQiXwoRUmVwbGljYURlc2NyaXB0b3ISDwoHbm9kZV9pZBgBIAEoBBISCgpyZXBsaWNhX2lkGAIgASgEEiUKBHJvbGUYAyABKA4yFy5taW5kbG9nLnYxLlJlcGxpY2FSb2xlIp8BCg9SYW5nZURlc2NyaXB0b3ISEAoIcmFuZ2VfaWQYASABKAQSEQoJc3RhcnRfa2V5GAIgASgMEg8KB2VuZF9rZXkYAyABKAwSJQoFZXBvY2gYBCABKAsyFi5taW5kbG9nLnYxLlJhbmdlRXBvY2gSLwoIcmVwbGljYXMYBSADKAsyHS5taW5kbG9nLnYxLlJlcGxpY2FEZXNjcmlwdG9yKl0KC1JlcGxpY2FSb2xlEhwKGFJFUExJQ0FfUk9MRV9VTlNQRUNJRklFRBAAEhYKElJFUExJQ0FfUk9MRV9WT1RFUhABEhgKFFJFUExJQ0FfUk9MRV9MRUFSTkVSEAJiBnByb3RvMw");
+  fileDesc("ChZtaW5kbG9nL3YxL3JhbmdlLnByb3RvEgptaW5kbG9nLnYxIjMKClJhbmdlRXBvY2gSFAoMY29uZl92ZXJzaW9uGAEgASgEEg8KB3ZlcnNpb24YAiABKAQiXwoRUmVwbGljYURlc2NyaXB0b3ISDwoHbm9kZV9pZBgBIAEoBBISCgpyZXBsaWNhX2lkGAIgASgEEiUKBHJvbGUYAyABKA4yFy5taW5kbG9nLnYxLlJlcGxpY2FSb2xlIp8BCg9SYW5nZURlc2NyaXB0b3ISEAoIcmFuZ2VfaWQYASABKAQSEQoJc3RhcnRfa2V5GAIgASgMEg8KB2VuZF9rZXkYAyABKAwSJQoFZXBvY2gYBCABKAsyFi5taW5kbG9nLnYxLlJhbmdlRXBvY2gSLwoIcmVwbGljYXMYBSADKAsyHS5taW5kbG9nLnYxLlJlcGxpY2FEZXNjcmlwdG9yIlkKBVNwbGl0EhEKCXNwbGl0X2tleRgBIAEoDBIUCgxuZXdfcmFuZ2VfaWQYAiABKAQSEgoKbGVmdF9ieXRlcxgDIAEoBBITCgtyaWdodF9ieXRlcxgEIAEoBCIcCgZGcmVlemUSEgoKbWVyZ2VfaW50bxgBIAEoBCJ3CgVNZXJnZRIqCgVyaWdodBgBIAEoCzIbLm1pbmRsb2cudjEuUmFuZ2VEZXNjcmlwdG9yEhQKDGZyZWV6ZV9pbmRleBgCIAEoBBIUCgxyaWdodF92b3RlcnMYAyADKAQSFgoOcmlnaHRfbGVhcm5lcnMYBCADKAQqXQoLUmVwbGljYVJvbGUSHAoYUkVQTElDQV9ST0xFX1VOU1BFQ0lGSUVEEAASFgoSUkVQTElDQV9ST0xFX1ZPVEVSEAESGAoUUkVQTElDQV9ST0xFX0xFQVJORVIQAmIGcHJvdG8z");
 
 /**
  * Bumps on membership changes (conf_version) and on splits or merges (version).
@@ -104,6 +104,102 @@ export type RangeDescriptor = Message<"mindlog.v1.RangeDescriptor"> & {
  */
 export const RangeDescriptorSchema: GenMessage<RangeDescriptor> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_range, 2);
+
+/**
+ * Splits the applying range at `split_key` (ADR-0009). The left side keeps the
+ * range id; the right side becomes `new_range_id` with the same replicas. The
+ * leader measures both halves and embeds the sizes, so apply never scans.
+ *
+ * @generated from message mindlog.v1.Split
+ */
+export type Split = Message<"mindlog.v1.Split"> & {
+  /**
+   * @generated from field: bytes split_key = 1;
+   */
+  splitKey: Uint8Array;
+
+  /**
+   * @generated from field: uint64 new_range_id = 2;
+   */
+  newRangeId: bigint;
+
+  /**
+   * @generated from field: uint64 left_bytes = 3;
+   */
+  leftBytes: bigint;
+
+  /**
+   * @generated from field: uint64 right_bytes = 4;
+   */
+  rightBytes: bigint;
+};
+
+/**
+ * Describes the message mindlog.v1.Split.
+ * Use `create(SplitSchema)` to create a new message.
+ */
+export const SplitSchema: GenMessage<Split> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_range, 3);
+
+/**
+ * Freezes the applying range for a merge into `merge_into` (it then refuses
+ * every command but Freeze); 0 unfreezes it (ADR-0009).
+ *
+ * @generated from message mindlog.v1.Freeze
+ */
+export type Freeze = Message<"mindlog.v1.Freeze"> & {
+  /**
+   * @generated from field: uint64 merge_into = 1;
+   */
+  mergeInto: bigint;
+};
+
+/**
+ * Describes the message mindlog.v1.Freeze.
+ * Use `create(FreezeSchema)` to create a new message.
+ */
+export const FreezeSchema: GenMessage<Freeze> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_range, 4);
+
+/**
+ * Merges the frozen right-hand neighbour `right` into the applying range. Each
+ * replica applies it only once its local copy of `right` has applied
+ * `freeze_index` (ADR-0009).
+ *
+ * @generated from message mindlog.v1.Merge
+ */
+export type Merge = Message<"mindlog.v1.Merge"> & {
+  /**
+   * @generated from field: mindlog.v1.RangeDescriptor right = 1;
+   */
+  right?: RangeDescriptor | undefined;
+
+  /**
+   * @generated from field: uint64 freeze_index = 2;
+   */
+  freezeIndex: bigint;
+
+  /**
+   * Members of the right range when the merge was proposed. Apply compares these
+   * with the left range's members instead of reading the right replica's own,
+   * possibly lagging, membership, so every replica decides alike.
+   *
+   * @generated from field: repeated uint64 right_voters = 3;
+   */
+  rightVoters: bigint[];
+
+  /**
+   * @generated from field: repeated uint64 right_learners = 4;
+   */
+  rightLearners: bigint[];
+};
+
+/**
+ * Describes the message mindlog.v1.Merge.
+ * Use `create(MergeSchema)` to create a new message.
+ */
+export const MergeSchema: GenMessage<Merge> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_range, 5);
 
 /**
  * @generated from enum mindlog.v1.ReplicaRole

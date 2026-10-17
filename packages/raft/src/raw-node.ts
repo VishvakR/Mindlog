@@ -225,6 +225,15 @@ export class RawNode {
     this.#r.log.compact(index);
   }
 
+  /**
+   * Marks entries up to `index` committed on the host's word. Only for a merge, which proves
+   * the entries are committed everywhere (all members acked them) while this replica never
+   * hears the leader's commit index because that leader is gone (ADR-0009).
+   */
+  forceCommit(index: bigint): void {
+    this.#r.log.commitTo(index < this.#r.log.lastIndex() ? index : this.#r.log.lastIndex());
+  }
+
   termAt(index: bigint): bigint | undefined {
     return this.#r.log.term(index);
   }

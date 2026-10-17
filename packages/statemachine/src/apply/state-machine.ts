@@ -34,6 +34,18 @@ import {
   uninitialised,
   wholeKeyspace,
 } from '../range/span.js';
+import type { RangeHooks } from '../range/range-commands.js';
+import type { SplitPoint } from '../range/split-key.js';
+import { findSplitKey } from '../range/split-key.js';
+import {
+  applyFreeze,
+  applyMerge,
+  applySplit,
+  decodeU64,
+  encodeU64,
+  frozenKey,
+  statsKey,
+} from '../range/range-commands.js';
 import type { ApplyHandlerRegistry } from './apply-handler-registry.js';
 import { errorResult } from './command-results.js';
 
@@ -48,6 +60,8 @@ export interface StateMachineDeps {
   readonly rangeId?: bigint;
   /** Descriptor when the store has none; without one the replica is uninitialised (ADR-0028). */
   readonly descriptor?: RangeDescriptor;
+  /** Range-local state of other packages, moved on split and merge (ADR-0009). */
+  readonly rangeHooks?: readonly RangeHooks[];
 }
 
 /** Applied index and the term of that entry (ADR-0026). */
@@ -78,20 +92,13 @@ export interface StateSnapshot {
   release(): Promise<void>;
 }
 
-const encodeU64 = (n: bigint): Uint8Array => {
-  const out = new Uint8Array(8);
-  new DataView(out.buffer).setBigUint64(0, n);
-  return out;
-};
-
-const decodeU64 = (bytes: Uint8Array): bigint =>
-  new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigUint64(0);
-
 interface RangeState {
   readonly applied: AppliedPoint;
   readonly confState: ConfState;
   readonly descriptor: RangeDescriptor | undefined;
   readonly lastVersion: bigint;
+  readonly frozenFor: bigint;
+  readonly bytes: bigint;
 }
 
 /**
@@ -111,6 +118,8 @@ export class StateMachine {
   #confState: ConfState;
   #descriptor: RangeDescriptor;
   #lastVersion: bigint;
+  #frozenFor: bigint;
+  #bytes: bigint;
   #appliedHlc = 0n;
 
   private constructor(deps: StateMachineDeps, rangeId: bigint, state: RangeState) {
@@ -121,6 +130,8 @@ export class StateMachine {
     this.#confState = state.confState;
     this.#descriptor = state.descriptor ?? deps.descriptor ?? uninitialised(rangeId);
     this.#lastVersion = state.lastVersion;
+    this.#frozenFor = state.frozenFor;
+    this.#bytes = state.bytes;
     this.#latency = deps.metrics.histogram({
       name: 'mindlog_statemachine_apply_latency_seconds',
       help: 'Time to apply one committed command',
@@ -194,6 +205,31 @@ export class StateMachine {
     return this.#lastVersion;
   }
 
+  /** The range this one is frozen for (a merge in progress), or 0 (ADR-0009). */
+  get frozenFor(): bigint {
+    return this.#frozenFor;
+  }
+
+  /** Approximate bytes in the range, for split and merge decisions (ADR-0009). */
+  get approximateBytes(): bigint {
+    return this.#bytes;
+  }
+
+  /** Deletes the range's own state (its replica is being removed); user keys are left to the new owner. */
+  async destroyState(): Promise<void> {
+    const batch = this.#deps.store.batch();
+    for await (const [key] of this.#deps.store.iterate(
+      prefixRange(rangeLocalPrefix(this.#rangeId)),
+    ))
+      batch.del(key);
+    await batch.write({ sync: true });
+  }
+
+  /** Where the leader would split this range now (ADR-0009); reads applied state. */
+  findSplitKey(): Promise<SplitPoint | undefined> {
+    return findSplitKey(this.#deps.store, this.#descriptor);
+  }
+
   /** HLC of the last applied command, for bounded-staleness reads (ADR-0007). */
   get appliedHlc(): bigint {
     return this.#appliedHlc;
@@ -217,12 +253,29 @@ export class StateMachine {
     const started = this.#deps.clock.monotonic();
     const batch = this.#deps.store.batch();
     let result = await this.#idempotency.lookup(command.requestId);
+    const frozen = result ? undefined : this.#frozenResult(command);
+    if (frozen) {
+      // The refusal is recorded, so a re-proposed copy of the same request gets the same answer
+      // after an unfreeze instead of being applied. It takes no version, so the data a merge folds
+      // in does not depend on how many refused commands a replica has seen (ADR-0009).
+      this.#idempotency.record(batch, command.requestId, frozen, this.#lastVersion);
+      await this.#commit(batch, { index, term });
+      return frozen;
+    }
     if (!result) {
-      const version = command.hlc > this.#lastVersion ? command.hlc : this.#lastVersion + 1n;
+      // A freeze takes no version: whether a replica applied a repeated freeze before it stops
+      // for a merge must not change what the merge folds in (ADR-0009).
+      const version =
+        command.body.case === 'freeze'
+          ? this.#lastVersion
+          : command.hlc > this.#lastVersion
+            ? command.hlc
+            : this.#lastVersion + 1n;
+      this.#lastVersion = version;
       result = await this.#execute(index, version, command, batch);
       this.#idempotency.record(batch, command.requestId, result, version);
-      batch.put(lastVersionKey(this.#rangeId), encodeU64(version));
-      this.#lastVersion = version;
+      batch.put(lastVersionKey(this.#rangeId), encodeU64(this.#lastVersion));
+      batch.put(statsKey(this.#rangeId), encodeU64(this.#bytes));
     }
     await this.#commit(batch, { index, term });
     if (command.hlc > this.#appliedHlc) this.#appliedHlc = command.hlc;
@@ -316,6 +369,8 @@ export class StateMachine {
     this.#confState = state.confState;
     this.#descriptor = next;
     this.#lastVersion = state.lastVersion;
+    this.#frozenFor = state.frozenFor;
+    this.#bytes = state.bytes;
   }
 
   #ownKeys(descriptor: RangeDescriptor) {
@@ -342,6 +397,8 @@ export class StateMachine {
   ): Promise<CommandResult> {
     const body = command.body.case;
     if (body === undefined) return errorResult('INVALID_ARGUMENT', 'command has no body');
+    if (body === 'split' || body === 'freeze' || body === 'merge')
+      return this.#rangeCommand(version, command, batch);
     const handler = this.#deps.handlers.get(body);
     if (!handler) return errorResult('UNIMPLEMENTED', `no apply handler for '${body}'`);
     const txn = new MvccTxn(new SpanReader(this.#deps.store, this.#descriptor), version);
@@ -356,21 +413,76 @@ export class StateMachine {
       raw: { reader: this.#deps.store, batch },
     });
     txn.writeTo(batch);
+    this.#bytes += txn.bytes;
     return result;
+  }
+
+  /** A frozen range applies only its unfreeze (ADR-0009); the rest is refused without a trace. */
+  #frozenResult(command: Command): CommandResult | undefined {
+    if (this.#frozenFor === 0n) return undefined;
+    // Freezes (even repeated ones) run and are recorded, so a re-proposed copy of one cannot
+    // freeze the range again after its unfreeze.
+    const body = command.body;
+    if (body.case === 'freeze') {
+      const to = body.value.mergeInto;
+      return to === 0n || to === this.#frozenFor
+        ? undefined
+        : errorResult(
+            'CONFLICT',
+            `range ${this.#rangeId} is already merging into ${this.#frozenFor}`,
+          );
+    }
+    return errorResult('RANGE_MOVED', `range ${this.#rangeId} is merging into ${this.#frozenFor}`);
+  }
+
+  /** Split, freeze and merge change the range itself (ADR-0009). */
+  async #rangeCommand(
+    version: bigint,
+    command: Command,
+    batch: WriteBatch,
+  ): Promise<CommandResult> {
+    const ctx = {
+      reader: this.#deps.store,
+      batch,
+      descriptor: this.#descriptor,
+      confState: this.#confState,
+      version,
+      bytes: this.#bytes,
+      hooks: this.#deps.rangeHooks ?? [],
+    };
+    const body = command.body;
+    const change =
+      body.case === 'split'
+        ? await applySplit(ctx, body.value)
+        : body.case === 'merge'
+          ? await applyMerge(ctx, body.value)
+          : body.case === 'freeze'
+            ? applyFreeze(ctx, body.value)
+            : undefined;
+    if (!change) return errorResult('INTERNAL', 'not a range command');
+    if (change.descriptor) this.#descriptor = change.descriptor;
+    if (change.bytes !== undefined) this.#bytes = change.bytes;
+    if (change.frozenFor !== undefined) this.#frozenFor = change.frozenFor;
+    if (change.lastVersion !== undefined) this.#lastVersion = change.lastVersion;
+    return change.result;
   }
 }
 
 async function readRangeState(reader: KvReader, rangeId: bigint): Promise<RangeState> {
-  const [applied, conf, descriptor, lastVersion] = await Promise.all([
+  const [applied, conf, descriptor, lastVersion, frozen, stats] = await Promise.all([
     reader.get(appliedIndexKey(rangeId)),
     reader.get(confStateKey(rangeId)),
     reader.get(rangeDescriptorKey(rangeId)),
     reader.get(lastVersionKey(rangeId)),
+    reader.get(frozenKey(rangeId)),
+    reader.get(statsKey(rangeId)),
   ]);
   return {
     applied: applied ? decodeApplied(applied) : { index: 0n, term: 0n },
     confState: conf ? fromBinary(ConfStateSchema, conf) : create(ConfStateSchema, {}),
     descriptor: descriptor ? fromBinary(RangeDescriptorSchema, descriptor) : undefined,
     lastVersion: lastVersion ? decodeU64(lastVersion) : 0n,
+    frozenFor: frozen ? decodeU64(frozen) : 0n,
+    bytes: stats ? decodeU64(stats) : 0n,
   };
 }

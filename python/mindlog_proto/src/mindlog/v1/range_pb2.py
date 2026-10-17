@@ -24,19 +24,25 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16mindlog/v1/range.proto\x12\nmindlog.v1\"3\n\nRangeEpoch\x12\x14\n\x0c\x63onf_version\x18\x01 \x01(\x04\x12\x0f\n\x07version\x18\x02 \x01(\x04\"_\n\x11ReplicaDescriptor\x12\x0f\n\x07node_id\x18\x01 \x01(\x04\x12\x12\n\nreplica_id\x18\x02 \x01(\x04\x12%\n\x04role\x18\x03 \x01(\x0e\x32\x17.mindlog.v1.ReplicaRole\"\x9f\x01\n\x0fRangeDescriptor\x12\x10\n\x08range_id\x18\x01 \x01(\x04\x12\x11\n\tstart_key\x18\x02 \x01(\x0c\x12\x0f\n\x07\x65nd_key\x18\x03 \x01(\x0c\x12%\n\x05\x65poch\x18\x04 \x01(\x0b\x32\x16.mindlog.v1.RangeEpoch\x12/\n\x08replicas\x18\x05 \x03(\x0b\x32\x1d.mindlog.v1.ReplicaDescriptor*]\n\x0bReplicaRole\x12\x1c\n\x18REPLICA_ROLE_UNSPECIFIED\x10\x00\x12\x16\n\x12REPLICA_ROLE_VOTER\x10\x01\x12\x18\n\x14REPLICA_ROLE_LEARNER\x10\x02\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16mindlog/v1/range.proto\x12\nmindlog.v1\"3\n\nRangeEpoch\x12\x14\n\x0c\x63onf_version\x18\x01 \x01(\x04\x12\x0f\n\x07version\x18\x02 \x01(\x04\"_\n\x11ReplicaDescriptor\x12\x0f\n\x07node_id\x18\x01 \x01(\x04\x12\x12\n\nreplica_id\x18\x02 \x01(\x04\x12%\n\x04role\x18\x03 \x01(\x0e\x32\x17.mindlog.v1.ReplicaRole\"\x9f\x01\n\x0fRangeDescriptor\x12\x10\n\x08range_id\x18\x01 \x01(\x04\x12\x11\n\tstart_key\x18\x02 \x01(\x0c\x12\x0f\n\x07\x65nd_key\x18\x03 \x01(\x0c\x12%\n\x05\x65poch\x18\x04 \x01(\x0b\x32\x16.mindlog.v1.RangeEpoch\x12/\n\x08replicas\x18\x05 \x03(\x0b\x32\x1d.mindlog.v1.ReplicaDescriptor\"Y\n\x05Split\x12\x11\n\tsplit_key\x18\x01 \x01(\x0c\x12\x14\n\x0cnew_range_id\x18\x02 \x01(\x04\x12\x12\n\nleft_bytes\x18\x03 \x01(\x04\x12\x13\n\x0bright_bytes\x18\x04 \x01(\x04\"\x1c\n\x06\x46reeze\x12\x12\n\nmerge_into\x18\x01 \x01(\x04\"w\n\x05Merge\x12*\n\x05right\x18\x01 \x01(\x0b\x32\x1b.mindlog.v1.RangeDescriptor\x12\x14\n\x0c\x66reeze_index\x18\x02 \x01(\x04\x12\x14\n\x0cright_voters\x18\x03 \x03(\x04\x12\x16\n\x0eright_learners\x18\x04 \x03(\x04*]\n\x0bReplicaRole\x12\x1c\n\x18REPLICA_ROLE_UNSPECIFIED\x10\x00\x12\x16\n\x12REPLICA_ROLE_VOTER\x10\x01\x12\x18\n\x14REPLICA_ROLE_LEARNER\x10\x02\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'mindlog.v1.range_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_REPLICAROLE']._serialized_start=350
-  _globals['_REPLICAROLE']._serialized_end=443
+  _globals['_REPLICAROLE']._serialized_start=592
+  _globals['_REPLICAROLE']._serialized_end=685
   _globals['_RANGEEPOCH']._serialized_start=38
   _globals['_RANGEEPOCH']._serialized_end=89
   _globals['_REPLICADESCRIPTOR']._serialized_start=91
   _globals['_REPLICADESCRIPTOR']._serialized_end=186
   _globals['_RANGEDESCRIPTOR']._serialized_start=189
   _globals['_RANGEDESCRIPTOR']._serialized_end=348
+  _globals['_SPLIT']._serialized_start=350
+  _globals['_SPLIT']._serialized_end=439
+  _globals['_FREEZE']._serialized_start=441
+  _globals['_FREEZE']._serialized_end=469
+  _globals['_MERGE']._serialized_start=471
+  _globals['_MERGE']._serialized_end=590
 # @@protoc_insertion_point(module_scope)

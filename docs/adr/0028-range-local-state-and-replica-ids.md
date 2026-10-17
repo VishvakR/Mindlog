@@ -74,6 +74,8 @@ This is what TiKV does. Every replica created any other way, whether from a mess
 - A follower that receives a quiesce heartbeat from its leader stops ticking.
 - Any proposal, read, membership change, transfer, snapshot, or message other than a heartbeat (or heartbeat response) wakes the range.
 - A quiesced follower whose leader's node has sent nothing for `electionTicks.min` ticks wakes up and can campaign.
+- A quiesced follower marks its heartbeat responses `quiesce`. Any other heartbeat response wakes a quiesced leader.
+- A follower that has known no leader for `electionTicks.min` ticks sends such an unmarked response to its peers. A restarted learner, or a follower whose commit was lost, cannot campaign, and a quiesced leader would otherwise never contact it again. The simulator found this case (a seed).
 
 ## Alternatives considered
 

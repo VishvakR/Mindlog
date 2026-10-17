@@ -79,10 +79,20 @@ export type {
   TruncatedState,
 } from './gen/mindlog/v1/raft_pb.js';
 export {
+  FreezeSchema,
+  MergeSchema,
   RangeDescriptorSchema,
   RangeEpochSchema,
   ReplicaDescriptorSchema,
   ReplicaRole,
+  SplitSchema,
   file_mindlog_v1_range,
 } from './gen/mindlog/v1/range_pb.js';
-export type { RangeDescriptor, RangeEpoch, ReplicaDescriptor } from './gen/mindlog/v1/range_pb.js';
+export type {
+  Freeze,
+  Merge,
+  RangeDescriptor,
+  RangeEpoch,
+  ReplicaDescriptor,
+  Split,
+} from './gen/mindlog/v1/range_pb.js';

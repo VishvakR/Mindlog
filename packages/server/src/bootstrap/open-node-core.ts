@@ -11,6 +11,7 @@ import type {
 } from '@mindlog/core';
 import {
   HybridLogicalClock,
+  SYSTEM_TENANT,
   SystemRandom,
   UlidGenerator,
   mindlogError,
@@ -23,16 +24,11 @@ import {
   expireHandler,
   gcThresholdHandler,
   kvBatchHandler,
+  kvRangeHooks,
   kvWriteHandler,
 } from '@mindlog/kv';
-import type { ReplicaOptions, ReplicaViews } from '@mindlog/multiraft';
-import {
-  DEFAULT_REPLICA_OPTIONS,
-  Replica,
-  Store,
-  SystemScheduler,
-  startSingleNode,
-} from '@mindlog/multiraft';
+import type { NodeTransport, ReplicaOptions, ReplicaViews } from '@mindlog/multiraft';
+import { DEFAULT_REPLICA_OPTIONS, Replica, Store, SystemScheduler } from '@mindlog/multiraft';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
 import {
   ApplyHandlerRegistry,
@@ -40,6 +36,7 @@ import {
   RaftLogStore,
   StateMachine,
   ensureStoreFormat,
+  localRanges,
 } from '@mindlog/statemachine';
 import { GroupCommitStore, LevelDbStore } from '@mindlog/storage';
 import { ConnectTransport } from '@mindlog/transport';
@@ -57,8 +54,8 @@ export interface NodeCore {
   readonly machine: StateMachine;
   /** The range replica: the Proposer and ReadBarrier of this node. */
   readonly replica: Replica;
-  /** All replicas of this node; absent for a single-voter node. */
-  readonly store: Store | undefined;
+  /** All replicas of this node. */
+  readonly store: Store;
   /** Internal Raft listener; absent for a single-voter node. */
   readonly transport: ConnectTransport | undefined;
   readonly stamper: CommandStamper;
@@ -91,6 +88,13 @@ async function openStores(dataDir: string) {
   }
   return ok({ log: log.value, state: state.value });
 }
+
+/** A single-voter node has no peers to reach. */
+const NO_PEERS: NodeTransport = {
+  attach: () => {},
+  send: () => {},
+  sendSnapshot: () => Promise.resolve(false),
+};
 
 /** A node with no `cluster.peers` (and not joining) runs as a one-voter range. */
 export const isSingleNode = (config: MindlogConfig): boolean =>
@@ -158,9 +162,22 @@ export async function openNodeCore(
   ]) {
     handlers.register(handler);
   }
+  const stamper = new CommandStamper(
+    new HybridLogicalClock(clock, { maxOffsetMs: BigInt(config.cluster.maxClockOffsetMs) }),
+    new UlidGenerator(clock, new SystemRandom()),
+  );
   const events = new InMemoryEventBus({ logger, metrics });
   const openMachine = (rangeId: bigint) =>
-    StateMachine.open({ store: stateStore, handlers, events, clock, logger, metrics, rangeId });
+    StateMachine.open({
+      store: stateStore,
+      handlers,
+      rangeHooks: [kvRangeHooks],
+      events,
+      clock,
+      logger,
+      metrics,
+      rangeId,
+    });
   const machine = await openMachine(1n);
   const before = machine.appliedIndex;
   // One fsync per turn for the log appends of every range (PLAN 8.2).
@@ -171,19 +188,10 @@ export async function openNodeCore(
   let store: Store | undefined;
   let replica: Replica;
   try {
-    if (single) {
-      replica = await startSingleNode({
-        log,
-        machine,
-        clock,
-        logger,
-        metrics,
-        tracer,
-        raftId,
-        options,
-      });
-    } else {
-      const peers = config.cluster.peers.map((p) => ({ id: BigInt(p.id), address: p.address }));
+    const peers = single
+      ? [{ id: raftId, address: '' }]
+      : config.cluster.peers.map((p) => ({ id: BigInt(p.id), address: p.address }));
+    if (!single) {
       const advertise = peers.find((p) => p.id === raftId)?.address;
       transport = await ConnectTransport.start({
         host: config.listen.internal.host,
@@ -192,35 +200,40 @@ export async function openNodeCore(
         logger,
         metrics,
       });
-      const bootstrap = config.cluster.join ? {} : { bootstrap: peers };
-      const openReplica = async (rangeId: bigint, views: ReplicaViews) =>
-        Replica.open({
-          rangeId,
-          raftId,
-          options,
-          log: rangeId === 1n ? log : new RaftLogStore(groupLog, rangeId),
-          machine: rangeId === 1n ? machine : await openMachine(rangeId),
-          transport: views.transport,
-          scheduler: views.scheduler,
-          clock,
-          random: new SystemRandom(),
-          logger,
-          metrics,
-          tracer,
-          ...(rangeId === 1n ? bootstrap : {}),
-        });
-      store = Store.start({
-        nodeId: raftId,
-        transport,
-        scheduler: new SystemScheduler(),
-        clock,
-        logger,
-        tickMs: options.tickMs,
-        electionTicks: options.electionTicks[0],
-        openReplica,
-      });
-      replica = await store.addRange(1n);
     }
+    const bootstrap = config.cluster.join ? {} : { bootstrap: peers };
+    const openReplica = async (rangeId: bigint, views: ReplicaViews) =>
+      Replica.open({
+        rangeId,
+        raftId,
+        options,
+        log: rangeId === 1n ? log : new RaftLogStore(groupLog, rangeId),
+        machine: rangeId === 1n ? machine : await openMachine(rangeId),
+        transport: views.transport,
+        scheduler: views.scheduler,
+        ranges: views.ranges,
+        clock,
+        random: new SystemRandom(),
+        logger,
+        metrics,
+        tracer,
+        ...(rangeId === 1n ? bootstrap : {}),
+      });
+    store = Store.start({
+      nodeId: raftId,
+      transport: transport ?? NO_PEERS,
+      scheduler: new SystemScheduler(),
+      clock,
+      logger,
+      tickMs: options.tickMs,
+      electionTicks: options.electionTicks[0],
+      stamp: (body) => stamper.stamp(SYSTEM_TENANT, 'system:range', body),
+      openReplica,
+    });
+    replica = await store.addRange(1n);
+    for (const rangeId of await localRanges(stateStore))
+      if (rangeId !== 1n) await store.addRange(rangeId);
+    if (single) await replica.leaderKnown();
   } catch (cause: unknown) {
     await store?.close();
     await transport?.close();
@@ -235,10 +248,6 @@ export async function openNodeCore(
       ),
     );
   }
-  const stamper = new CommandStamper(
-    new HybridLogicalClock(clock, { maxOffsetMs: BigInt(config.cluster.maxClockOffsetMs) }),
-    new UlidGenerator(clock, new SystemRandom()),
-  );
   const service = new KvService({
     registry,
     store: stateStore,
@@ -251,19 +260,20 @@ export async function openNodeCore(
     tracer,
     maxTransactionCommands: config.limits.maxTransactionCommands,
   });
+  const started = store as Store | undefined;
+  if (!started) throw new Error('the store opens before the replica');
   return ok({
     dataDir,
     machine,
     replica,
-    store,
+    store: started,
     transport,
     stamper,
     stateStore,
     service,
     replayed: Number(machine.appliedIndex - before),
     async close() {
-      if (store) await store.close();
-      else await replica.close();
+      await started.close();
       await transport?.close();
       await machine.flush();
       await Promise.all([logStore.close(), stateStore.close()]);

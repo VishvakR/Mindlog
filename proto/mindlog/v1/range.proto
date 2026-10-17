@@ -33,3 +33,32 @@ message RangeDescriptor {
   RangeEpoch epoch = 4;
   repeated ReplicaDescriptor replicas = 5;
 }
+
+// Splits the applying range at `split_key` (ADR-0009). The left side keeps the
+// range id; the right side becomes `new_range_id` with the same replicas. The
+// leader measures both halves and embeds the sizes, so apply never scans.
+message Split {
+  bytes split_key = 1;
+  uint64 new_range_id = 2;
+  uint64 left_bytes = 3;
+  uint64 right_bytes = 4;
+}
+
+// Freezes the applying range for a merge into `merge_into` (it then refuses
+// every command but Freeze); 0 unfreezes it (ADR-0009).
+message Freeze {
+  uint64 merge_into = 1;
+}
+
+// Merges the frozen right-hand neighbour `right` into the applying range. Each
+// replica applies it only once its local copy of `right` has applied
+// `freeze_index` (ADR-0009).
+message Merge {
+  RangeDescriptor right = 1;
+  uint64 freeze_index = 2;
+  // Members of the right range when the merge was proposed. Apply compares these
+  // with the left range's members instead of reading the right replica's own,
+  // possibly lagging, membership, so every replica decides alike.
+  repeated uint64 right_voters = 3;
+  repeated uint64 right_learners = 4;
+}

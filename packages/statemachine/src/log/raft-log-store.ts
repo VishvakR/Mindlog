@@ -78,6 +78,18 @@ export class RaftLogStore {
     return this.#rangeId;
   }
 
+  /** Deletes the whole log of the range (after a merge or removal), synced. */
+  async destroy(): Promise<void> {
+    const batch = this.#store.batch();
+    for await (const [key] of this.#store.iterate(prefixRange(logPrefix(this.#rangeId))))
+      batch.del(key);
+    batch.del(raftStateKey(this.#rangeId));
+    batch.del(raftTruncatedKey(this.#rangeId));
+    await batch.write({ sync: true });
+    this.#first = 1n;
+    this.#last = 0n;
+  }
+
   /** Reads everything back on start; throws on corruption or a gap. */
   async load(): Promise<StoredLog> {
     const hard = await this.#store.get(raftStateKey(this.#rangeId));

@@ -1,5 +1,5 @@
 import { clone } from '@bufbuild/protobuf';
-import type { InboundHandler, RaftTransport } from '@mindlog/multiraft';
+import type { NodeInboundHandler, NodeTransport } from '@mindlog/multiraft';
 import type { KeyValue, Message } from '@mindlog/proto';
 import { MessageSchema } from '@mindlog/proto';
 import type { World } from './world.js';
@@ -21,7 +21,7 @@ export interface NetworkFaults {
 export class SimNetwork {
   readonly faults: NetworkFaults = { drop: 0, duplicate: 0, latency: [1, 5] };
   readonly #world: World;
-  readonly #handlers = new Map<bigint, InboundHandler>();
+  readonly #handlers = new Map<bigint, NodeInboundHandler>();
   /** Partition group per node; nodes in different groups cannot talk. */
   #groups = new Map<bigint, number>();
 
@@ -29,26 +29,30 @@ export class SimNetwork {
     this.#world = world;
   }
 
-  transport(id: bigint): RaftTransport {
+  /** The node's transport; node `n` is reached at address `n<n>`. */
+  transport(id: bigint): NodeTransport {
     return {
       attach: (handler) => {
         this.#handlers.set(id, handler);
       },
-      send: (messages) => {
-        for (const m of messages) this.#deliver(m);
+      send: (address, messages) => {
+        for (const m of messages) this.#deliver(id, nodeOf(address), m);
       },
-      sendSnapshot: async (message: Message, chunks: AsyncIterable<KeyValue[]>) => {
+      sendSnapshot: async (
+        address: string,
+        message: Message,
+        chunks: AsyncIterable<KeyValue[]>,
+      ) => {
+        const to = nodeOf(address);
         const pairs: KeyValue[] = [];
         for await (const chunk of chunks) pairs.push(...chunk);
-        if (!this.#connected(message.from, message.to) || this.#world.chance(this.faults.drop))
-          return false;
+        if (!this.#connected(id, to) || this.#world.chance(this.faults.drop)) return false;
         const copy = clone(MessageSchema, message);
         this.#world.at(this.#world.now + this.#latency(), () => {
-          this.#handlers.get(copy.to)?.onSnapshot(copy, pairs);
+          this.#handlers.get(to)?.onSnapshot(copy, pairs);
         });
         return true;
       },
-      setPeers: () => {},
     };
   }
 
@@ -74,16 +78,18 @@ export class SimNetwork {
     return this.#world.between(lo, hi);
   }
 
-  #deliver(m: Message): void {
+  #deliver(from: bigint, to: bigint, m: Message): void {
     const world = this.#world;
-    if (!this.#connected(m.from, m.to) || world.chance(this.faults.drop)) return;
+    if (!this.#connected(from, to) || world.chance(this.faults.drop)) return;
     const copies = world.chance(this.faults.duplicate) ? 2 : 1;
     for (let i = 0; i < copies; i++) {
       const copy = clone(MessageSchema, m);
       world.at(world.now + this.#latency(), () => {
         // Checked again on arrival: a partition may have started in flight.
-        if (this.#connected(copy.from, copy.to)) this.#handlers.get(copy.to)?.onMessages([copy]);
+        if (this.#connected(from, to)) this.#handlers.get(to)?.onMessages([copy], `n${from}`);
       });
     }
   }
 }
+
+const nodeOf = (address: string): bigint => BigInt(address.slice(1));

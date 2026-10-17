@@ -23,6 +23,13 @@ export function rangeLocalPrefix(rangeId: bigint, ...tuple: TupleElement[]): Uin
   return prefix.value;
 }
 
+/** Prefix of every range-local key of every range. */
+export function allRangesPrefix(): Uint8Array {
+  const prefix = keyPrefix(NODE_TENANT, 's', ['r']);
+  if (!prefix.ok) throw new RangeError(prefix.error.message);
+  return prefix.value;
+}
+
 /** Last applied log index of a range, written with each apply (ADR-0005). */
 export const appliedIndexKey = (rangeId: bigint): Uint8Array => rangeLocalKey(rangeId, 'applied');
 

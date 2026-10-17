@@ -47,3 +47,33 @@ class RangeDescriptor(_message.Message):
     epoch: RangeEpoch
     replicas: _containers.RepeatedCompositeFieldContainer[ReplicaDescriptor]
     def __init__(self, range_id: _Optional[int] = ..., start_key: _Optional[bytes] = ..., end_key: _Optional[bytes] = ..., epoch: _Optional[_Union[RangeEpoch, _Mapping]] = ..., replicas: _Optional[_Iterable[_Union[ReplicaDescriptor, _Mapping]]] = ...) -> None: ...
+
+class Split(_message.Message):
+    __slots__ = ("split_key", "new_range_id", "left_bytes", "right_bytes")
+    SPLIT_KEY_FIELD_NUMBER: _ClassVar[int]
+    NEW_RANGE_ID_FIELD_NUMBER: _ClassVar[int]
+    LEFT_BYTES_FIELD_NUMBER: _ClassVar[int]
+    RIGHT_BYTES_FIELD_NUMBER: _ClassVar[int]
+    split_key: bytes
+    new_range_id: int
+    left_bytes: int
+    right_bytes: int
+    def __init__(self, split_key: _Optional[bytes] = ..., new_range_id: _Optional[int] = ..., left_bytes: _Optional[int] = ..., right_bytes: _Optional[int] = ...) -> None: ...
+
+class Freeze(_message.Message):
+    __slots__ = ("merge_into",)
+    MERGE_INTO_FIELD_NUMBER: _ClassVar[int]
+    merge_into: int
+    def __init__(self, merge_into: _Optional[int] = ...) -> None: ...
+
+class Merge(_message.Message):
+    __slots__ = ("right", "freeze_index", "right_voters", "right_learners")
+    RIGHT_FIELD_NUMBER: _ClassVar[int]
+    FREEZE_INDEX_FIELD_NUMBER: _ClassVar[int]
+    RIGHT_VOTERS_FIELD_NUMBER: _ClassVar[int]
+    RIGHT_LEARNERS_FIELD_NUMBER: _ClassVar[int]
+    right: RangeDescriptor
+    freeze_index: int
+    right_voters: _containers.RepeatedScalarFieldContainer[int]
+    right_learners: _containers.RepeatedScalarFieldContainer[int]
+    def __init__(self, right: _Optional[_Union[RangeDescriptor, _Mapping]] = ..., freeze_index: _Optional[int] = ..., right_voters: _Optional[_Iterable[int]] = ..., right_learners: _Optional[_Iterable[int]] = ...) -> None: ...

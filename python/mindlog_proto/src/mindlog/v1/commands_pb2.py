@@ -24,9 +24,10 @@ _sym_db = _symbol_database.Default()
 
 from mindlog.v1 import common_pb2 as mindlog_dot_v1_dot_common__pb2
 from mindlog.v1 import kv_pb2 as mindlog_dot_v1_dot_kv__pb2
+from mindlog.v1 import range_pb2 as mindlog_dot_v1_dot_range__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19mindlog/v1/commands.proto\x12\nmindlog.v1\x1a\x17mindlog/v1/common.proto\x1a\x13mindlog/v1/kv.proto\"\x94\x02\n\x07\x43ommand\x12\x12\n\nrequest_id\x18\x01 \x01(\x0c\x12\x11\n\tprincipal\x18\x02 \x01(\t\x12\x0b\n\x03hlc\x18\x03 \x01(\x04\x12\x0e\n\x06\x62ranch\x18\x04 \x01(\t\x12\x0e\n\x06tenant\x18\x05 \x01(\t\x12\'\n\x08kv_write\x18\n \x01(\x0b\x32\x13.mindlog.v1.KvWriteH\x00\x12\'\n\x08kv_batch\x18\x0b \x01(\x0b\x32\x13.mindlog.v1.KvBatchH\x00\x12$\n\x06\x65xpire\x18\x0c \x01(\x0b\x32\x12.mindlog.v1.ExpireH\x00\x12/\n\x0cgc_threshold\x18\r \x01(\x0b\x32\x17.mindlog.v1.GcThresholdH\x00\x42\x06\n\x04\x62odyJ\x04\x08\x0e\x10\x64\"L\n\x0bGcThreshold\x12\x17\n\x0b\x62\x65low_index\x18\x01 \x01(\x04\x42\x02\x18\x01\x12\r\n\x05limit\x18\x02 \x01(\r\x12\x15\n\rbelow_version\x18\x03 \x01(\x04\"g\n\rCommandResult\x12!\n\x02kv\x18\x01 \x01(\x0b\x32\x13.mindlog.v1.KvReplyH\x00\x12(\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x17.mindlog.v1.ErrorDetailH\x00\x42\t\n\x07outcomeb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19mindlog/v1/commands.proto\x12\nmindlog.v1\x1a\x17mindlog/v1/common.proto\x1a\x13mindlog/v1/kv.proto\x1a\x16mindlog/v1/range.proto\"\x88\x03\n\x07\x43ommand\x12\x12\n\nrequest_id\x18\x01 \x01(\x0c\x12\x11\n\tprincipal\x18\x02 \x01(\t\x12\x0b\n\x03hlc\x18\x03 \x01(\x04\x12\x0e\n\x06\x62ranch\x18\x04 \x01(\t\x12\x0e\n\x06tenant\x18\x05 \x01(\t\x12\'\n\x08kv_write\x18\n \x01(\x0b\x32\x13.mindlog.v1.KvWriteH\x00\x12\'\n\x08kv_batch\x18\x0b \x01(\x0b\x32\x13.mindlog.v1.KvBatchH\x00\x12$\n\x06\x65xpire\x18\x0c \x01(\x0b\x32\x12.mindlog.v1.ExpireH\x00\x12/\n\x0cgc_threshold\x18\r \x01(\x0b\x32\x17.mindlog.v1.GcThresholdH\x00\x12\"\n\x05split\x18P \x01(\x0b\x32\x11.mindlog.v1.SplitH\x00\x12$\n\x06\x66reeze\x18Q \x01(\x0b\x32\x12.mindlog.v1.FreezeH\x00\x12\"\n\x05merge\x18R \x01(\x0b\x32\x11.mindlog.v1.MergeH\x00\x42\x06\n\x04\x62odyJ\x04\x08\x0e\x10PJ\x04\x08S\x10\x64\"L\n\x0bGcThreshold\x12\x17\n\x0b\x62\x65low_index\x18\x01 \x01(\x04\x42\x02\x18\x01\x12\r\n\x05limit\x18\x02 \x01(\r\x12\x15\n\rbelow_version\x18\x03 \x01(\x04\"g\n\rCommandResult\x12!\n\x02kv\x18\x01 \x01(\x0b\x32\x13.mindlog.v1.KvReplyH\x00\x12(\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x17.mindlog.v1.ErrorDetailH\x00\x42\t\n\x07outcomeb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,10 +36,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_GCTHRESHOLD'].fields_by_name['below_index']._loaded_options = None
   _globals['_GCTHRESHOLD'].fields_by_name['below_index']._serialized_options = b'\030\001'
-  _globals['_COMMAND']._serialized_start=88
-  _globals['_COMMAND']._serialized_end=364
-  _globals['_GCTHRESHOLD']._serialized_start=366
-  _globals['_GCTHRESHOLD']._serialized_end=442
-  _globals['_COMMANDRESULT']._serialized_start=444
-  _globals['_COMMANDRESULT']._serialized_end=547
+  _globals['_COMMAND']._serialized_start=112
+  _globals['_COMMAND']._serialized_end=504
+  _globals['_GCTHRESHOLD']._serialized_start=506
+  _globals['_GCTHRESHOLD']._serialized_end=582
+  _globals['_COMMANDRESULT']._serialized_start=584
+  _globals['_COMMANDRESULT']._serialized_end=687
 # @@protoc_insertion_point(module_scope)

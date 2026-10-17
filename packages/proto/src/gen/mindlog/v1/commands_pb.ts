@@ -8,13 +8,15 @@ import type { ErrorDetail } from "./common_pb.js";
 import { file_mindlog_v1_common } from "./common_pb.js";
 import type { Expire, KvBatch, KvReply, KvWrite } from "./kv_pb.js";
 import { file_mindlog_v1_kv } from "./kv_pb.js";
+import type { Freeze, Merge, Split } from "./range_pb.js";
+import { file_mindlog_v1_range } from "./range_pb.js";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file mindlog/v1/commands.proto.
  */
 export const file_mindlog_v1_commands: GenFile = /*@__PURE__*/
-  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIpQCCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIAEIGCgRib2R5SgQIDhBkIkwKC0djVGhyZXNob2xkEhcKC2JlbG93X2luZGV4GAEgASgEQgIYARINCgVsaW1pdBgCIAEoDRIVCg1iZWxvd192ZXJzaW9uGAMgASgEImcKDUNvbW1hbmRSZXN1bHQSIQoCa3YYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHlIABIoCgVlcnJvchgCIAEoCzIXLm1pbmRsb2cudjEuRXJyb3JEZXRhaWxIAEIJCgdvdXRjb21lYgZwcm90bzM", [file_mindlog_v1_common, file_mindlog_v1_kv]);
+  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIogDCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIiCgVzcGxpdBhQIAEoCzIRLm1pbmRsb2cudjEuU3BsaXRIABIkCgZmcmVlemUYUSABKAsyEi5taW5kbG9nLnYxLkZyZWV6ZUgAEiIKBW1lcmdlGFIgASgLMhEubWluZGxvZy52MS5NZXJnZUgAQgYKBGJvZHlKBAgOEFBKBAhTEGQiTAoLR2NUaHJlc2hvbGQSFwoLYmVsb3dfaW5kZXgYASABKARCAhgBEg0KBWxpbWl0GAIgASgNEhUKDWJlbG93X3ZlcnNpb24YAyABKAQiZwoNQ29tbWFuZFJlc3VsdBIhCgJrdhgBIAEoCzITLm1pbmRsb2cudjEuS3ZSZXBseUgAEigKBWVycm9yGAIgASgLMhcubWluZGxvZy52MS5FcnJvckRldGFpbEgAQgkKB291dGNvbWViBnByb3RvMw", [file_mindlog_v1_common, file_mindlog_v1_kv, file_mindlog_v1_range]);
 
 /**
  * Envelope of every replicated command in a range's Raft log (PLAN 6.1,
@@ -91,6 +93,24 @@ export type Command = Message<"mindlog.v1.Command"> & {
      */
     value: GcThreshold;
     case: "gcThreshold";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.Split split = 80;
+     */
+    value: Split;
+    case: "split";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.Freeze freeze = 81;
+     */
+    value: Freeze;
+    case: "freeze";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.Merge merge = 82;
+     */
+    value: Merge;
+    case: "merge";
   } | { case: undefined; value?: undefined };
 };
 

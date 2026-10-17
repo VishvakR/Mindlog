@@ -35,6 +35,13 @@ export class MvccTxn {
     return this.#index;
   }
 
+  /** Bytes of keys and values written so far (deletes count their key). */
+  get bytes(): bigint {
+    let n = 0;
+    for (const { key, value } of this.#pending.values()) n += key.length + (value?.length ?? 0);
+    return BigInt(n);
+  }
+
   /** Number of keys written so far. */
   get size(): number {
     return this.#pending.size;

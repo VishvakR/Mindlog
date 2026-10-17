@@ -1,5 +1,14 @@
 import { create } from '@bufbuild/protobuf';
-import { MemoryLogger, MemoryMetrics, SeededRandom, SystemClock, encodeKey } from '@mindlog/core';
+import {
+  HybridLogicalClock,
+  MemoryLogger,
+  MemoryMetrics,
+  SYSTEM_TENANT,
+  SeededRandom,
+  SystemClock,
+  UlidGenerator,
+  encodeKey,
+} from '@mindlog/core';
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import type { KeyValue, Message, RangeDescriptor } from '@mindlog/proto';
 import { RangeDescriptorSchema } from '@mindlog/proto';
@@ -12,7 +21,12 @@ import type {
 import { Replica, Store, SystemScheduler } from '@mindlog/multiraft';
 import type { KvStore } from '@mindlog/storage';
 import { GroupCommitStore, MemoryStore } from '@mindlog/storage';
-import { ApplyHandlerRegistry, RaftLogStore, StateMachine } from '@mindlog/statemachine';
+import {
+  ApplyHandlerRegistry,
+  CommandStamper,
+  RaftLogStore,
+  StateMachine,
+} from '@mindlog/statemachine';
 import { counterHandler } from './counter.js';
 import { FAST } from './local-cluster.js';
 
@@ -59,6 +73,8 @@ const key = (name: string): Uint8Array => {
   return r.value;
 };
 
+export const counterKeyOf = key;
+
 /** Range 1 covers keys below `m`, range 2 the rest. */
 export const SPANS: Record<string, RangeDescriptor> = {
   '1': create(RangeDescriptorSchema, { rangeId: 1n, endKey: key('m') }),
@@ -95,6 +111,7 @@ export async function storeCluster(
   ids: readonly bigint[],
   bootstrap: Record<string, readonly bigint[]>,
   options: Partial<ReplicaOptions> = {},
+  spans: Record<string, RangeDescriptor> = SPANS,
 ) {
   const net = new NodeNetwork();
   const nodes = new Map<bigint, StoreNode>();
@@ -108,8 +125,13 @@ export async function storeCluster(
     const stateStore = new MemoryStore();
     const scheduler = new CountingScheduler();
     const starting = new Set(bootstrap[String(id)] ?? []);
+    const stamper = new CommandStamper(
+      new HybridLogicalClock(new SystemClock(), { maxOffsetMs: 500n }),
+      new UlidGenerator(new SystemClock(), new SeededRandom(id)),
+    );
     const store = Store.start({
       nodeId: id,
+      stamp: (body) => stamper.stamp(SYSTEM_TENANT, 'system:range', body),
       transport: net.transport(address(id)),
       scheduler,
       clock: new SystemClock(),
@@ -119,10 +141,11 @@ export async function storeCluster(
       openReplica: async (rangeId, views) => {
         const handlers = new ApplyHandlerRegistry();
         handlers.register(counterHandler);
-        const descriptor = starting.has(rangeId) ? SPANS[String(rangeId)] : undefined;
+        const descriptor = starting.has(rangeId) ? spans[String(rangeId)] : undefined;
         const machine = await StateMachine.open({
           store: stateStore,
           handlers,
+          rangeHooks: [],
           events: new InMemoryEventBus({ logger, metrics }),
           clock: new SystemClock(),
           logger,
@@ -138,6 +161,7 @@ export async function storeCluster(
           machine,
           transport: views.transport,
           scheduler: views.scheduler,
+          ranges: views.ranges,
           clock: new SystemClock(),
           random: new SeededRandom(id * 100n + rangeId),
           logger,

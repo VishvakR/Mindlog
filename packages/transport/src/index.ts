@@ -5,3 +5,5 @@
  */
 export type { ConnectTransportOptions } from './connect-transport.js';
 export { ConnectTransport } from './connect-transport.js';
+export type { ForwardHandler } from './forward.js';
+export { KvForwarder, forwardRoutes } from './forward.js';

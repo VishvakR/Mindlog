@@ -95,3 +95,32 @@ message KvReplyPair {
   KvReply key = 1;
   KvReply value = 2;
 }
+
+// A KV call that a node forwards to the node holding the range's leader (ADR-0029).
+message ExecuteRequest {
+  uint64 range_id = 1;
+  string tenant = 2;
+  string principal = 3;
+  // Sender's HLC (PLAN 8.7); the receiver merges it into its own.
+  uint64 hlc = 4;
+  string from_address = 5;
+  // Fixed by the node that took the client's request, so a retry of a write is applied once.
+  bytes request_id = 9;
+  oneof call {
+    KvWrite command = 6;
+    KvBatch batch = 7;
+    ExecuteWatch watch = 8;
+  }
+}
+
+message ExecuteResponse {
+  KvReply reply = 1;
+}
+
+message ExecuteWatch {
+  repeated bytes keys = 1;
+}
+
+service KvForwardService {
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+}

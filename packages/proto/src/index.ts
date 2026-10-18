@@ -28,11 +28,16 @@ export {
   KvReplySchema,
   KvType,
   KvTypeSchema,
+  ExecuteRequestSchema,
+  ExecuteResponseSchema,
+  KvForwardService,
   KvWriteSchema,
   WatchedKeySchema,
   file_mindlog_v1_kv,
 } from './gen/mindlog/v1/kv_pb.js';
 export type {
+  ExecuteRequest,
+  ExecuteResponse,
   Expire,
   ExpiringKey,
   KvBatch,

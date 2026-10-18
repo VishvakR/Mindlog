@@ -2,8 +2,8 @@
 // @generated from file mindlog/v1/kv.proto (package mindlog.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { ErrorDetail } from "./common_pb.js";
 import { file_mindlog_v1_common } from "./common_pb.js";
 import type { Message } from "@bufbuild/protobuf";
@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/kv.proto.
  */
 export const file_mindlog_v1_kv: GenFile = /*@__PURE__*/
-  fileDesc("ChNtaW5kbG9nL3YxL2t2LnByb3RvEgptaW5kbG9nLnYxIhcKB0t2V3JpdGUSDAoEYXJndhgBIAMoDCIqCgpXYXRjaGVkS2V5EgsKA2tleRgBIAEoDBIPCgd2ZXJzaW9uGAIgASgEIlcKB0t2QmF0Y2gSIwoGd3JpdGVzGAEgAygLMhMubWluZGxvZy52MS5LdldyaXRlEicKB3dhdGNoZXMYAiADKAsyFi5taW5kbG9nLnYxLldhdGNoZWRLZXkiLwoGRXhwaXJlEiUKBGtleXMYASADKAsyFy5taW5kbG9nLnYxLkV4cGlyaW5nS2V5IjAKC0V4cGlyaW5nS2V5EgsKA2tleRgBIAEoDBIUCgxleHBpcmVfYXRfbXMYAiABKAQiqwEKCEt2SGVhZGVyEiAKBHR5cGUYASABKA4yEi5taW5kbG9nLnYxLkt2VHlwZRISCgpnZW5lcmF0aW9uGAIgASgEEg0KBWNvdW50GAMgASgEEhQKDGV4cGlyZV9hdF9tcxgEIAEoBBIPCgd2ZXJzaW9uGAUgASgEEhEKCWxpc3RfaGVhZBgGIAEoEhIRCglsaXN0X3RhaWwYByABKBISDQoFdmFsdWUYCCABKAwisgIKB0t2UmVwbHkSIgoEbnVsbBgBIAEoCzISLm1pbmRsb2cudjEuS3ZOdWxsSAASEQoHaW50ZWdlchgCIAEoEkgAEg4KBGJ1bGsYAyABKAxIABIQCgZzaW1wbGUYBCABKAlIABIQCgZkb3VibGUYBSABKAFIABIRCgdib29sZWFuGAYgASgISAASKAoFYXJyYXkYByABKAsyFy5taW5kbG9nLnYxLkt2UmVwbHlMaXN0SAASJgoDc2V0GAggASgLMhcubWluZGxvZy52MS5LdlJlcGx5TGlzdEgAEiUKA21hcBgJIAEoCzIWLm1pbmRsb2cudjEuS3ZSZXBseU1hcEgAEigKBWVycm9yGAogASgLMhcubWluZGxvZy52MS5FcnJvckRldGFpbEgAQgYKBGtpbmQiCAoGS3ZOdWxsIkAKC0t2UmVwbHlMaXN0EiIKBWl0ZW1zGAEgAygLMhMubWluZGxvZy52MS5LdlJlcGx5Eg0KBXBhaXJzGAIgASgIIjYKCkt2UmVwbHlNYXASKAoHZW50cmllcxgBIAMoCzIXLm1pbmRsb2cudjEuS3ZSZXBseVBhaXIiUwoLS3ZSZXBseVBhaXISIAoDa2V5GAEgASgLMhMubWluZGxvZy52MS5LdlJlcGx5EiIKBXZhbHVlGAIgASgLMhMubWluZGxvZy52MS5LdlJlcGx5Ko4BCgZLdlR5cGUSFwoTS1ZfVFlQRV9VTlNQRUNJRklFRBAAEhIKDktWX1RZUEVfU1RSSU5HEAESEAoMS1ZfVFlQRV9IQVNIEAISEAoMS1ZfVFlQRV9MSVNUEAMSDwoLS1ZfVFlQRV9TRVQQBBIQCgxLVl9UWVBFX1pTRVQQBRIQCgxLVl9UWVBFX0pTT04QBmIGcHJvdG8z", [file_mindlog_v1_common]);
+  fileDesc("ChNtaW5kbG9nL3YxL2t2LnByb3RvEgptaW5kbG9nLnYxIhcKB0t2V3JpdGUSDAoEYXJndhgBIAMoDCIqCgpXYXRjaGVkS2V5EgsKA2tleRgBIAEoDBIPCgd2ZXJzaW9uGAIgASgEIlcKB0t2QmF0Y2gSIwoGd3JpdGVzGAEgAygLMhMubWluZGxvZy52MS5LdldyaXRlEicKB3dhdGNoZXMYAiADKAsyFi5taW5kbG9nLnYxLldhdGNoZWRLZXkiLwoGRXhwaXJlEiUKBGtleXMYASADKAsyFy5taW5kbG9nLnYxLkV4cGlyaW5nS2V5IjAKC0V4cGlyaW5nS2V5EgsKA2tleRgBIAEoDBIUCgxleHBpcmVfYXRfbXMYAiABKAQiqwEKCEt2SGVhZGVyEiAKBHR5cGUYASABKA4yEi5taW5kbG9nLnYxLkt2VHlwZRISCgpnZW5lcmF0aW9uGAIgASgEEg0KBWNvdW50GAMgASgEEhQKDGV4cGlyZV9hdF9tcxgEIAEoBBIPCgd2ZXJzaW9uGAUgASgEEhEKCWxpc3RfaGVhZBgGIAEoEhIRCglsaXN0X3RhaWwYByABKBISDQoFdmFsdWUYCCABKAwisgIKB0t2UmVwbHkSIgoEbnVsbBgBIAEoCzISLm1pbmRsb2cudjEuS3ZOdWxsSAASEQoHaW50ZWdlchgCIAEoEkgAEg4KBGJ1bGsYAyABKAxIABIQCgZzaW1wbGUYBCABKAlIABIQCgZkb3VibGUYBSABKAFIABIRCgdib29sZWFuGAYgASgISAASKAoFYXJyYXkYByABKAsyFy5taW5kbG9nLnYxLkt2UmVwbHlMaXN0SAASJgoDc2V0GAggASgLMhcubWluZGxvZy52MS5LdlJlcGx5TGlzdEgAEiUKA21hcBgJIAEoCzIWLm1pbmRsb2cudjEuS3ZSZXBseU1hcEgAEigKBWVycm9yGAogASgLMhcubWluZGxvZy52MS5FcnJvckRldGFpbEgAQgYKBGtpbmQiCAoGS3ZOdWxsIkAKC0t2UmVwbHlMaXN0EiIKBWl0ZW1zGAEgAygLMhMubWluZGxvZy52MS5LdlJlcGx5Eg0KBXBhaXJzGAIgASgIIjYKCkt2UmVwbHlNYXASKAoHZW50cmllcxgBIAMoCzIXLm1pbmRsb2cudjEuS3ZSZXBseVBhaXIiUwoLS3ZSZXBseVBhaXISIAoDa2V5GAEgASgLMhMubWluZGxvZy52MS5LdlJlcGx5EiIKBXZhbHVlGAIgASgLMhMubWluZGxvZy52MS5LdlJlcGx5Iv0BCg5FeGVjdXRlUmVxdWVzdBIQCghyYW5nZV9pZBgBIAEoBBIOCgZ0ZW5hbnQYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJEgsKA2hsYxgEIAEoBBIUCgxmcm9tX2FkZHJlc3MYBSABKAkSEgoKcmVxdWVzdF9pZBgJIAEoDBImCgdjb21tYW5kGAYgASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJAoFYmF0Y2gYByABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIpCgV3YXRjaBgIIAEoCzIYLm1pbmRsb2cudjEuRXhlY3V0ZVdhdGNoSABCBgoEY2FsbCI1Cg9FeGVjdXRlUmVzcG9uc2USIgoFcmVwbHkYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHkiHAoMRXhlY3V0ZVdhdGNoEgwKBGtleXMYASADKAwqjgEKBkt2VHlwZRIXChNLVl9UWVBFX1VOU1BFQ0lGSUVEEAASEgoOS1ZfVFlQRV9TVFJJTkcQARIQCgxLVl9UWVBFX0hBU0gQAhIQCgxLVl9UWVBFX0xJU1QQAxIPCgtLVl9UWVBFX1NFVBAEEhAKDEtWX1RZUEVfWlNFVBAFEhAKDEtWX1RZUEVfSlNPThAGMlYKEEt2Rm9yd2FyZFNlcnZpY2USQgoHRXhlY3V0ZRIaLm1pbmRsb2cudjEuRXhlY3V0ZVJlcXVlc3QaGy5taW5kbG9nLnYxLkV4ZWN1dGVSZXNwb25zZWIGcHJvdG8z", [file_mindlog_v1_common]);
 
 /**
  * One Redis write command exactly as the client sent it, command name first.
@@ -346,6 +346,111 @@ export const KvReplyPairSchema: GenMessage<KvReplyPair> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_kv, 10);
 
 /**
+ * A KV call that a node forwards to the node holding the range's leader (ADR-0029).
+ *
+ * @generated from message mindlog.v1.ExecuteRequest
+ */
+export type ExecuteRequest = Message<"mindlog.v1.ExecuteRequest"> & {
+  /**
+   * @generated from field: uint64 range_id = 1;
+   */
+  rangeId: bigint;
+
+  /**
+   * @generated from field: string tenant = 2;
+   */
+  tenant: string;
+
+  /**
+   * @generated from field: string principal = 3;
+   */
+  principal: string;
+
+  /**
+   * Sender's HLC (PLAN 8.7); the receiver merges it into its own.
+   *
+   * @generated from field: uint64 hlc = 4;
+   */
+  hlc: bigint;
+
+  /**
+   * @generated from field: string from_address = 5;
+   */
+  fromAddress: string;
+
+  /**
+   * Fixed by the node that took the client's request, so a retry of a write is applied once.
+   *
+   * @generated from field: bytes request_id = 9;
+   */
+  requestId: Uint8Array;
+
+  /**
+   * @generated from oneof mindlog.v1.ExecuteRequest.call
+   */
+  call: {
+    /**
+     * @generated from field: mindlog.v1.KvWrite command = 6;
+     */
+    value: KvWrite;
+    case: "command";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.KvBatch batch = 7;
+     */
+    value: KvBatch;
+    case: "batch";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.ExecuteWatch watch = 8;
+     */
+    value: ExecuteWatch;
+    case: "watch";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message mindlog.v1.ExecuteRequest.
+ * Use `create(ExecuteRequestSchema)` to create a new message.
+ */
+export const ExecuteRequestSchema: GenMessage<ExecuteRequest> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_kv, 11);
+
+/**
+ * @generated from message mindlog.v1.ExecuteResponse
+ */
+export type ExecuteResponse = Message<"mindlog.v1.ExecuteResponse"> & {
+  /**
+   * @generated from field: mindlog.v1.KvReply reply = 1;
+   */
+  reply?: KvReply | undefined;
+};
+
+/**
+ * Describes the message mindlog.v1.ExecuteResponse.
+ * Use `create(ExecuteResponseSchema)` to create a new message.
+ */
+export const ExecuteResponseSchema: GenMessage<ExecuteResponse> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_kv, 12);
+
+/**
+ * @generated from message mindlog.v1.ExecuteWatch
+ */
+export type ExecuteWatch = Message<"mindlog.v1.ExecuteWatch"> & {
+  /**
+   * @generated from field: repeated bytes keys = 1;
+   */
+  keys: Uint8Array[];
+};
+
+/**
+ * Describes the message mindlog.v1.ExecuteWatch.
+ * Use `create(ExecuteWatchSchema)` to create a new message.
+ */
+export const ExecuteWatchSchema: GenMessage<ExecuteWatch> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_kv, 13);
+
+/**
  * @generated from enum mindlog.v1.KvType
  */
 export enum KvType {
@@ -390,4 +495,19 @@ export enum KvType {
  */
 export const KvTypeSchema: GenEnum<KvType> = /*@__PURE__*/
   enumDesc(file_mindlog_v1_kv, 0);
+
+/**
+ * @generated from service mindlog.v1.KvForwardService
+ */
+export const KvForwardService: GenService<{
+  /**
+   * @generated from rpc mindlog.v1.KvForwardService.Execute
+   */
+  execute: {
+    methodKind: "unary";
+    input: typeof ExecuteRequestSchema;
+    output: typeof ExecuteResponseSchema;
+  },
+}> = /*@__PURE__*/
+  serviceDesc(file_mindlog_v1_kv, 0);
 

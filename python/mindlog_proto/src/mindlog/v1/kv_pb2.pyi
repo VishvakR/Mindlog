@@ -130,3 +130,37 @@ class KvReplyPair(_message.Message):
     key: KvReply
     value: KvReply
     def __init__(self, key: _Optional[_Union[KvReply, _Mapping]] = ..., value: _Optional[_Union[KvReply, _Mapping]] = ...) -> None: ...
+
+class ExecuteRequest(_message.Message):
+    __slots__ = ("range_id", "tenant", "principal", "hlc", "from_address", "request_id", "command", "batch", "watch")
+    RANGE_ID_FIELD_NUMBER: _ClassVar[int]
+    TENANT_FIELD_NUMBER: _ClassVar[int]
+    PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
+    HLC_FIELD_NUMBER: _ClassVar[int]
+    FROM_ADDRESS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    COMMAND_FIELD_NUMBER: _ClassVar[int]
+    BATCH_FIELD_NUMBER: _ClassVar[int]
+    WATCH_FIELD_NUMBER: _ClassVar[int]
+    range_id: int
+    tenant: str
+    principal: str
+    hlc: int
+    from_address: str
+    request_id: bytes
+    command: KvWrite
+    batch: KvBatch
+    watch: ExecuteWatch
+    def __init__(self, range_id: _Optional[int] = ..., tenant: _Optional[str] = ..., principal: _Optional[str] = ..., hlc: _Optional[int] = ..., from_address: _Optional[str] = ..., request_id: _Optional[bytes] = ..., command: _Optional[_Union[KvWrite, _Mapping]] = ..., batch: _Optional[_Union[KvBatch, _Mapping]] = ..., watch: _Optional[_Union[ExecuteWatch, _Mapping]] = ...) -> None: ...
+
+class ExecuteResponse(_message.Message):
+    __slots__ = ("reply",)
+    REPLY_FIELD_NUMBER: _ClassVar[int]
+    reply: KvReply
+    def __init__(self, reply: _Optional[_Union[KvReply, _Mapping]] = ...) -> None: ...
+
+class ExecuteWatch(_message.Message):
+    __slots__ = ("keys",)
+    KEYS_FIELD_NUMBER: _ClassVar[int]
+    keys: _containers.RepeatedScalarFieldContainer[bytes]
+    def __init__(self, keys: _Optional[_Iterable[bytes]] = ...) -> None: ...

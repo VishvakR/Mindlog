@@ -28,7 +28,7 @@ class MemorySource(_message.Message):
     def __init__(self, type: _Optional[str] = ..., ref: _Optional[str] = ..., principal: _Optional[str] = ...) -> None: ...
 
 class MemoryRecord(_message.Message):
-    __slots__ = ("id", "user", "agent", "session", "kind", "text", "entities", "links", "source", "trust", "importance", "strength", "created_at", "expired_at", "tags", "version", "embedding_model", "log_index", "branch", "valid_from", "valid_to", "recall_count", "last_recalled_at", "meta_json", "forget_reason")
+    __slots__ = ("id", "user", "agent", "session", "kind", "text", "entities", "links", "source", "trust", "importance", "strength", "created_at", "expired_at", "tags", "version", "embedding_model", "log_index", "branch", "valid_from", "valid_to", "recall_count", "last_recalled_at", "meta_json", "forget_reason", "terms", "term_length")
     ID_FIELD_NUMBER: _ClassVar[int]
     USER_FIELD_NUMBER: _ClassVar[int]
     AGENT_FIELD_NUMBER: _ClassVar[int]
@@ -54,6 +54,8 @@ class MemoryRecord(_message.Message):
     LAST_RECALLED_AT_FIELD_NUMBER: _ClassVar[int]
     META_JSON_FIELD_NUMBER: _ClassVar[int]
     FORGET_REASON_FIELD_NUMBER: _ClassVar[int]
+    TERMS_FIELD_NUMBER: _ClassVar[int]
+    TERM_LENGTH_FIELD_NUMBER: _ClassVar[int]
     id: str
     user: str
     agent: str
@@ -79,15 +81,25 @@ class MemoryRecord(_message.Message):
     last_recalled_at: int
     meta_json: str
     forget_reason: str
-    def __init__(self, id: _Optional[str] = ..., user: _Optional[str] = ..., agent: _Optional[str] = ..., session: _Optional[str] = ..., kind: _Optional[str] = ..., text: _Optional[str] = ..., entities: _Optional[_Iterable[str]] = ..., links: _Optional[_Iterable[_Union[MemoryLink, _Mapping]]] = ..., source: _Optional[_Union[MemorySource, _Mapping]] = ..., trust: _Optional[str] = ..., importance: _Optional[float] = ..., strength: _Optional[float] = ..., created_at: _Optional[int] = ..., expired_at: _Optional[int] = ..., tags: _Optional[_Iterable[str]] = ..., version: _Optional[int] = ..., embedding_model: _Optional[str] = ..., log_index: _Optional[int] = ..., branch: _Optional[str] = ..., valid_from: _Optional[int] = ..., valid_to: _Optional[int] = ..., recall_count: _Optional[int] = ..., last_recalled_at: _Optional[int] = ..., meta_json: _Optional[str] = ..., forget_reason: _Optional[str] = ...) -> None: ...
+    terms: _containers.RepeatedCompositeFieldContainer[TermCount]
+    term_length: int
+    def __init__(self, id: _Optional[str] = ..., user: _Optional[str] = ..., agent: _Optional[str] = ..., session: _Optional[str] = ..., kind: _Optional[str] = ..., text: _Optional[str] = ..., entities: _Optional[_Iterable[str]] = ..., links: _Optional[_Iterable[_Union[MemoryLink, _Mapping]]] = ..., source: _Optional[_Union[MemorySource, _Mapping]] = ..., trust: _Optional[str] = ..., importance: _Optional[float] = ..., strength: _Optional[float] = ..., created_at: _Optional[int] = ..., expired_at: _Optional[int] = ..., tags: _Optional[_Iterable[str]] = ..., version: _Optional[int] = ..., embedding_model: _Optional[str] = ..., log_index: _Optional[int] = ..., branch: _Optional[str] = ..., valid_from: _Optional[int] = ..., valid_to: _Optional[int] = ..., recall_count: _Optional[int] = ..., last_recalled_at: _Optional[int] = ..., meta_json: _Optional[str] = ..., forget_reason: _Optional[str] = ..., terms: _Optional[_Iterable[_Union[TermCount, _Mapping]]] = ..., term_length: _Optional[int] = ...) -> None: ...
 
 class MemoryVector(_message.Message):
-    __slots__ = ("model_id", "vector")
+    __slots__ = ("model_id", "vector", "kind", "trust", "agent", "session")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     VECTOR_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    TRUST_FIELD_NUMBER: _ClassVar[int]
+    AGENT_FIELD_NUMBER: _ClassVar[int]
+    SESSION_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     vector: bytes
-    def __init__(self, model_id: _Optional[str] = ..., vector: _Optional[bytes] = ...) -> None: ...
+    kind: str
+    trust: str
+    agent: str
+    session: str
+    def __init__(self, model_id: _Optional[str] = ..., vector: _Optional[bytes] = ..., kind: _Optional[str] = ..., trust: _Optional[str] = ..., agent: _Optional[str] = ..., session: _Optional[str] = ...) -> None: ...
 
 class TermCount(_message.Message):
     __slots__ = ("term", "count")
@@ -106,18 +118,14 @@ class EntityMention(_message.Message):
     def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ...) -> None: ...
 
 class NewMemory(_message.Message):
-    __slots__ = ("record", "vector", "terms", "length", "mentions")
+    __slots__ = ("record", "vector", "mentions")
     RECORD_FIELD_NUMBER: _ClassVar[int]
     VECTOR_FIELD_NUMBER: _ClassVar[int]
-    TERMS_FIELD_NUMBER: _ClassVar[int]
-    LENGTH_FIELD_NUMBER: _ClassVar[int]
     MENTIONS_FIELD_NUMBER: _ClassVar[int]
     record: MemoryRecord
     vector: bytes
-    terms: _containers.RepeatedCompositeFieldContainer[TermCount]
-    length: int
     mentions: _containers.RepeatedCompositeFieldContainer[EntityMention]
-    def __init__(self, record: _Optional[_Union[MemoryRecord, _Mapping]] = ..., vector: _Optional[bytes] = ..., terms: _Optional[_Iterable[_Union[TermCount, _Mapping]]] = ..., length: _Optional[int] = ..., mentions: _Optional[_Iterable[_Union[EntityMention, _Mapping]]] = ...) -> None: ...
+    def __init__(self, record: _Optional[_Union[MemoryRecord, _Mapping]] = ..., vector: _Optional[bytes] = ..., mentions: _Optional[_Iterable[_Union[EntityMention, _Mapping]]] = ...) -> None: ...
 
 class EntityEdge(_message.Message):
     __slots__ = ("src_name", "src_type", "relation", "dst_name", "dst_type", "weight", "memory_id")

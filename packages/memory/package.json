@@ -1,0 +1,37 @@
+{
+  "name": "@mindlog/memory",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent memory engine: apply handlers, indexes in apply, the ingestion and recall pipelines, degraded mode and the enrich worker",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/memory/"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/index-graph": "workspace:*",
+    "@mindlog/index-text": "workspace:*",
+    "@mindlog/index-vector": "workspace:*",
+    "@mindlog/jobs": "workspace:*",
+    "@mindlog/models-client": "workspace:*",
+    "@mindlog/proto": "workspace:*",
+    "@mindlog/statemachine": "workspace:*",
+    "@mindlog/storage": "workspace:*"
+  },
+  "devDependencies": {
+    "@mindlog/multiraft": "workspace:*"
+  }
+}

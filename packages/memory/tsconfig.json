@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../eventbus" },
+    { "path": "../index-graph" },
+    { "path": "../index-text" },
+    { "path": "../index-vector" },
+    { "path": "../jobs" },
+    { "path": "../models-client" },
+    { "path": "../proto" },
+    { "path": "../statemachine" },
+    { "path": "../storage" }
+  ]
+}

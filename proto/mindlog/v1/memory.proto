@@ -59,6 +59,9 @@ message MemoryRecord {
   string meta_json = 24;
   // Why it was forgotten (audit).
   string forget_reason = 25;
+  // BM25 terms and length as indexed, so forgetting removes exactly these postings.
+  repeated TermCount terms = 26;
+  uint32 term_length = 27;
 }
 
 // Stored at m/(user, 'v', id).
@@ -66,6 +69,11 @@ message MemoryVector {
   string model_id = 1;
   // float32 little-endian, L2-normalised.
   bytes vector = 2;
+  // Copies of the record fields recall filters on, so the vector index needs no record reads.
+  string kind = 3;
+  string trust = 4;
+  string agent = 5;
+  string session = 6;
 }
 
 message TermCount {
@@ -82,10 +90,7 @@ message NewMemory {
   MemoryRecord record = 1;
   // Empty when no embedder was available (degraded mode).
   bytes vector = 2;
-  // BM25 terms and the document length, tokenized by the leader.
-  repeated TermCount terms = 3;
-  uint32 length = 4;
-  repeated EntityMention mentions = 5;
+  repeated EntityMention mentions = 3;
 }
 
 // A relation between two entities named by a fact.

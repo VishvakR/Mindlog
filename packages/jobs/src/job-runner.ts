@@ -10,6 +10,7 @@ import { jobKey } from './job-keys.js';
 
 /** A job this node holds the lease of. */
 export interface LeasedJob {
+  readonly rangeId: bigint;
   readonly tenant: string;
   readonly user: string;
   readonly job: Job;
@@ -108,7 +109,7 @@ export class JobRunner {
     const worker = this.#d.workers.get(job.kind);
     const started = this.#d.clock.monotonic();
     const result = worker
-      ? await worker.run({ tenant, user, job, attempt })
+      ? await worker.run({ rangeId: this.#d.rangeId, tenant, user, job, attempt })
       : ({
           ok: false,
           error: { code: 'UNIMPLEMENTED', message: `no worker for ${job.kind}` },

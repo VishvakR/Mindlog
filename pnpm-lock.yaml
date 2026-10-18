@@ -313,6 +313,46 @@ importers:
         specifier: workspace:*
         version: link:../multiraft
 
+  packages/memory:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
+      '@mindlog/index-graph':
+        specifier: workspace:*
+        version: link:../index-graph
+      '@mindlog/index-text':
+        specifier: workspace:*
+        version: link:../index-text
+      '@mindlog/index-vector':
+        specifier: workspace:*
+        version: link:../index-vector
+      '@mindlog/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@mindlog/models-client':
+        specifier: workspace:*
+        version: link:../models-client
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
+      '@mindlog/statemachine':
+        specifier: workspace:*
+        version: link:../statemachine
+      '@mindlog/storage':
+        specifier: workspace:*
+        version: link:../storage
+    devDependencies:
+      '@mindlog/multiraft':
+        specifier: workspace:*
+        version: link:../multiraft
+
   packages/models-client:
     dependencies:
       '@bufbuild/protobuf':

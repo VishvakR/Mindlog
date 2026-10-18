@@ -129,6 +129,12 @@
     },
     {
       "path": "packages/jobs/test"
+    },
+    {
+      "path": "packages/memory"
+    },
+    {
+      "path": "packages/memory/test"
     }
   ]
 }

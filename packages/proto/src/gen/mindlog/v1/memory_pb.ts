@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/memory.proto.
  */
 export const file_mindlog_v1_memory: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIv8DCgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCSIwCgxNZW1vcnlWZWN0b3ISEAoIbW9kZWxfaWQYASABKAkSDgoGdmVjdG9yGAIgASgMIigKCVRlcm1Db3VudBIMCgR0ZXJtGAEgASgJEg0KBWNvdW50GAIgASgNIisKDUVudGl0eU1lbnRpb24SDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJIqgBCglOZXdNZW1vcnkSKAoGcmVjb3JkGAEgASgLMhgubWluZGxvZy52MS5NZW1vcnlSZWNvcmQSDgoGdmVjdG9yGAIgASgMEiQKBXRlcm1zGAMgAygLMhUubWluZGxvZy52MS5UZXJtQ291bnQSDgoGbGVuZ3RoGAQgASgNEisKCG1lbnRpb25zGAUgAygLMhkubWluZGxvZy52MS5FbnRpdHlNZW50aW9uIokBCgpFbnRpdHlFZGdlEhAKCHNyY19uYW1lGAEgASgJEhAKCHNyY190eXBlGAIgASgJEhAKCHJlbGF0aW9uGAMgASgJEhAKCGRzdF9uYW1lGAQgASgJEhAKCGRzdF90eXBlGAUgASgJEg4KBndlaWdodBgGIAEoAhIRCgltZW1vcnlfaWQYByABKAkiJQoGSm9iUmVmEgoKAmlkGAEgASgJEg8KB2F0dGVtcHQYAiABKA0iuAEKDE1lbW9yeUNvbW1pdBIMCgR1c2VyGAEgASgJEicKCG1lbW9yaWVzGAIgAygLMhUubWluZGxvZy52MS5OZXdNZW1vcnkSJQoFZWRnZXMYAyADKAsyFi5taW5kbG9nLnYxLkVudGl0eUVkZ2USJAoHZW5xdWV1ZRgEIAMoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIkCghjb21wbGV0ZRgFIAEoCzISLm1pbmRsb2cudjEuSm9iUmVmIjkKDE1lbW9yeUZvcmdldBIMCgR1c2VyGAEgASgJEgsKA2lkcxgCIAMoCRIOCgZyZWFzb24YAyABKAkiVQoMTWVtb3J5RW50aXR5EgwKBG5hbWUYASABKAkSDAoEdHlwZRgCIAEoCRIVCg1tZW50aW9uX2NvdW50GAMgASgNEhIKCmNyZWF0ZWRfYXQYBCABKAQiQgoKTWVtb3J5RWRnZRIOCgZ3ZWlnaHQYASABKAISEAoIbWVtb3JpZXMYAiADKAkSEgoKY3JlYXRlZF9hdBgDIAEoBCIrCg1NZW1vcnlPdXRjb21lEgsKA2lkcxgBIAMoCRINCgVjb3VudBgCIAEoDWIGcHJvdG8z", [file_mindlog_v1_jobs]);
+  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIroECgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCRIkCgV0ZXJtcxgaIAMoCzIVLm1pbmRsb2cudjEuVGVybUNvdW50EhMKC3Rlcm1fbGVuZ3RoGBsgASgNIm0KDE1lbW9yeVZlY3RvchIQCghtb2RlbF9pZBgBIAEoCRIOCgZ2ZWN0b3IYAiABKAwSDAoEa2luZBgDIAEoCRINCgV0cnVzdBgEIAEoCRINCgVhZ2VudBgFIAEoCRIPCgdzZXNzaW9uGAYgASgJIigKCVRlcm1Db3VudBIMCgR0ZXJtGAEgASgJEg0KBWNvdW50GAIgASgNIisKDUVudGl0eU1lbnRpb24SDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJInIKCU5ld01lbW9yeRIoCgZyZWNvcmQYASABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVJlY29yZBIOCgZ2ZWN0b3IYAiABKAwSKwoIbWVudGlvbnMYAyADKAsyGS5taW5kbG9nLnYxLkVudGl0eU1lbnRpb24iiQEKCkVudGl0eUVkZ2USEAoIc3JjX25hbWUYASABKAkSEAoIc3JjX3R5cGUYAiABKAkSEAoIcmVsYXRpb24YAyABKAkSEAoIZHN0X25hbWUYBCABKAkSEAoIZHN0X3R5cGUYBSABKAkSDgoGd2VpZ2h0GAYgASgCEhEKCW1lbW9yeV9pZBgHIAEoCSIlCgZKb2JSZWYSCgoCaWQYASABKAkSDwoHYXR0ZW1wdBgCIAEoDSK4AQoMTWVtb3J5Q29tbWl0EgwKBHVzZXIYASABKAkSJwoIbWVtb3JpZXMYAiADKAsyFS5taW5kbG9nLnYxLk5ld01lbW9yeRIlCgVlZGdlcxgDIAMoCzIWLm1pbmRsb2cudjEuRW50aXR5RWRnZRIkCgdlbnF1ZXVlGAQgAygLMhMubWluZGxvZy52MS5Kb2JTcGVjEiQKCGNvbXBsZXRlGAUgASgLMhIubWluZGxvZy52MS5Kb2JSZWYiOQoMTWVtb3J5Rm9yZ2V0EgwKBHVzZXIYASABKAkSCwoDaWRzGAIgAygJEg4KBnJlYXNvbhgDIAEoCSJVCgxNZW1vcnlFbnRpdHkSDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJEhUKDW1lbnRpb25fY291bnQYAyABKA0SEgoKY3JlYXRlZF9hdBgEIAEoBCJCCgpNZW1vcnlFZGdlEg4KBndlaWdodBgBIAEoAhIQCghtZW1vcmllcxgCIAMoCRISCgpjcmVhdGVkX2F0GAMgASgEIisKDU1lbW9yeU91dGNvbWUSCwoDaWRzGAEgAygJEg0KBWNvdW50GAIgASgNYgZwcm90bzM", [file_mindlog_v1_jobs]);
 
 /**
  * @generated from message mindlog.v1.MemoryLink
@@ -224,6 +224,18 @@ export type MemoryRecord = Message<"mindlog.v1.MemoryRecord"> & {
    * @generated from field: string forget_reason = 25;
    */
   forgetReason: string;
+
+  /**
+   * BM25 terms and length as indexed, so forgetting removes exactly these postings.
+   *
+   * @generated from field: repeated mindlog.v1.TermCount terms = 26;
+   */
+  terms: TermCount[];
+
+  /**
+   * @generated from field: uint32 term_length = 27;
+   */
+  termLength: number;
 };
 
 /**
@@ -250,6 +262,28 @@ export type MemoryVector = Message<"mindlog.v1.MemoryVector"> & {
    * @generated from field: bytes vector = 2;
    */
   vector: Uint8Array;
+
+  /**
+   * Copies of the record fields recall filters on, so the vector index needs no record reads.
+   *
+   * @generated from field: string kind = 3;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: string trust = 4;
+   */
+  trust: string;
+
+  /**
+   * @generated from field: string agent = 5;
+   */
+  agent: string;
+
+  /**
+   * @generated from field: string session = 6;
+   */
+  session: string;
 };
 
 /**
@@ -320,19 +354,7 @@ export type NewMemory = Message<"mindlog.v1.NewMemory"> & {
   vector: Uint8Array;
 
   /**
-   * BM25 terms and the document length, tokenized by the leader.
-   *
-   * @generated from field: repeated mindlog.v1.TermCount terms = 3;
-   */
-  terms: TermCount[];
-
-  /**
-   * @generated from field: uint32 length = 4;
-   */
-  length: number;
-
-  /**
-   * @generated from field: repeated mindlog.v1.EntityMention mentions = 5;
+   * @generated from field: repeated mindlog.v1.EntityMention mentions = 3;
    */
   mentions: EntityMention[];
 };

@@ -2,6 +2,7 @@
 # Usage: scripts/sim.sh <seeds> [shards] [first-seed]
 # Runs <seeds> simulator seeds from [first-seed] (default 1) split across <shards> parallel vitest
 # processes (PLAN 22.2; the phase 3 gate is 10,000). Prints each failing seed.
+# SIM_PD=1 scripts/sim.sh ... runs the placement-driver scenario (5 nodes, 2 empty) instead.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SEEDS=${1:-10000}

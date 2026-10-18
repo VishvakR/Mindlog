@@ -37,6 +37,7 @@ describe('error code table', () => {
     expect(errorSpec('BUSY').resp).toBe('BUSY');
     expect(errorSpec('WRONG_TYPE').resp).toBe('WRONGTYPE');
     expect(errorSpec('RANGE_MOVED').resp).toBe('MOVED');
+    expect(errorSpec('CROSS_RANGE').resp).toBe('CROSSSLOT');
     expect(errorSpec('UNSUPPORTED_PROTOCOL').resp).toBe('NOPROTO');
     expect(errorSpec('EXEC_ABORTED').resp).toBe('EXECABORT');
     expect(errorSpec('INVALID_CREDENTIALS').resp).toBe('WRONGPASS');

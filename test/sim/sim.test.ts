@@ -11,12 +11,13 @@ const ONE = process.env.SIM_SEED;
 const FROM = BigInt(process.env.SIM_FROM ?? 1);
 const COUNT = BigInt(process.env.SIM_SEEDS ?? 10);
 
+// SIM_PD=1 runs every seed with the placement driver: 5 nodes, 2 of them empty at the start.
+const WITH_PD = process.env.SIM_PD === '1';
+
 async function violations(seed: bigint): Promise<string[]> {
   const nodes = seed % 2n === 0n ? 5 : 3;
-  const result = await scenario(seed)
-    .nodes(nodes)
-    .verbose(process.env.SIM_VERBOSE === '1')
-    .run();
+  const base = WITH_PD ? scenario(seed).nodes(5).pd(2) : scenario(seed).nodes(nodes);
+  const result = await base.verbose(process.env.SIM_VERBOSE === '1').run();
   return result.violations.map((v) => `replay: SIM_SEED=${seed} SIM_VERBOSE=1 pnpm sim → ${v}`);
 }
 
@@ -46,6 +47,20 @@ describe('simulator', () => {
         expect(result.violations).toEqual([]);
         expect(result.stats.fencedSteps).toBeGreaterThan(0);
       }
+    },
+  );
+
+  test(
+    'the placement driver fills empty nodes and keeps ranges at full strength under faults',
+    { timeout: 300_000 },
+    async () => {
+      let placed = 0;
+      for (const seed of [1n, 2n, 3n, 4n, 5n]) {
+        const result = await scenario(seed).nodes(5).pd(2).run();
+        expect(result.violations).toEqual([]);
+        placed += result.stats.placed;
+      }
+      expect(placed).toBeGreaterThan(0);
     },
   );
 

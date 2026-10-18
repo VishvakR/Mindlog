@@ -19,7 +19,9 @@ import {
   kvWriteHandler,
 } from '@mindlog/kv';
 import type { ReplicaOptions, ReplicaViews } from '@mindlog/multiraft';
-import { DEFAULT_REPLICA_OPTIONS, Replica, Store } from '@mindlog/multiraft';
+import { DEFAULT_REPLICA_OPTIONS, PdAgent, Replica, Store } from '@mindlog/multiraft';
+import { DEFAULT_PD_CONFIG, PD_DESCRIPTOR, PD_HANDLERS, PD_RANGE_ID, PdService } from '@mindlog/pd';
+import { PdSwitchboard } from './sim-pd.js';
 import type { KvReply, RangeDescriptor } from '@mindlog/proto';
 import type { Session } from '@mindlog/services';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
@@ -29,8 +31,10 @@ import {
   RaftLogStore,
   StateMachine,
   inSpan,
+  loadTombstones,
   localRanges,
   spanIntervals,
+  writeTombstone,
 } from '@mindlog/statemachine';
 import type { KvStore } from '@mindlog/storage';
 import { compareBytes } from '@mindlog/storage';
@@ -71,6 +75,13 @@ export interface ScenarioOptions {
   readonly durationMs: number;
   readonly faults: FaultOptions;
   readonly verbose: boolean;
+  /**
+   * Run the placement driver (phase 4): a PD Raft group of range 0 on the first three nodes, an
+   * agent on every node, and PD alone deciding splits, merges and replica placement.
+   */
+  readonly pd: boolean;
+  /** Nodes at the end of the list that start without any replica (PD must fill them). */
+  readonly spare: number;
 }
 
 export interface SimResult {
@@ -88,6 +99,9 @@ export interface SimResult {
     membership: number;
     /** Event steps during which some node was fenced for clock skew. */
     fencedSteps: number;
+    /** At the end: ranges, and replicas created by PD operators (ids from 1000). */
+    ranges: number;
+    placed: number;
   };
 }
 
@@ -100,6 +114,17 @@ const SIM_OPTIONS: ReplicaOptions = {
   snapshotChunkBytes: 4096,
 };
 const QUIET_MS = 30_000;
+const PD_STORE_HEARTBEAT_MS = 1_000;
+const PD_DEAD_AFTER_MS = 10_000;
+/** Small enough that the few keys of a run split ranges, and that PD moves replicas. */
+const PD_SIM_CONFIG = {
+  ...DEFAULT_PD_CONFIG,
+  maxBytes: 6_000n,
+  mergeBelowBytes: 1_500n,
+  maxOperators: 2,
+  operatorTimeoutMs: 20_000,
+  learnerTimeoutMs: 10_000,
+};
 const MAX_OFFSET_MS = 5_000n;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -112,8 +137,8 @@ interface Incarnation {
   readonly services: WeakMap<Replica, KvService>;
   /** Sessions by `rangeId/client`. */
   readonly sessions: Map<string, Session>;
-  /** Newest epoch version this incarnation saw per range: it must never go back. */
-  readonly epochs: Map<bigint, bigint>;
+  /** Newest epoch version this incarnation saw per replica (`range/replica`): it must never go back. */
+  readonly epochs: Map<string, bigint>;
   readonly stamper: CommandStamper;
   readonly sync: ClockSync;
   readonly clock: Clock;
@@ -155,12 +180,20 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     transfers: 0,
     membership: 0,
     fencedSteps: 0,
+    ranges: 0,
+    placed: 0,
   };
   const say = (line: string): void => {
     if (o.verbose) console.log(`[${world.now.toFixed(1)}ms] ${line}`);
   };
   const ids = Array.from({ length: o.nodes }, (_, i) => BigInt(i + 1));
-  const bootstrap = ids.map((id) => ({ id, address: `n${id}` }));
+  const members = ids.slice(0, o.nodes - o.spare);
+  const bootstrap = members.map((id) => ({ id, address: `n${id}` }));
+  const pdNodes = ids.slice(0, Math.min(3, o.nodes));
+  const pdBootstrap = pdNodes.map((id) => ({ id, address: `n${id}` }));
+  const switchboard = new PdSwitchboard(net, (what) => {
+    violate(what);
+  });
   const nodes = ids.map((id): SimNode => ({
     id,
     rate: world.between(1 - o.faults.drift, 1 + o.faults.drift),
@@ -176,6 +209,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
   const leaders = new Map<string, bigint>();
   const appliedAt = new Map<string, string>();
   let nextRangeId = 2n;
+  let nextReplicaId = 1000n;
   const violate = (what: string): void => {
     if (violations.length < 20) violations.push(what);
     say(`VIOLATION ${what}`);
@@ -194,6 +228,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       kvBatchHandler(registry),
       expireHandler,
       gcThresholdHandler,
+      ...PD_HANDLERS,
     ])
       handlers.register(h);
     const events = new InMemoryEventBus({ logger, metrics });
@@ -221,7 +256,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     events.subscribe('CommandApplied', (e) => {
       sync.observe(e.command.hlc as Hlc);
     });
-    const openReplica = async (rangeId: bigint, views: ReplicaViews) => {
+    const openReplica = async (rangeId: bigint, views: ReplicaViews, replicaId?: bigint) => {
       const machine = await StateMachine.open({
         store: stateStore,
         handlers,
@@ -231,10 +266,11 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
         logger,
         metrics,
         rangeId,
+        ...(rangeId === PD_RANGE_ID ? { descriptor: PD_DESCRIPTOR } : {}),
       });
       return Replica.open({
         rangeId,
-        raftId: node.id,
+        raftId: replicaId ?? machine.replicaId ?? node.id,
         options: SIM_OPTIONS,
         log: new RaftLogStore(logStore, rangeId),
         machine,
@@ -248,7 +284,9 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
         ),
         logger,
         metrics,
-        ...(rangeId === 1n ? { bootstrap } : {}),
+        // Only a node that starts the cluster bootstraps; a replica made for a message waits for a snapshot.
+        ...(rangeId === 1n && replicaId === undefined ? { bootstrap } : {}),
+        ...(rangeId === PD_RANGE_ID && replicaId === undefined ? { bootstrap: pdBootstrap } : {}),
       });
     };
     const store = Store.start({
@@ -261,10 +299,39 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       electionTicks: SIM_OPTIONS.electionTicks[0],
       stamp: (body) => stamper.stamp(SYSTEM_TENANT, 'system:range', body),
       openReplica,
+      tombstones: await loadTombstones(stateStore),
+      bury: (rangeId, replicaId) => writeTombstone(stateStore, rangeId, replicaId),
     });
-    await store.addRange(1n);
-    for (const rangeId of await localRanges(stateStore))
-      if (rangeId !== 1n) await store.addRange(rangeId);
+    if (members.includes(node.id)) await store.addRange(1n);
+    for (const rangeId of await localRanges(stateStore)) await store.addRange(rangeId);
+    let pd: PdService | undefined;
+    if (o.pd && pdNodes.includes(node.id)) {
+      const group = await store.addRange(PD_RANGE_ID);
+      pd = new PdService({
+        group,
+        reader: stateStore,
+        clock,
+        stamper,
+        hlc: sync.hlc,
+        logger,
+        metrics,
+        config: PD_SIM_CONFIG,
+        storeHeartbeatMs: PD_STORE_HEARTBEAT_MS,
+        deadAfterMs: PD_DEAD_AFTER_MS,
+        tsoWindowMs: 1000,
+      });
+      scheduler.every(1000, () => void pd?.tick());
+      switchboard.set(node.id, pd);
+    }
+    if (o.pd) {
+      new PdAgent(store, switchboard.client(node.id), scheduler, {
+        node: { nodeId: node.id, address: `n${node.id}`, zone: `z${node.id}`, binaryVersion: 4 },
+        storeHeartbeatMs: PD_STORE_HEARTBEAT_MS,
+        rangeHeartbeatMs: 500,
+        gcIntervalMs: 4_000,
+        logger,
+      }).start();
+    }
     if (generation !== node.generation) {
       await store.close();
       return;
@@ -326,6 +393,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     if (!node.up) return;
     node.up.scheduler.alive = false;
     node.up = undefined;
+    switchboard.set(node.id, undefined);
     net.detach(node.id);
     stats.crashes++;
     const keepLog = Math.floor(world.between(0, node.log.unsyncedBatches + 1));
@@ -348,10 +416,12 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
           violate(
             `n${node.id} r${range}: applied ${s.applied} commit ${s.commit} last ${s.lastIndex}`,
           );
+        // A replica made anew (after a removal) starts from nothing, so epochs are kept per replica.
+        const epochKey = `${range}/${replica.replicaId}`;
         const epoch = replica.descriptor.epoch?.version ?? 0n;
-        if (epoch < (up.epochs.get(range) ?? 0n))
+        if (epoch < (up.epochs.get(epochKey) ?? 0n))
           violate(`n${node.id} r${range}: epoch went back to ${epoch}`);
-        up.epochs.set(range, epoch);
+        up.epochs.set(epochKey, epoch);
         if (s.role !== 'leader') continue;
         const term = `${range}/${s.term}`;
         const known = leaders.get(term);
@@ -471,6 +541,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     live: () => nodes.flatMap((n) => (n.up ? [n.up.store] : [])),
     say,
     nextRangeId: () => nextRangeId++,
+    nextReplicaId: () => nextReplicaId++,
     count: (kind: 'splits' | 'merges' | 'transfers' | 'membership') => {
       stats[kind]++;
     },
@@ -538,6 +609,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     violate(`crashed: ${cause instanceof Error ? (cause.stack ?? cause.message) : String(cause)}`);
   }
   if (o.verbose && violations.length > 0) {
+    if (o.pd) console.log(switchboard.describe());
     const fmt = (v: unknown): string =>
       JSON.stringify(v, (_k, x: unknown) => (typeof x === 'bigint' ? x.toString() : x));
     for (const node of nodes) {
@@ -579,7 +651,8 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     const leaderOf = new Map<bigint, { node: SimNode; replica: Replica }>();
     for (const node of nodes)
       for (const replica of node.up?.store.replicas() ?? [])
-        if (replica.isLeader()) leaderOf.set(replica.rangeId, { node, replica });
+        if (replica.isLeader() && replica.rangeId !== PD_RANGE_ID)
+          leaderOf.set(replica.rangeId, { node, replica });
     // A zombie leader of a range that was merged away elsewhere never hears of it (replica GC
     // is PD's job, phase 4 task 6): of overlapping ranges the highest epoch is the live one.
     const byEpoch = [...leaderOf.values()].sort((x, y) =>
@@ -592,6 +665,11 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       if (!tiled.some((k) => overlaps(k.replica.descriptor, l.replica.descriptor))) tiled.push(l);
     for (const id of [...leaderOf.keys()])
       if (!tiled.some((l) => l.replica.rangeId === id)) leaderOf.delete(id);
+    stats.ranges = leaderOf.size;
+    stats.placed = nodes.reduce(
+      (n, node) => n + (node.up?.store.replicas().filter((r) => r.replicaId >= 1000n).length ?? 0),
+      0,
+    );
     const spans = [...leaderOf.values()]
       .map((l) => l.replica.descriptor)
       .sort((a, b) => compareBytes(a.startKey, b.startKey));
@@ -599,18 +677,25 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     for (const { replica } of leaderOf.values()) {
       const s = replica.status();
       const members = [...s.confState.voters, ...s.confState.learners];
+      // PD keeps every range at full strength once the faults stop (repair, drain, balance).
+      if (o.pd && s.confState.voters.length < Math.min(3, o.nodes))
+        violate(`range ${replica.rangeId} has only ${s.confState.voters.length} voters`);
+      if (o.pd && s.confState.learners.length > 0)
+        violate(`range ${replica.rangeId} still has learners ${s.confState.learners.join(',')}`);
       const hashes: string[] = [];
       for (const id of members) {
-        const member = nodes.find((n) => n.id === id)?.up?.store.replica(replica.rangeId);
-        if (!member?.initialised) {
-          violate(`range ${replica.rangeId}: member n${id} has no replica`);
+        // A member is a replica id; its node is named by the address it was added with.
+        const holder = nodes.find((n) => `n${n.id}` === s.confState.addresses[id.toString()]);
+        const member = holder?.up?.store.replica(replica.rangeId);
+        if (!member?.initialised || member.replicaId !== id) {
+          violate(`range ${replica.rangeId}: member ${id} has no replica`);
           continue;
         }
         if (member.appliedIndex !== replica.appliedIndex)
           violate(
-            `range ${replica.rangeId}: n${id} applied ${member.appliedIndex}, leader ${replica.appliedIndex}`,
+            `range ${replica.rangeId}: replica ${id} applied ${member.appliedIndex}, leader ${replica.appliedIndex}`,
           );
-        const disk = nodes.find((n) => n.id === id)?.state;
+        const disk = holder?.state;
         if (disk) hashes.push(await spanHash(disk, replica.descriptor));
       }
       if (new Set(hashes).size > 1) violate(`range ${replica.rangeId}: state hashes differ`);
@@ -718,8 +803,17 @@ export function scenario(seed: bigint) {
       skewMs: 0,
     },
     verbose: false,
+    pd: false,
+    spare: 0,
   };
   const dsl = {
+    pd: (spare = 0) => {
+      o.pd = true;
+      o.spare = spare;
+      // PD decides splits, merges and placement; the random faults keep leaders moving.
+      o.faults = { ...o.faults, splits: false, merges: false, membership: false };
+      return dsl;
+    },
     nodes: (n: number) => ((o.nodes = n), dsl),
     clients: (n: number) => ((o.clients = n), dsl),
     keys: (n: number) => ((o.keys = n), dsl),

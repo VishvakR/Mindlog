@@ -36,6 +36,7 @@ class MessageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MESSAGE_TYPE_TIMEOUT_NOW: _ClassVar[MessageType]
     MESSAGE_TYPE_READ_INDEX: _ClassVar[MessageType]
     MESSAGE_TYPE_READ_INDEX_RESPONSE: _ClassVar[MessageType]
+    MESSAGE_TYPE_TOMBSTONE: _ClassVar[MessageType]
 ENTRY_TYPE_UNSPECIFIED: EntryType
 ENTRY_TYPE_NORMAL: EntryType
 ENTRY_TYPE_CONF_CHANGE: EntryType
@@ -57,6 +58,7 @@ MESSAGE_TYPE_SNAPSHOT: MessageType
 MESSAGE_TYPE_TIMEOUT_NOW: MessageType
 MESSAGE_TYPE_READ_INDEX: MessageType
 MESSAGE_TYPE_READ_INDEX_RESPONSE: MessageType
+MESSAGE_TYPE_TOMBSTONE: MessageType
 
 class Entry(_message.Message):
     __slots__ = ("term", "index", "type", "data")

@@ -37,32 +37,79 @@ function movement(rv: RangeView, replicaId: bigint, target: bigint): PlannedStep
   ];
 }
 
-/** Replaces replicas that sit on dead nodes. */
+/**
+ * Keeps ranges at full strength: replaces replicas on dead nodes, finishes moves a PD failover
+ * interrupted (a learner nobody promoted, an extra voter nobody removed), and refills a range that
+ * has fewer voters than `replicas`.
+ */
 export const repairScheduler: Scheduler = {
   name: 'repair',
   schedule(view) {
     const dead = new Set(
       view.nodes.filter((n) => n.info.state === NodeState.DEAD).map((n) => n.info.nodeId),
     );
+    const counts = replicaCounts(view);
     const operators: PlannedOperator[] = [];
     for (const rv of view.ranges) {
       if (!free(view, rv) || !hasLeader(rv)) continue;
+      const id = rv.range.rangeId;
       const lost = rv.range.replicas.find((r) => dead.has(r.nodeId));
-      const target = lost && pickTarget(view, rv);
-      if (!lost || !target) continue;
-      operators.push({
-        rangeId: rv.range.rangeId,
-        steps: movement(rv, lost.replicaId, target.info.nodeId),
-        explanation: `replica ${lost.replicaId} is on node ${lost.nodeId}, which is dead; node ${target.info.nodeId} holds no replica of range ${rv.range.rangeId}`,
-      });
+      const target = pickTarget(view, rv);
+      const voters = votersOf(rv);
+      const learner = rv.range.replicas.find((r) => r.role === ReplicaRole.LEARNER);
+      if (lost && target) {
+        operators.push({
+          rangeId: id,
+          steps: movement(rv, lost.replicaId, target.info.nodeId),
+          explanation: `replica ${lost.replicaId} is on node ${lost.nodeId}, which is dead; node ${target.info.nodeId} holds no replica of range ${id}`,
+        });
+      } else if (learner && !dead.has(learner.nodeId)) {
+        const behind = (rv.progress.get(learner.replicaId) ?? 0n) < rv.applied;
+        operators.push(
+          behind && rv.learnerForMs > view.config.learnerTimeoutMs
+            ? {
+                rangeId: id,
+                steps: [{ kind: 'remove-voter', replicaId: learner.replicaId }],
+                explanation: `learner ${learner.replicaId} of range ${id} has not caught up in ${rv.learnerForMs} ms; removing it`,
+              }
+            : {
+                rangeId: id,
+                steps: [{ kind: 'promote', replicaId: learner.replicaId }],
+                explanation: `range ${id} has a learner (replica ${learner.replicaId}) that no operator is promoting`,
+              },
+        );
+      } else if (voters.length > view.config.replicas) {
+        const extra = [...voters]
+          .filter((v) => v.replicaId !== rv.leaderReplicaId)
+          .sort(
+            (a, b) =>
+              (counts.get(b.nodeId) ?? 0) - (counts.get(a.nodeId) ?? 0) ||
+              Number(b.nodeId - a.nodeId),
+          )[0];
+        if (extra)
+          operators.push({
+            rangeId: id,
+            steps: [{ kind: 'remove-voter', replicaId: extra.replicaId }],
+            explanation: `range ${id} has ${voters.length} voters, ${view.config.replicas} wanted; removing the one on node ${extra.nodeId}, which holds the most replicas`,
+          });
+      } else if (voters.length < view.config.replicas && target) {
+        operators.push({
+          rangeId: id,
+          steps: [
+            { kind: 'add-learner', nodeId: target.info.nodeId },
+            { kind: 'promote', replicaId: 0n },
+          ],
+          explanation: `range ${id} has ${voters.length} voters, ${view.config.replicas} wanted; node ${target.info.nodeId} holds none`,
+        });
+      }
     }
     return operators.length > 0
       ? {
           scheduler: 'repair',
           operators,
-          explanation: `${operators.length} range(s) lost a replica to a dead node`,
+          explanation: `${operators.length} range(s) below or above full strength`,
         }
-      : nothing('repair', 'no range has a replica on a dead node');
+      : nothing('repair', 'every range has its replicas on live nodes');
   },
 };
 

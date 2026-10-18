@@ -28,8 +28,15 @@ import {
   kvRangeHooks,
   kvWriteHandler,
 } from '@mindlog/kv';
-import type { NodeTransport, ReplicaOptions, ReplicaViews } from '@mindlog/multiraft';
-import { DEFAULT_REPLICA_OPTIONS, Replica, Store, SystemScheduler } from '@mindlog/multiraft';
+import type { NodeTransport, PdClient, ReplicaOptions, ReplicaViews } from '@mindlog/multiraft';
+import {
+  DEFAULT_REPLICA_OPTIONS,
+  PdAgent,
+  Replica,
+  Store,
+  SystemScheduler,
+} from '@mindlog/multiraft';
+import { ConnectPdClient } from '@mindlog/pd';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
 import {
   ApplyHandlerRegistry,
@@ -37,10 +44,14 @@ import {
   RaftLogStore,
   StateMachine,
   ensureStoreFormat,
+  loadTombstones,
   localRanges,
+  writeTombstone,
 } from '@mindlog/statemachine';
 import { GroupCommitStore, LevelDbStore } from '@mindlog/storage';
 import { ConnectTransport } from '@mindlog/transport';
+import type { PdRole } from './open-pd.js';
+import { BINARY_VERSION, openPdRole } from './open-pd.js';
 
 export interface CoreDeps {
   readonly logger: Logger;
@@ -57,6 +68,10 @@ export interface NodeCore {
   readonly replica: Replica;
   /** All replicas of this node. */
   readonly store: Store;
+  /** The placement driver this process runs (embedded in a single node, or the `pd.enabled` role). */
+  readonly pd: PdRole | undefined;
+  /** This node's side of the placement driver; absent when the cluster has none. */
+  readonly agent: PdAgent | undefined;
   /** Internal Raft listener; absent for a single-voter node. */
   readonly transport: ConnectTransport | undefined;
   readonly stamper: CommandStamper;
@@ -88,6 +103,14 @@ async function openStores(dataDir: string) {
     return format;
   }
   return ok({ log: log.value, state: state.value });
+}
+
+/** How this node reaches the placement driver: configured endpoints, else the PD it runs itself. */
+function pdClientFor(config: MindlogConfig, pd: PdRole | undefined): PdClient | undefined {
+  if (config.cluster.pdEndpoints.length > 0) return new ConnectPdClient(config.cluster.pdEndpoints);
+  if (config.pd.enabled && config.pd.peers.length > 0)
+    return new ConnectPdClient(config.pd.peers.map((p) => p.address));
+  return pd?.client;
 }
 
 /** A single-voter node has no peers to reach. */
@@ -194,6 +217,8 @@ export async function openNodeCore(
   const log = new RaftLogStore(groupLog);
   let transport: ConnectTransport | undefined;
   let store: Store | undefined;
+  let pd: PdRole | undefined;
+  let agent: PdAgent | undefined;
   let replica: Replica;
   try {
     const peers = single
@@ -211,13 +236,15 @@ export async function openNodeCore(
       });
     }
     const bootstrap = config.cluster.join ? {} : { bootstrap: peers };
-    const openReplica = async (rangeId: bigint, views: ReplicaViews) =>
-      Replica.open({
+    const openReplica = async (rangeId: bigint, views: ReplicaViews, replicaId?: bigint) => {
+      const local = rangeId === 1n ? machine : await openMachine(rangeId);
+      return Replica.open({
         rangeId,
-        raftId,
+        // A replica made for a message has the id the message names; one reopened keeps its own.
+        raftId: replicaId ?? local.replicaId ?? raftId,
         options,
         log: rangeId === 1n ? log : new RaftLogStore(groupLog, rangeId),
-        machine: rangeId === 1n ? machine : await openMachine(rangeId),
+        machine: local,
         transport: views.transport,
         scheduler: views.scheduler,
         ranges: views.ranges,
@@ -227,8 +254,10 @@ export async function openNodeCore(
         logger,
         metrics,
         tracer,
-        ...(rangeId === 1n ? bootstrap : {}),
+        // A replica made for a message (it has an id) waits for a snapshot instead of bootstrapping.
+        ...(rangeId === 1n && replicaId === undefined ? bootstrap : {}),
       });
+    };
     store = Store.start({
       nodeId: raftId,
       transport: transport ?? NO_PEERS,
@@ -239,12 +268,45 @@ export async function openNodeCore(
       electionTicks: options.electionTicks[0],
       stamp: (body) => stamper.stamp(SYSTEM_TENANT, 'system:range', body),
       openReplica,
+      tombstones: await loadTombstones(stateStore),
+      bury: (rangeId, replicaId) => writeTombstone(stateStore, rangeId, replicaId),
     });
     replica = await store.addRange(1n);
     for (const rangeId of await localRanges(stateStore))
       if (rangeId !== 1n) await store.addRange(rangeId);
     if (single) await replica.leaderKnown();
+    // The placement driver: embedded in a single node, a role of cluster nodes with `pd.enabled`,
+    // and otherwise reached over the network (PLAN 8.3, ADR-0010).
+    if (single || config.pd.enabled)
+      pd = await openPdRole({
+        config,
+        logger,
+        metrics,
+        clock,
+        tracer,
+        clockSync,
+        stamper,
+        options,
+        network: !single,
+      });
+    const client = pdClientFor(config, pd);
+    if (client) {
+      agent = new PdAgent(store, client, new SystemScheduler(), {
+        node: {
+          nodeId: raftId,
+          address: transport?.self ?? '',
+          zone: config.node.zone,
+          binaryVersion: BINARY_VERSION,
+        },
+        storeHeartbeatMs: config.pd.storeHeartbeatMs,
+        rangeHeartbeatMs: config.pd.rangeHeartbeatMs,
+        logger,
+      });
+      agent.start();
+    }
   } catch (cause: unknown) {
+    await agent?.stop();
+    await pd?.close();
     await store?.close();
     await transport?.close();
     await Promise.all([logStore.close(), stateStore.close()]);
@@ -277,13 +339,17 @@ export async function openNodeCore(
     machine,
     replica,
     store: started,
+    pd,
+    agent,
     transport,
     stamper,
     stateStore,
     service,
     replayed: Number(machine.appliedIndex - before),
     async close() {
+      await agent?.stop();
       await started.close();
+      await pd?.close();
       await transport?.close();
       await machine.flush();
       await Promise.all([logStore.close(), stateStore.close()]);

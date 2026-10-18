@@ -161,20 +161,22 @@ class FollowerProgress(_message.Message):
     def __init__(self, replica_id: _Optional[int] = ..., match: _Optional[int] = ...) -> None: ...
 
 class RangeStats(_message.Message):
-    __slots__ = ("range", "leader_replica_id", "bytes", "qps", "followers", "learners")
+    __slots__ = ("range", "leader_replica_id", "bytes", "qps", "followers", "learners", "applied")
     RANGE_FIELD_NUMBER: _ClassVar[int]
     LEADER_REPLICA_ID_FIELD_NUMBER: _ClassVar[int]
     BYTES_FIELD_NUMBER: _ClassVar[int]
     QPS_FIELD_NUMBER: _ClassVar[int]
     FOLLOWERS_FIELD_NUMBER: _ClassVar[int]
     LEARNERS_FIELD_NUMBER: _ClassVar[int]
+    APPLIED_FIELD_NUMBER: _ClassVar[int]
     range: _range_pb2.RangeDescriptor
     leader_replica_id: int
     bytes: int
     qps: float
     followers: _containers.RepeatedCompositeFieldContainer[FollowerProgress]
     learners: _containers.RepeatedScalarFieldContainer[int]
-    def __init__(self, range: _Optional[_Union[_range_pb2.RangeDescriptor, _Mapping]] = ..., leader_replica_id: _Optional[int] = ..., bytes: _Optional[int] = ..., qps: _Optional[float] = ..., followers: _Optional[_Iterable[_Union[FollowerProgress, _Mapping]]] = ..., learners: _Optional[_Iterable[int]] = ...) -> None: ...
+    applied: int
+    def __init__(self, range: _Optional[_Union[_range_pb2.RangeDescriptor, _Mapping]] = ..., leader_replica_id: _Optional[int] = ..., bytes: _Optional[int] = ..., qps: _Optional[float] = ..., followers: _Optional[_Iterable[_Union[FollowerProgress, _Mapping]]] = ..., learners: _Optional[_Iterable[int]] = ..., applied: _Optional[int] = ...) -> None: ...
 
 class AllocIdsRequest(_message.Message):
     __slots__ = ("count",)

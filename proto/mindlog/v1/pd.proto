@@ -124,6 +124,8 @@ message RangeStats {
   repeated FollowerProgress followers = 5;
   // The state of the range's replicas, from the leader's view of its own membership.
   repeated uint64 learners = 6;
+  // The leader's applied index: a learner far behind it is not catching up.
+  uint64 applied = 7;
 }
 
 message AllocIdsRequest {

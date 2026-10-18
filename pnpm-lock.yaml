@@ -361,6 +361,9 @@ importers:
       '@mindlog/multiraft':
         specifier: workspace:*
         version: link:../multiraft
+      '@mindlog/pd':
+        specifier: workspace:*
+        version: link:../pd
       '@mindlog/proto':
         specifier: workspace:*
         version: link:../proto

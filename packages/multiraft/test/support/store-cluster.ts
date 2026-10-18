@@ -26,6 +26,8 @@ import {
   CommandStamper,
   RaftLogStore,
   StateMachine,
+  loadTombstones,
+  writeTombstone,
 } from '@mindlog/statemachine';
 import { counterHandler } from './counter.js';
 import { FAST } from './local-cluster.js';
@@ -138,7 +140,9 @@ export async function storeCluster(
       logger,
       tickMs: FAST.tickMs,
       electionTicks: FAST.electionTicks[0],
-      openReplica: async (rangeId, views) => {
+      tombstones: await loadTombstones(stateStore),
+      bury: (rangeId, replicaId) => writeTombstone(stateStore, rangeId, replicaId),
+      openReplica: async (rangeId, views, replicaId) => {
         const handlers = new ApplyHandlerRegistry();
         handlers.register(counterHandler);
         const descriptor = starting.has(rangeId) ? spans[String(rangeId)] : undefined;
@@ -155,7 +159,7 @@ export async function storeCluster(
         });
         return Replica.open({
           rangeId,
-          raftId: id,
+          raftId: replicaId ?? machine.replicaId ?? id,
           options: { ...FAST, ...options },
           log: new RaftLogStore(logStore, rangeId),
           machine,
@@ -166,7 +170,7 @@ export async function storeCluster(
           random: new SeededRandom(id * 100n + rangeId),
           logger,
           metrics,
-          ...(starting.has(rangeId) ? { bootstrap: peers } : {}),
+          ...(starting.has(rangeId) && replicaId === undefined ? { bootstrap: peers } : {}),
         });
       },
     });

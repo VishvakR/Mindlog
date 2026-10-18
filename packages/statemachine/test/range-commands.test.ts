@@ -239,3 +239,26 @@ describe('snapshots of range state', () => {
     expect(errorCode(await target.apply(8n, 5n, writeCommand(['INCR', 'a'])))).toBe('RANGE_MOVED');
   });
 });
+
+describe('replica id', () => {
+  test('is remembered once, survives a restart, and is not replaced by a snapshot of another replica', async () => {
+    const store = new MemoryStore();
+    const mine = await bootstrapped(store);
+    await mine.rememberReplicaId(1001n);
+    await mine.rememberReplicaId(9n);
+    expect(mine.replicaId).toBe(1001n);
+    expect((await open(store, 1n)).replicaId).toBe(1001n);
+
+    const leaderStore = new MemoryStore();
+    const leader = await bootstrapped(leaderStore);
+    await leader.rememberReplicaId(7n);
+    await leader.apply(6n, 5n, writeCommand(['INCR', 'a']));
+    const snapshot = await leader.snapshot();
+    const pairs = [];
+    for await (const chunk of snapshot.chunks(1 << 20)) pairs.push(...chunk);
+    await snapshot.release();
+    await mine.installSnapshot(snapshot.meta, pairs);
+    expect(mine.applied.index).toBe(6n);
+    expect((await open(store, 1n)).replicaId).toBe(1001n);
+  });
+});

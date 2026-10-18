@@ -84,7 +84,19 @@ describe('resolveConfig', () => {
   test('raft and cluster defaults follow PLAN 7.4; leases must be shorter than elections', () => {
     const config = value(resolveConfig());
     expect(config.node.raftId).toBe(1);
-    expect(config.cluster).toEqual({ peers: [], join: false, maxClockOffsetMs: 500 });
+    expect(config.cluster).toEqual({
+      peers: [],
+      join: false,
+      maxClockOffsetMs: 500,
+      pdEndpoints: [],
+    });
+    expect(config.pd).toMatchObject({
+      enabled: false,
+      listen: { port: 7100 },
+      deadAfterMs: 300_000,
+    });
+    expect(config.ranges).toMatchObject({ maxBytes: 64 * 1024 * 1024, replicas: 3 });
+    expect(config.features).toEqual({ crossRangeTxn: false, semanticSplit: false });
     expect(config.raft).toMatchObject({ tickMs: 100, electionTicks: [10, 20], leaseTicks: 9 });
     const peers = value(
       resolveConfig({ fileText: 'cluster:\n  peers:\n    - { id: 1, address: "a:7000" }\n' }),

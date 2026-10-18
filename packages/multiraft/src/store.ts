@@ -1,9 +1,9 @@
 import type { MessageInitShape } from '@bufbuild/protobuf';
-import { fromBinary } from '@bufbuild/protobuf';
+import { create, fromBinary } from '@bufbuild/protobuf';
 import type { Clock, Logger, MindlogError, MindlogErrorCode, Result } from '@mindlog/core';
 import { ERROR_CODES, err, mindlogError, ok } from '@mindlog/core';
 import type { Command, CommandSchema, KeyValue, Message, RangeDescriptor } from '@mindlog/proto';
-import { RangeDescriptorSchema } from '@mindlog/proto';
+import { MessageSchema, MessageType, RangeDescriptorSchema } from '@mindlog/proto';
 import type { Proposal } from '@mindlog/statemachine';
 import { isUninitialised, rangeDescriptorKey } from '@mindlog/statemachine';
 import { compareBytes } from '@mindlog/storage';
@@ -57,7 +57,15 @@ export interface StoreDeps {
    * decides its replica id, stores and whether it bootstraps; a range seen
    * first in a message opens uninitialised and waits for a snapshot.
    */
-  readonly openReplica: (rangeId: bigint, views: ReplicaViews) => Promise<Replica>;
+  readonly openReplica: (
+    rangeId: bigint,
+    views: ReplicaViews,
+    replicaId: bigint | undefined,
+  ) => Promise<Replica>;
+  /** Removed replicas (`rangeId/replicaId`) loaded at start; messages to them are dropped. */
+  readonly tombstones?: ReadonlySet<string>;
+  /** Persists a removal so it survives a restart. */
+  readonly bury?: (rangeId: bigint, replicaId: bigint) => Promise<void>;
 }
 
 /**
@@ -84,6 +92,9 @@ export class Store implements NodeInboundHandler {
   /** Right-hand replicas stopped for a merge, waiting to be destroyed. */
   readonly #stopped = new Map<bigint, Replica>();
   readonly #frozenTicks = new Map<bigint, number>();
+  readonly #tombstones: Set<string>;
+  readonly #removing = new Map<bigint, Promise<void>>();
+  readonly #tombstoneSent = new Map<string, bigint>();
   /** Left ranges with a merge in flight from this node. */
   readonly #merging = new Set<bigint>();
   #tick = 0n;
@@ -92,6 +103,7 @@ export class Store implements NodeInboundHandler {
 
   private constructor(deps: StoreDeps) {
     this.#deps = deps;
+    this.#tombstones = new Set(deps.tombstones);
   }
 
   static start(deps: StoreDeps): Store {
@@ -103,13 +115,19 @@ export class Store implements NodeInboundHandler {
     return store;
   }
 
-  /** Opens and starts the replica of `rangeId` (once). */
-  addRange(rangeId: bigint): Promise<Replica> {
+  /**
+   * Opens and starts the replica of `rangeId` (once). A replica created for a
+   * message has the id the message is addressed to (ADR-0028).
+   */
+  addRange(rangeId: bigint, replicaId?: bigint): Promise<Replica> {
+    // A replica of this range is still being destroyed; its cleanup would wipe the new one's state.
+    const removing = this.#removing.get(rangeId);
+    if (removing) return removing.then(() => this.addRange(rangeId, replicaId));
     const open = this.#replicas.get(rangeId);
     if (open) return Promise.resolve(open);
     let opening = this.#opening.get(rangeId);
     if (!opening) {
-      opening = this.#deps.openReplica(rangeId, this.#views(rangeId)).then((replica) => {
+      opening = this.#deps.openReplica(rangeId, this.#views(rangeId), replicaId).then((replica) => {
         this.#opening.delete(rangeId);
         this.#replicas.set(rangeId, replica);
         if (this.#closed) void replica.close();
@@ -119,6 +137,11 @@ export class Store implements NodeInboundHandler {
       this.#opening.set(rangeId, opening);
     }
     return opening;
+  }
+
+  /** Destroys this node's replica of a range and refuses its id from now on (PD found it removed). */
+  removeReplica(rangeId: bigint): Promise<void> {
+    return this.#remove(rangeId);
   }
 
   replica(rangeId: bigint): Replica | undefined {
@@ -216,6 +239,25 @@ export class Store implements NodeInboundHandler {
     this.#heard.set(from, this.#tick);
     const byRange = new Map<bigint, Message[]>();
     for (const m of messages) {
+      if (m.type === MessageType.TOMBSTONE) {
+        const target = this.#replicas.get(m.rangeId);
+        if (target?.replicaId === m.to) void this.#remove(m.rangeId);
+        continue;
+      }
+      if (this.#buried(m.rangeId, m.to)) continue;
+      const mine = this.#replicas.get(m.rangeId);
+      // A replica the range removed is still talking: tell it to stop.
+      if (mine?.isRemoved(m.from)) {
+        this.#sendTombstone(m.rangeId, mine.replicaId, m.from, from);
+        continue;
+      }
+      if (mine && mine.replicaId !== m.to) {
+        // Ids only grow: the group now knows this node by a newer id, so ours was removed without
+        // hearing of it. Destroy it; the next message creates the new replica (ADR-0028).
+        if (m.to > mine.replicaId) void this.#remove(m.rangeId);
+        // Otherwise it is addressed to an earlier incarnation.
+        continue;
+      }
       this.#learn(m.rangeId, m.from, from);
       const list = byRange.get(m.rangeId) ?? [];
       list.push(m);
@@ -224,7 +266,8 @@ export class Store implements NodeInboundHandler {
     for (const [rangeId, list] of byRange) {
       const handler = this.#handlers.get(rangeId);
       if (handler) handler.onMessages(list);
-      else if (!this.#gone.has(rangeId)) void this.#open(rangeId).then((h) => h?.onMessages(list));
+      else if (!this.#gone.has(rangeId))
+        void this.#open(rangeId, list[0]?.to).then((h) => h?.onMessages(list));
     }
   }
 
@@ -295,14 +338,21 @@ export class Store implements NodeInboundHandler {
       },
     };
     const ranges: RangeEvents = {
-      split: (rightId, campaign) => {
-        void this.#startSplit(rightId, campaign);
+      split: (rightId, replicaId, campaign) => {
+        void this.#startSplit(rightId, replicaId, campaign);
       },
       beforeMerge: (rightId, freezeIndex) => this.#stopForMerge(rightId, freezeIndex),
       mergeAborted: (rightId) => {
         if (!this.#stopped.delete(rightId)) return;
         this.#gone.delete(rightId);
         void this.addRange(rightId);
+      },
+      removed: () => {
+        void this.#remove(rangeId);
+      },
+      peerRemoved: (replicaId, address) => {
+        const replica = this.#replicas.get(rangeId);
+        if (replica && address) this.#sendTombstone(rangeId, replica.replicaId, replicaId, address);
       },
       merged: (rightId) => {
         const stopped = this.#stopped.get(rightId);
@@ -314,14 +364,14 @@ export class Store implements NodeInboundHandler {
   }
 
   /** Starts (or restarts an uninitialised) replica of a range this node just split off. */
-  async #startSplit(rightId: bigint, campaign: boolean): Promise<void> {
+  async #startSplit(rightId: bigint, replicaId: bigint, campaign: boolean): Promise<void> {
     const existing = this.#replicas.get(rightId);
     if (existing && !existing.initialised) {
       this.#replicas.delete(rightId);
       this.#handlers.delete(rightId);
       await existing.close();
     }
-    const replica = await this.addRange(rightId);
+    const replica = await this.addRange(rightId, replicaId);
     if (campaign && replica.initialised) replica.campaign();
   }
 
@@ -378,11 +428,18 @@ export class Store implements NodeInboundHandler {
     rangeId: bigint,
     pairs: readonly KeyValue[],
   ): Array<{ replica: Replica; descriptorVersion: bigint }> {
-    const incoming = this.#incoming(pairs, rangeId);
+    // Range 0 is the placement driver's group: its sliver of keyspace holds no user keys (ADR-0010).
+    const incoming = rangeId === 0n ? undefined : this.#incoming(pairs, rangeId);
     if (!incoming) return [];
     const found: Array<{ replica: Replica; descriptorVersion: bigint }> = [];
     for (const [id, replica] of this.#replicas) {
-      if (id === rangeId || !replica.initialised || isUninitialised(replica.descriptor)) continue;
+      if (
+        id === 0n ||
+        id === rangeId ||
+        !replica.initialised ||
+        isUninitialised(replica.descriptor)
+      )
+        continue;
       if (overlaps(incoming, replica.descriptor))
         found.push({ replica, descriptorVersion: replica.descriptor.epoch?.version ?? 0n });
     }
@@ -393,6 +450,50 @@ export class Store implements NodeInboundHandler {
     const key = rangeDescriptorKey(rangeId);
     const pair = pairs.find((p) => compareBytes(p.key, key) === 0);
     return pair ? fromBinary(RangeDescriptorSchema, pair.value) : undefined;
+  }
+
+  /** At most once per election timeout per removed replica. */
+  #sendTombstone(rangeId: bigint, from: bigint, to: bigint, address: string): void {
+    const key = `${rangeId}/${to}`;
+    const last = this.#tombstoneSent.get(key);
+    if (last !== undefined && this.#tick - last < BigInt(this.#deps.electionTicks)) return;
+    this.#tombstoneSent.set(key, this.#tick);
+    this.#deps.transport.send(address, [
+      create(MessageSchema, { type: MessageType.TOMBSTONE, from, to, rangeId }),
+    ]);
+  }
+
+  #buried(rangeId: bigint, replicaId: bigint): boolean {
+    return this.#tombstones.has(`${rangeId}/${replicaId}`);
+  }
+
+  /** The replica was removed from its range: stop it, forget its state, and never accept its id again. */
+  #remove(rangeId: bigint): Promise<void> {
+    const replica = this.#replicas.get(rangeId);
+    if (!replica) return Promise.resolve();
+    const done = this.#destroy(rangeId, replica)
+      .catch((cause: unknown) => {
+        // Leftover state of a removed replica is harmless (its id is tombstoned) but worth knowing.
+        this.#deps.logger.error('could not finish destroying a replica', {
+          rangeId,
+          error: cause instanceof Error ? cause.message : String(cause),
+        });
+      })
+      .finally(() => {
+        this.#removing.delete(rangeId);
+      });
+    this.#removing.set(rangeId, done);
+    return done;
+  }
+
+  async #destroy(rangeId: bigint, replica: Replica): Promise<void> {
+    this.#tombstones.add(`${rangeId}/${replica.replicaId}`);
+    this.#replicas.delete(rangeId);
+    this.#handlers.delete(rangeId);
+    this.#members.delete(rangeId);
+    this.#learned.delete(rangeId);
+    await this.#deps.bury?.(rangeId, replica.replicaId);
+    await replica.destroy();
   }
 
   /** Removes a local replica whose range was merged away while this node was behind. */
@@ -413,8 +514,8 @@ export class Store implements NodeInboundHandler {
     return err(mindlogError(code, outcome.value.message));
   }
 
-  #open(rangeId: bigint): Promise<InboundHandler | undefined> {
-    return this.addRange(rangeId).then(
+  #open(rangeId: bigint, replicaId?: bigint): Promise<InboundHandler | undefined> {
+    return this.addRange(rangeId, replicaId).then(
       () => this.#handlers.get(rangeId),
       (cause: unknown) => {
         this.#deps.logger.error('could not open a replica', {

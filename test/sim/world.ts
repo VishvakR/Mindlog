@@ -17,6 +17,7 @@ export class World {
   now = 0;
   readonly random: SeededRandom;
   #seq = 0;
+  #processed = 0;
   readonly #heap: Event[] = [];
 
   constructor(seed: bigint) {
@@ -48,6 +49,9 @@ export class World {
       const next = this.#heap[0];
       if (!next || next.time > until) break;
       this.#pop();
+      // A run is tens of thousands of events; millions mean something re-arms itself without end.
+      if (++this.#processed > 3_000_000)
+        throw new Error(`event storm at ${next.time.toFixed(1)}ms`);
       this.now = next.time;
       next.run();
       await settle();

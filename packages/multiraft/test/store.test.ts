@@ -1,3 +1,16 @@
+import { create } from '@bufbuild/protobuf';
+import {
+  ConfChangeSchema,
+  ConfChangeType,
+  RangeDescriptorSchema,
+  RangeEpochSchema,
+  ReplicaDescriptorSchema,
+  ReplicaRole,
+} from '@mindlog/proto';
+import { MemoryLogger, err, mindlogError, ok } from '@mindlog/core';
+import type { PdClient } from '@mindlog/multiraft';
+import { PdAgent, SystemScheduler } from '@mindlog/multiraft';
+import { loadTombstones, localRanges } from '@mindlog/statemachine';
 import { afterEach, describe, expect, test } from 'vitest';
 import { counter, incr } from './support/counter.js';
 import { until } from './support/local-cluster.js';
@@ -161,5 +174,123 @@ describe('Store splits and merges (ADR-0009)', () => {
     if (!at) throw new Error('no leader');
     const result = await at.store.split(1n, 2n);
     expect(!result.ok && result.error.code).toBe('INVALID_ARGUMENT');
+  });
+});
+
+describe('Store membership (ADR-0028)', () => {
+  // One range spanning everything on all three nodes.
+  const three = { '1': [1n], '2': [1n], '3': [1n] };
+  const noSpans = {};
+  const remove = (id: bigint) =>
+    create(ConfChangeSchema, { type: ConfChangeType.REMOVE_NODE, nodeId: id, address: '' });
+  const add = (type: ConfChangeType, id: bigint, address: string) =>
+    create(ConfChangeSchema, { type, nodeId: id, address });
+
+  test('a removed replica is destroyed on its node, state included, and its id is refused', async () => {
+    cluster = await storeCluster(ids, three, {}, noSpans);
+    const c = cluster;
+    const leader = await leaderOf(c, 1n);
+    expect((await leader.propose(incr('a'))).ok).toBe(true);
+    const victim = ids.find((id) => id !== leader.replicaId) as bigint;
+    expect((await leader.changeMembership(remove(victim))).ok).toBe(true);
+    await until(() => c.replica(victim, 1n) === undefined);
+    // Destruction continues after the replica leaves the store's map: wait until its state is gone.
+    let remaining = await localRanges(c.node(victim).stateStore);
+    for (let i = 0; i < 500 && remaining.includes(1n); i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      remaining = await localRanges(c.node(victim).stateStore);
+    }
+    expect(remaining).not.toContain(1n);
+    expect((await loadTombstones(c.node(victim).stateStore)).has(`1/${victim}`)).toBe(true);
+    // Messages to the dead id do not bring it back.
+    await new Promise((r) => setTimeout(r, 100));
+    expect(c.replica(victim, 1n)).toBeUndefined();
+  });
+
+  test('a replica that missed its removal is told to go when it next speaks', async () => {
+    cluster = await storeCluster(ids, three, {}, noSpans);
+    const c = cluster;
+    const leader = await leaderOf(c, 1n);
+    const victim = ids.find((id) => id !== leader.replicaId) as bigint;
+    c.net.isolate(
+      c.node(victim).address,
+      ids.map((id) => `n${id}`),
+    );
+    expect((await leader.changeMembership(remove(victim))).ok).toBe(true);
+    expect(c.replica(victim, 1n)).toBeDefined();
+    c.net.cut.clear();
+    // It campaigns, a member recognises its id from the removal, and it destroys itself.
+    await until(() => c.replica(victim, 1n) === undefined, 5000);
+  });
+
+  test('the node returns as a new replica with a fresh id and catches up', async () => {
+    cluster = await storeCluster(ids, three, {}, noSpans);
+    const c = cluster;
+    const leader = await leaderOf(c, 1n);
+    expect((await leader.propose(incr('a'))).ok).toBe(true);
+    const victim = ids.find((id) => id !== leader.replicaId) as bigint;
+    expect((await leader.changeMembership(remove(victim))).ok).toBe(true);
+    await until(() => c.replica(victim, 1n) === undefined);
+    const address = c.node(victim).address;
+    expect(
+      (await leader.changeMembership(add(ConfChangeType.ADD_LEARNER, 1000n, address))).ok,
+    ).toBe(true);
+    await until(() => c.replica(victim, 1n)?.initialised === true);
+    expect(c.replica(victim, 1n)?.replicaId).toBe(1000n);
+    await until(() => (c.replica(victim, 1n)?.appliedIndex ?? 0n) >= leader.appliedIndex);
+    expect(await counter(c.node(victim).stateStore, 'a')).toBe(1);
+    expect((await leader.changeMembership(add(ConfChangeType.ADD_VOTER, 1000n, address))).ok).toBe(
+      true,
+    );
+    expect((await leader.propose(incr('a'))).ok).toBe(true);
+    await until(() => (c.replica(victim, 1n)?.appliedIndex ?? 0n) >= leader.appliedIndex);
+    expect(await counter(c.node(victim).stateStore, 'a')).toBe(2);
+  });
+
+  test('PD collects a replica that missed its removal and cannot reach anyone', async () => {
+    cluster = await storeCluster(ids, three, {}, noSpans);
+    const c = cluster;
+    const leader = await leaderOf(c, 1n);
+    const victim = ids.find((id) => id !== leader.replicaId) as bigint;
+    c.net.isolate(
+      c.node(victim).address,
+      ids.map((id) => `n${id}`),
+    );
+    expect((await leader.changeMembership(remove(victim))).ok).toBe(true);
+    const zombie = c.replica(victim, 1n);
+    expect(zombie).toBeDefined();
+    // PD's directory lists the range without the victim, at a newer membership version.
+    const listed = leader.descriptor;
+    const entry = create(RangeDescriptorSchema, {
+      ...listed,
+      epoch: create(RangeEpochSchema, { confVersion: 99n, version: 0n }),
+      replicas: [
+        create(ReplicaDescriptorSchema, {
+          nodeId: 1n,
+          replicaId: leader.replicaId,
+          role: ReplicaRole.VOTER,
+        }),
+      ],
+    });
+    const pd: PdClient = {
+      allocIds: () => Promise.resolve(err(mindlogError('UNAVAILABLE', 'unused'))),
+      tso: () => Promise.resolve(err(mindlogError('UNAVAILABLE', 'unused'))),
+      getRange: () => Promise.resolve(ok({ range: entry, leaderReplicaId: leader.replicaId })),
+      scanRanges: () => Promise.resolve(ok([])),
+      storeHeartbeat: () => Promise.resolve(err(mindlogError('UNAVAILABLE', 'unused'))),
+      rangeHeartbeat: () => Promise.resolve(err(mindlogError('UNAVAILABLE', 'unused'))),
+    };
+    const agent = new PdAgent(c.node(victim).store, pd, new SystemScheduler(), {
+      node: { nodeId: victim, address: c.node(victim).address, zone: 'z', binaryVersion: 4 },
+      storeHeartbeatMs: 60_000,
+      rangeHeartbeatMs: 60_000,
+      logger: new MemoryLogger(),
+    });
+    // Waits for the replica to have no leader (it has not heard from one since the isolation).
+    await until(() => zombie?.status().lead === 0n || c.replica(victim, 1n) === undefined, 8000);
+    await agent.collectZombies();
+    expect(c.replica(victim, 1n)).toBeDefined(); // one strike is not enough
+    await agent.collectZombies();
+    await until(() => c.replica(victim, 1n) === undefined, 3000);
   });
 });

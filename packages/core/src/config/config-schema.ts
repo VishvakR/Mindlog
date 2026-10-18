@@ -31,6 +31,52 @@ export const configSchema = z.strictObject({
       // Start with no membership and wait to be added as a learner.
       join: z.boolean().default(false),
       maxClockOffsetMs: z.number().int().min(1).default(500),
+      // Placement driver endpoints (`host:port`, the `pd.listen` addresses). Empty: this node
+      // runs its own PD (single-node) or has none and keeps its static layout.
+      pdEndpoints: z.array(z.string().min(1)).default([]),
+    })
+    .prefault({}),
+  // Placement driver role (ADR-0010): this process serves a PD replica from its own data directory.
+  pd: z
+    .strictObject({
+      enabled: z.boolean().default(false),
+      listen: listener(7100),
+      // Defaults to `<node.dataDir>/pd`.
+      dataDir: z.string().min(1).optional(),
+      // The PD group's members (id and `host:port` of their `pd.listen`); empty means one voter.
+      peers: z
+        .array(z.strictObject({ id: z.number().int().min(1), address: z.string().min(1) }))
+        .default([]),
+      storeHeartbeatMs: z.number().int().min(10).default(10_000),
+      rangeHeartbeatMs: z.number().int().min(10).default(2_000),
+      deadAfterMs: z.number().int().min(100).default(300_000),
+      schedulerIntervalMs: z.number().int().min(10).default(1_000),
+      tsoWindowMs: z.number().int().min(100).default(3_000),
+    })
+    .prefault({}),
+  // Range sizing and splitting (ADR-0009).
+  ranges: z
+    .strictObject({
+      maxBytes: z
+        .number()
+        .int()
+        .min(1)
+        .default(64 * 1024 * 1024),
+      mergeBelowBytes: z
+        .number()
+        .int()
+        .min(0)
+        .default(16 * 1024 * 1024),
+      splitQps: z.number().min(1).default(2500),
+      splitQpsWindowMs: z.number().int().min(1).default(60_000),
+      replicas: z.number().int().min(1).default(3),
+    })
+    .prefault({}),
+  features: z
+    .strictObject({
+      // Cross-range transactions (ADR-0030): off until the simulator has exercised them.
+      crossRangeTxn: z.boolean().default(false),
+      semanticSplit: z.boolean().default(false),
     })
     .prefault({}),
   raft: z

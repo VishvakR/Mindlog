@@ -1,7 +1,7 @@
 import { createServer } from 'node:http2';
 import type { Http2Server } from 'node:http2';
 import type { AddressInfo } from 'node:net';
-import type { Client } from '@connectrpc/connect';
+import type { Client, ConnectRouter } from '@connectrpc/connect';
 import { createClient } from '@connectrpc/connect';
 import {
   Http2SessionManager,
@@ -28,6 +28,8 @@ export interface ConnectTransportOptions {
   readonly metrics: Metrics;
   /** Stamps outgoing RPCs with the node's HLC and merges incoming ones (PLAN 8.7). */
   readonly clock?: ClockSync;
+  /** More Connect services to serve on this listener (the placement driver's RPCs). */
+  readonly routes?: (router: ConnectRouter) => void;
 }
 
 interface Peer {
@@ -79,6 +81,7 @@ export class ConnectTransport implements NodeTransport {
     const server = createServer(
       connectNodeAdapter({
         routes: (router) => {
+          options.routes?.(router);
           router.service(RaftService, {
             send: async (requests: AsyncIterable<SendRequest>) => {
               for await (const request of requests) {

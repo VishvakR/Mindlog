@@ -76,6 +76,11 @@ export class SimNetwork {
     this.#groups.clear();
   }
 
+  /** True if the nodes are on the same side of any partition. */
+  reachable(a: bigint, b: bigint): boolean {
+    return this.#connected(a, b);
+  }
+
   #connected(a: bigint, b: bigint): boolean {
     return (this.#groups.get(a) ?? -1) === (this.#groups.get(b) ?? -1);
   }

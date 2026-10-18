@@ -11,6 +11,7 @@ export interface RangeFaultTarget {
   readonly live: () => Store[];
   readonly say: (line: string) => void;
   readonly nextRangeId: () => bigint;
+  readonly nextReplicaId: () => bigint;
   readonly count: (kind: 'splits' | 'merges' | 'transfers' | 'membership') => void;
 }
 
@@ -81,24 +82,29 @@ export function churnSomeMember(t: RangeFaultTarget): void {
   if (others.length < 2) return;
   const victim = t.world.pick(others);
   const rangeId = replica.rangeId;
+  const address = s.confState.addresses[victim.toString()] ?? '';
+  // The node comes back as a new replica: a removed replica's id is never reused (ADR-0028).
+  const fresh = t.nextReplicaId();
   t.count('membership');
-  t.say(`remove n${victim} from range ${rangeId}`);
-  const change = (type: ConfChangeType) =>
-    create(ConfChangeSchema, { type, nodeId: victim, address: `n${victim}` });
+  t.say(`remove replica ${victim} (${address}) from range ${rangeId}`);
+  const change = (type: ConfChangeType, id: bigint) =>
+    create(ConfChangeSchema, { type, nodeId: id, address });
   const leaderOf = () =>
     t
       .live()
       .flatMap((st) => leaders(st))
       .find((r) => r.rangeId === rangeId);
-  void replica.changeMembership(change(ConfChangeType.REMOVE_NODE)).then(() => {
+  void replica.changeMembership(change(ConfChangeType.REMOVE_NODE, victim)).then((removed) => {
+    // Only a removal that happened frees the node for a new replica (one replica per range per node).
+    if (!removed.ok) return;
     t.world.at(t.world.now + t.world.between(200, 1500), () => {
       const now = leaderOf();
       if (!now) return;
-      t.say(`add n${victim} back to range ${rangeId}`);
-      void now.changeMembership(change(ConfChangeType.ADD_LEARNER)).then((added) => {
+      t.say(`add ${address} back to range ${rangeId} as replica ${fresh}`);
+      void now.changeMembership(change(ConfChangeType.ADD_LEARNER, fresh)).then((added) => {
         if (!added.ok) return;
         t.world.at(t.world.now + t.world.between(200, 1500), () => {
-          void leaderOf()?.changeMembership(change(ConfChangeType.ADD_VOTER));
+          void leaderOf()?.changeMembership(change(ConfChangeType.ADD_VOTER, fresh));
         });
       });
     });

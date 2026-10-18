@@ -1,7 +1,7 @@
 /**
  * @mindlog/pd — the placement driver (PLAN 8.3, ADR-0010).
  */
-export { PD_HANDLERS, decodeU64, encodeU64, integerResult } from './pd-handlers.js';
+export { PD_DESCRIPTOR, PD_HANDLERS, decodeU64, encodeU64, integerResult } from './pd-handlers.js';
 export { FIRST_ALLOCATED_ID, INFINITY, PD_RANGE_ID } from './pd-keys.js';
 export { PdView, contains } from './pd-view.js';
 export type {
@@ -29,3 +29,5 @@ export type { IdSource } from './operators.js';
 export { OperatorController } from './operators.js';
 export type { PdGroup, PdServiceDeps } from './pd-service.js';
 export { PdService } from './pd-service.js';
+export type { PdServer, PdServerOptions } from './pd-rpc.js';
+export { ConnectPdClient, InProcessPdClient, pdRoutes, startPdServer } from './pd-rpc.js';

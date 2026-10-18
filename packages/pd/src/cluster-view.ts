@@ -13,6 +13,8 @@ export interface PdConfig {
   readonly maxOperators: number;
   /** An operator that has not finished in this time is cancelled. */
   readonly operatorTimeoutMs: number;
+  /** A learner this far behind after this long is removed rather than waited for. */
+  readonly learnerTimeoutMs: number;
 }
 
 export const DEFAULT_PD_CONFIG: PdConfig = {
@@ -23,6 +25,7 @@ export const DEFAULT_PD_CONFIG: PdConfig = {
   splitQpsWindowMs: 60_000,
   maxOperators: 4,
   operatorTimeoutMs: 600_000,
+  learnerTimeoutMs: 120_000,
 };
 
 export interface NodeView {
@@ -41,6 +44,10 @@ export interface RangeView {
   readonly hotForMs: number;
   /** Replica id → how much of the log it has. */
   readonly progress: ReadonlyMap<bigint, bigint>;
+  /** The leader's applied index. */
+  readonly applied: bigint;
+  /** How long the oldest learner of the range has been a learner, in ms (0 without one). */
+  readonly learnerForMs: number;
 }
 
 export interface ClusterView {

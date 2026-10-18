@@ -22,6 +22,16 @@ import {
 
 const OPERATORS_KEPT = 1000n;
 
+/**
+ * The PD group's span: a sliver no encoded key falls in (keys start with a type code above 0),
+ * so snapshots of the PD range carry its range-local state and none of the user keyspace.
+ */
+export const PD_DESCRIPTOR = create(RangeDescriptorSchema, {
+  rangeId: 0n,
+  startKey: Uint8Array.of(0x00),
+  endKey: Uint8Array.of(0x01),
+});
+
 export const integerResult = (n: bigint): CommandResult =>
   create(CommandResultSchema, {
     outcome: { case: 'kv', value: { kind: { case: 'integer', value: n } } },

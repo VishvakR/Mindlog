@@ -13,3 +13,6 @@ export { DEFAULT_REPLICA_OPTIONS, startSingleNode } from './single-node.js';
 export type { NodeInboundHandler, NodeTransport } from './ports.js';
 export type { ReplicaViews, StoreDeps } from './store.js';
 export { Store } from './store.js';
+export type { PdClient } from './pd-client.js';
+export type { PdAgentOptions } from './pd-agent.js';
+export { PdAgent } from './pd-agent.js';

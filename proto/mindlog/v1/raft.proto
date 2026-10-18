@@ -81,6 +81,8 @@ enum MessageType {
   MESSAGE_TYPE_TIMEOUT_NOW = 11;
   MESSAGE_TYPE_READ_INDEX = 12;
   MESSAGE_TYPE_READ_INDEX_RESPONSE = 13;
+  // To a replica that was removed from its range: destroy yourself (ADR-0028). Never reaches the Raft core.
+  MESSAGE_TYPE_TOMBSTONE = 14;
 }
 
 message Message {

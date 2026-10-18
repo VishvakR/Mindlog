@@ -75,3 +75,11 @@ Every scheduler run records a plan (the chosen operator or the reason nothing wa
 - A PD failover loses at most one heartbeat interval of soft state; schedulers wait `2 × storeHeartbeat` after a PD leader change before scheduling.
 - TSO costs one PD round trip per transaction start and commit; batching inside a node is possible later.
 - The simulator runs PD as a Raft group on 3 of its nodes, with the same faults as data ranges.
+
+## Amendment (2026-10-18, as built)
+
+- **The PD group is range 0 of an ordinary `Store`.** It has its own stores (`pd.dataDir`), its own Raft transport on `pd.listen` next to the `PdService` RPCs, and the same `Replica`, quiescence and snapshot code as data ranges. Its state lives in range-local keys of range 0, so a Raft snapshot carries it. Its span is a sliver no encoded key falls in. Range 0 is never scheduled: the agents leave it out of range heartbeats, and its members come from `pd.peers`. The simulator hosts range 0 in the data stores of the first three nodes.
+- **TSO calls need a lease read.** A leader cut off from its quorum must stop issuing before a new leader starts above its window; the lease read fails once the lease has run out.
+- **Operator steps carry the id of the replica they create** (allocated when the operator starts) and PD never changes a range itself. The repair scheduler also finishes moves a PD failover interrupted: it promotes a learner nobody is promoting, removes a learner that stays behind for `learnerTimeoutMs`, removes an extra voter from the most loaded node, and refills a range with too few voters.
+- **A node holds at most one replica of a range.** The agent refuses an `add-learner` for an address that already holds one.
+- **Cluster version.** The agent proposes `Split` and `Merge` only at cluster version 4 or above.

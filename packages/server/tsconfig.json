@@ -41,6 +41,9 @@
       "path": "../raft"
     },
     {
+      "path": "../pd"
+    },
+    {
       "path": "../proto"
     }
   ]

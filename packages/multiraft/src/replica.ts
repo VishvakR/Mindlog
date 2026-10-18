@@ -26,6 +26,7 @@ import type {
 import {
   CommandSchema,
   ConfChangeSchema,
+  ConfChangeType,
   ConfStateSchema,
   EntryType,
   MessageSchema,
@@ -82,13 +83,17 @@ export interface ReplicaDeps {
  */
 export interface RangeEvents {
   /** A split created range `rightId`; this node should start its replica. */
-  split(rightId: bigint, campaign: boolean): void;
+  split(rightId: bigint, replicaId: bigint, campaign: boolean): void;
   /** Resolves once the local replica of `rightId` applied `freezeIndex`, then stops it. */
   beforeMerge(rightId: bigint, freezeIndex: bigint): Promise<void>;
   /** The merge applied: the stopped right replica can be destroyed. */
   merged(rightId: bigint): void;
   /** The merge was refused: restart the right replica that `beforeMerge` stopped. */
   mergeAborted(rightId: bigint): void;
+  /** This replica was removed from its range: destroy it and refuse its id for good. */
+  removed(): void;
+  /** The leader applied the removal of another replica, last known at `address`. */
+  peerRemoved(replicaId: bigint, address: string): void;
 }
 
 /** Read consistency levels (PLAN 9.3, ADR-0007). */
@@ -145,6 +150,7 @@ export class Replica implements Proposer, InboundHandler {
   #quiesced = false;
   #leaderlessTicks = 0;
   #leaseBlockTicks = 0;
+  #proposals = 0;
   readonly #labels: { readonly range: string };
   readonly #m: {
     term: Gauge;
@@ -256,6 +262,7 @@ export class Replica implements Proposer, InboundHandler {
         confState: deps.machine.confState,
       },
     );
+    await deps.machine.rememberReplicaId(deps.raftId);
     const replica = new Replica(deps, raw);
     deps.transport.attach(replica);
     deps.transport.setPeers(addressesOf(deps.machine.confState));
@@ -329,6 +336,21 @@ export class Replica implements Proposer, InboundHandler {
     return this.#deps.rangeId;
   }
 
+  /** True if `id` was removed from this range (ADR-0028). */
+  isRemoved(id: bigint): boolean {
+    return this.#deps.machine.isRemoved(id);
+  }
+
+  /** This replica's Raft id (unique within the range, ADR-0028). */
+  get replicaId(): bigint {
+    return this.#deps.raftId;
+  }
+
+  /** Approximate bytes in the range and proposals accepted so far, for PD's statistics. */
+  stats(): { readonly bytes: bigint; readonly proposals: number } {
+    return { bytes: this.#deps.machine.approximateBytes, proposals: this.#proposals };
+  }
+
   /** The range this one is frozen for, or 0 (ADR-0009). */
   get frozenFor(): bigint {
     return this.#deps.machine.frozenFor;
@@ -381,6 +403,7 @@ export class Replica implements Proposer, InboundHandler {
       );
     }
     const data = toBinary(CommandSchema, command);
+    this.#proposals++;
     const proposed = this.#raw.propose(data);
     if (!proposed.ok) {
       this.#m.dropped.inc(1, { ...this.#labels, reason: 'not_leader' });
@@ -504,7 +527,8 @@ export class Replica implements Proposer, InboundHandler {
   }
 
   async #drain(): Promise<void> {
-    if (this.#failure !== undefined) return;
+    // A drain queued before `close()` must not write state after the replica was destroyed.
+    if (this.#failure !== undefined || this.#closed) return;
     try {
       this.#issueReads();
       while (this.#raw.hasReady()) await this.#handle(this.#raw.ready());
@@ -557,10 +581,17 @@ export class Replica implements Proposer, InboundHandler {
   async #apply(entry: Entry): Promise<void> {
     const machine = this.#deps.machine;
     if (entry.type === EntryType.CONF_CHANGE) {
-      const confState = this.#raw.applyConfChange(fromBinary(ConfChangeSchema, entry.data));
-      await machine.applyConfState(entry.index, entry.term, confState);
+      const change = fromBinary(ConfChangeSchema, entry.data);
+      const gone = change.type === ConfChangeType.REMOVE_NODE ? change.nodeId : undefined;
+      const address =
+        gone === undefined ? '' : (machine.confState.addresses[gone.toString()] ?? '');
+      const confState = this.#raw.applyConfChange(change);
+      await machine.applyConfState(entry.index, entry.term, confState, gone);
       this.#deps.transport.setPeers(addressesOf(confState));
       this.#resolveConf(entry, confState);
+      if (gone === this.#deps.raftId) this.#deps.ranges?.removed();
+      // The removed replica no longer hears from the leader: tell it, once, that it is gone.
+      else if (gone !== undefined && this.isLeader()) this.#deps.ranges?.peerRemoved(gone, address);
       return;
     }
     if (entry.data.length === 0) {
@@ -592,7 +623,8 @@ export class Replica implements Proposer, InboundHandler {
     const ranges = this.#deps.ranges;
     const body = command.body;
     if (!ranges) return;
-    if (body.case === 'split' && applied) ranges.split(body.value.newRangeId, this.isLeader());
+    if (body.case === 'split' && applied)
+      ranges.split(body.value.newRangeId, this.#deps.raftId, this.isLeader());
     if (body.case !== 'merge' || !body.value.right) return;
     if (!applied) {
       ranges.mergeAborted(body.value.right.rangeId);
@@ -718,8 +750,13 @@ export class Replica implements Proposer, InboundHandler {
   // ---- ticks, deadlines, compaction ----
 
   #onTick(): void {
-    if (this.#failure !== undefined || this.#closed || this.#quiesced) return;
+    if (this.#failure !== undefined || this.#closed) return;
     this.#tick += 1n;
+    // Waiters still time out while the range is quiesced: leadership may have moved on without them.
+    if (this.#quiesced) {
+      this.#expire();
+      return;
+    }
     this.#lastTickNs = this.#deps.clock.monotonic();
     if (this.#leaseBlockTicks > 0) this.#leaseBlockTicks--;
     this.#pokeIfLeaderless();

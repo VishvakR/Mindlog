@@ -40,6 +40,13 @@ export const confStateKey = (rangeId: bigint): Uint8Array => rangeLocalKey(range
 export const rangeDescriptorKey = (rangeId: bigint): Uint8Array =>
   rangeLocalKey(rangeId, 'range-desc');
 
+/** A replica id removed from the range (kept so any member can tell a zombie it is gone, ADR-0028). */
+export const removedKey = (rangeId: bigint, replicaId: bigint): Uint8Array =>
+  rangeLocalKey(rangeId, 'removed', replicaId);
+
+/** The Raft id this node's replica of the range was created with (ADR-0028). */
+export const replicaIdKey = (rangeId: bigint): Uint8Array => rangeLocalKey(rangeId, 'replica-id');
+
 /** Newest MVCC version the range assigned (ADR-0027). */
 export const lastVersionKey = (rangeId: bigint): Uint8Array =>
   rangeLocalKey(rangeId, 'last-version');
@@ -81,6 +88,16 @@ export function raftTruncatedKey(rangeId: bigint): Uint8Array {
 /** Raft term, vote and commit of a range (ADR-0026). */
 export function raftStateKey(rangeId: bigint): Uint8Array {
   return systemKey(['raft-state', rangeId]);
+}
+
+/** A replica removed from its range; outside the range's own keys so destroying the range keeps it. */
+export const tombstoneKey = (rangeId: bigint, replicaId: bigint): Uint8Array =>
+  systemKey(['tombstone', rangeId, replicaId]);
+
+export function tombstonePrefix(): Uint8Array {
+  const prefix = keyPrefix(NODE_TENANT, 's', ['tombstone']);
+  if (!prefix.ok) throw new RangeError(prefix.error.message);
+  return prefix.value;
 }
 
 /** On-disk format version of a store (ADR-0026). */

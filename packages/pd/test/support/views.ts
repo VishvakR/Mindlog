@@ -48,6 +48,8 @@ export function range(
     qps: options.qps ?? 0,
     hotForMs: options.hotForMs ?? 0,
     progress: new Map(),
+    applied: 0n,
+    learnerForMs: 0,
   };
 }
 

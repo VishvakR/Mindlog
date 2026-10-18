@@ -89,3 +89,10 @@ This is what TiKV does. Every replica created any other way, whether from a mess
 - Store-wide jobs (expiry, GC) become per-range and run on each range's leader.
 - The simulator's invariants are keyed by `(rangeId, index)`, and state hashes are taken per span.
 - Metrics carry a `range` label. Per-range series are bounded by the number of ranges on a node.
+
+## Amendment (2026-10-18, as built)
+
+- **Replica ids.** A replica made for a message has the id the message is addressed to; the id is stored in range-local state (`replica-id`) and never copied by a snapshot. A split's right range reuses the left replica's id. Bootstrap uses `node.raftId`; only replicas that start a cluster bootstrap, so a node re-added with a new id waits for a snapshot.
+- **Removal.** A replica that applies its own removal destroys its log and range-local state and records a tombstone (`rangeId/replicaId`, persisted outside the range's keys). Messages addressed to a tombstoned id are dropped, and a replica for the same range is not created until the destruction has finished. The state machine records removed ids in range-local state (snapshots carry them), so any member answers a message from a removed replica with a `TOMBSTONE` message, and the leader sends one when it applies the removal. A removed replica that was partitioned away thus destroys itself the next time it speaks.
+- **Snapshots replace only the installed span.** If the range shrank (a split this replica missed), the rest belongs to the new range, whose replica on the node keeps its own data. A newer snapshot whose span swallows a local range (a merge this node missed) removes that range.
+- **Waiters time out while quiesced.** Quiescence stops Raft ticks, not request deadlines.

@@ -1,5 +1,5 @@
 import type { Clock, Counter, Hlc, Histogram, Logger, Metrics } from '@mindlog/core';
-import { SeededRandom, hlcPhysical, prefixRange } from '@mindlog/core';
+import { SeededRandom, decodeKey, hlcPhysical, prefixRange } from '@mindlog/core';
 import type { EventBus } from '@mindlog/eventbus';
 import { create, fromBinary, toBinary } from '@bufbuild/protobuf';
 import type {
@@ -25,6 +25,8 @@ import {
   lastVersionKey,
   rangeDescriptorKey,
   rangeLocalPrefix,
+  removedKey,
+  replicaIdKey,
 } from '../system/system-keys.js';
 import {
   RANGE_INIT_INDEX,
@@ -99,6 +101,8 @@ interface RangeState {
   readonly lastVersion: bigint;
   readonly frozenFor: bigint;
   readonly bytes: bigint;
+  readonly replicaId: bigint | undefined;
+  readonly removed: ReadonlySet<bigint>;
 }
 
 /**
@@ -120,6 +124,8 @@ export class StateMachine {
   #lastVersion: bigint;
   #frozenFor: bigint;
   #bytes: bigint;
+  #replicaId: bigint | undefined;
+  #removed: ReadonlySet<bigint>;
   #appliedHlc = 0n;
 
   private constructor(deps: StateMachineDeps, rangeId: bigint, state: RangeState) {
@@ -132,6 +138,8 @@ export class StateMachine {
     this.#lastVersion = state.lastVersion;
     this.#frozenFor = state.frozenFor;
     this.#bytes = state.bytes;
+    this.#replicaId = state.replicaId;
+    this.#removed = state.removed;
     this.#latency = deps.metrics.histogram({
       name: 'mindlog_statemachine_apply_latency_seconds',
       help: 'Time to apply one committed command',
@@ -203,6 +211,25 @@ export class StateMachine {
   /** Newest MVCC version this range assigned (ADR-0027). */
   get lastVersion(): bigint {
     return this.#lastVersion;
+  }
+
+  /** The Raft id this replica was created with, once recorded (ADR-0028). */
+  get replicaId(): bigint | undefined {
+    return this.#replicaId;
+  }
+
+  /** True if `id` was removed from this range's membership (ADR-0028). */
+  isRemoved(id: bigint): boolean {
+    return this.#removed.has(id);
+  }
+
+  /** Records the replica's Raft id before it takes part in the range; ignored once set. */
+  async rememberReplicaId(id: bigint): Promise<void> {
+    if (this.#replicaId !== undefined) return;
+    const batch = this.#deps.store.batch();
+    batch.put(replicaIdKey(this.#rangeId), encodeU64(id));
+    await batch.write({ sync: true });
+    this.#replicaId = id;
   }
 
   /** The range this one is frozen for (a merge in progress), or 0 (ADR-0009). */
@@ -294,9 +321,15 @@ export class StateMachine {
   }
 
   /** Records the membership that a configuration entry produced (ADR-0006). */
-  async applyConfState(index: bigint, term: bigint, confState: ConfState): Promise<void> {
+  async applyConfState(
+    index: bigint,
+    term: bigint,
+    confState: ConfState,
+    removed?: bigint,
+  ): Promise<void> {
     this.#checkOrder(index);
     const batch = this.#deps.store.batch();
+    if (removed !== undefined) batch.put(removedKey(this.#rangeId, removed), new Uint8Array());
     batch.put(confStateKey(this.#rangeId), toBinary(ConfStateSchema, confState));
     const epoch = this.#descriptor.epoch ?? create(RangeEpochSchema, {});
     const descriptor = create(RangeDescriptorSchema, {
@@ -307,6 +340,7 @@ export class StateMachine {
     await this.#commit(batch, { index, term });
     this.#confState = confState;
     this.#descriptor = descriptor;
+    if (removed !== undefined) this.#removed = new Set([...this.#removed, removed]);
   }
 
   /**
@@ -317,6 +351,7 @@ export class StateMachine {
     const view = await this.#deps.store.snapshot();
     const state = await readRangeState(view, this.#rangeId);
     const parts = this.#ownKeys(state.descriptor ?? this.#descriptor);
+    const mine = replicaIdKey(this.#rangeId);
     return {
       meta: create(SnapshotMetaSchema, {
         index: state.applied.index,
@@ -328,6 +363,8 @@ export class StateMachine {
         let bytes = 0;
         for (const part of parts) {
           for await (const [key, value] of view.iterate(part)) {
+            // The Raft id belongs to the replica, not to the range's state.
+            if (Buffer.compare(key, mine) === 0) continue;
             chunk.push({ $typeName: 'mindlog.v1.KeyValue', key, value });
             bytes += key.length + value.length;
             if (bytes >= chunkBytes) {
@@ -356,9 +393,13 @@ export class StateMachine {
     if (!incoming) throw new Error(`snapshot of range ${this.#rangeId} has no descriptor`);
     const next = fromBinary(RangeDescriptorSchema, incoming.value);
     const batch = store.batch();
-    for (const part of [...this.#ownKeys(this.#descriptor), ...this.#ownKeys(next)])
-      for await (const [key] of store.iterate(part)) batch.del(key);
-    for (const { key, value } of pairs) batch.put(key, value);
+    const mine = replicaIdKey(this.#rangeId);
+    // Only the span being installed is replaced: if the range shrank (a split this replica missed),
+    // the rest belongs to the new range, whose replica on this node keeps its own data.
+    for (const part of this.#ownKeys(next))
+      for await (const [key] of store.iterate(part))
+        if (Buffer.compare(key, mine) !== 0) batch.del(key);
+    for (const { key, value } of pairs) if (Buffer.compare(key, mine) !== 0) batch.put(key, value);
     await batch.write({ sync: true });
     const state = await readRangeState(store, this.#rangeId);
     if (state.applied.index !== meta.index || state.applied.term !== meta.term)
@@ -371,6 +412,7 @@ export class StateMachine {
     this.#lastVersion = state.lastVersion;
     this.#frozenFor = state.frozenFor;
     this.#bytes = state.bytes;
+    this.#removed = state.removed;
   }
 
   #ownKeys(descriptor: RangeDescriptor) {
@@ -469,13 +511,14 @@ export class StateMachine {
 }
 
 async function readRangeState(reader: KvReader, rangeId: bigint): Promise<RangeState> {
-  const [applied, conf, descriptor, lastVersion, frozen, stats] = await Promise.all([
+  const [applied, conf, descriptor, lastVersion, frozen, stats, replicaId] = await Promise.all([
     reader.get(appliedIndexKey(rangeId)),
     reader.get(confStateKey(rangeId)),
     reader.get(rangeDescriptorKey(rangeId)),
     reader.get(lastVersionKey(rangeId)),
     reader.get(frozenKey(rangeId)),
     reader.get(statsKey(rangeId)),
+    reader.get(replicaIdKey(rangeId)),
   ]);
   return {
     applied: applied ? decodeApplied(applied) : { index: 0n, term: 0n },
@@ -484,5 +527,17 @@ async function readRangeState(reader: KvReader, rangeId: bigint): Promise<RangeS
     lastVersion: lastVersion ? decodeU64(lastVersion) : 0n,
     frozenFor: frozen ? decodeU64(frozen) : 0n,
     bytes: stats ? decodeU64(stats) : 0n,
+    replicaId: replicaId ? decodeU64(replicaId) : undefined,
+    removed: await readRemoved(reader, rangeId),
   };
+}
+
+async function readRemoved(reader: KvReader, rangeId: bigint): Promise<ReadonlySet<bigint>> {
+  const out = new Set<bigint>();
+  for await (const [key] of reader.iterate(prefixRange(rangeLocalPrefix(rangeId, 'removed')))) {
+    const decoded = decodeKey(key);
+    const id = decoded.ok ? decoded.value.tuple[3] : undefined;
+    if (typeof id === 'bigint') out.add(id);
+  }
+  return out;
 }

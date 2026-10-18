@@ -97,7 +97,13 @@ export class PdService {
   readonly #stores = new Map<bigint, Seen>();
   readonly #ranges = new Map<
     bigint,
-    { view: RangeView; seenMs: number; hotSince: number | undefined }
+    {
+      view: RangeView;
+      seenMs: number;
+      hotSince: number | undefined;
+      learner: bigint | undefined;
+      learnerSince: number | undefined;
+    }
   >();
   readonly #known = new Map<bigint, string>();
   readonly #plans = new Map<string, Plan>();
@@ -130,6 +136,11 @@ export class PdService {
     };
   }
 
+  /** True while this replica leads the PD group. */
+  get leading(): boolean {
+    return this.#d.group.isLeader();
+  }
+
   start(intervalMs = 1000): void {
     this.#timer ??= setInterval(() => {
       void this.tick();
@@ -158,6 +169,10 @@ export class PdService {
   async #nextTso(count: bigint): Promise<Result<bigint, MindlogError>> {
     const lead = this.#leaderCheck();
     if (lead) return lead;
+    // A leader cut off from its quorum must stop issuing before a new leader starts above its
+    // window: the lease read fails once the lease has run out (ADR-0007).
+    const lease = await this.#d.group.read('lease');
+    if (!lease.ok) return lease;
     const term = this.#d.group.status().term;
     const window = BigInt(this.#d.tsoWindowMs ?? 3000) << 16n;
     if (this.#tso.term !== term) {
@@ -260,6 +275,13 @@ export class PdService {
     const previous = this.#ranges.get(range.rangeId);
     const hot = stats.qps >= this.#config.splitQps;
     const hotSince = hot ? (previous?.hotSince ?? now) : undefined;
+    const learner = stats.learners[0];
+    const learnerSince =
+      learner === undefined
+        ? undefined
+        : previous?.learner === learner
+          ? previous.learnerSince
+          : now;
     const view: RangeView = {
       range,
       leaderReplicaId: stats.leaderReplicaId,
@@ -267,8 +289,10 @@ export class PdService {
       qps: stats.qps,
       hotForMs: hotSince === undefined ? 0 : now - hotSince,
       progress: new Map(stats.followers.map((f) => [f.replicaId, f.match])),
+      applied: stats.applied,
+      learnerForMs: learnerSince === undefined ? 0 : now - learnerSince,
     };
-    this.#ranges.set(range.rangeId, { view, seenMs: now, hotSince });
+    this.#ranges.set(range.rangeId, { view, seenMs: now, hotSince, learner, learnerSince });
     const known = `${range.epoch?.version ?? 0n}/${range.epoch?.confVersion ?? 0n}/${range.replicas.length}`;
     if (this.#known.get(range.rangeId) !== known) {
       const put = await this.#propose({ case: 'pdPutRange', value: { range } });

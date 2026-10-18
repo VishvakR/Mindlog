@@ -21,6 +21,7 @@ export const MindlogErrorCode = {
   UNAVAILABLE: 'UNAVAILABLE',
   NOT_LEADER: 'NOT_LEADER',
   RANGE_MOVED: 'RANGE_MOVED',
+  CROSS_RANGE: 'CROSS_RANGE',
   UNSUPPORTED_PROTOCOL: 'UNSUPPORTED_PROTOCOL',
   UNIMPLEMENTED: 'UNIMPLEMENTED',
   CLOCK_OFFSET_EXCEEDED: 'CLOCK_OFFSET_EXCEEDED',
@@ -207,6 +208,14 @@ export const ERROR_CODES = {
     mcp: 'tool_error',
     retryable: true,
     title: 'Range moved to another node',
+  },
+  CROSS_RANGE: {
+    resp: 'CROSSSLOT',
+    httpStatus: 400,
+    grpcStatus: GrpcStatus.FAILED_PRECONDITION,
+    mcp: 'invalid_params',
+    retryable: false,
+    title: 'Keys are in different ranges',
   },
   UNSUPPORTED_PROTOCOL: {
     resp: 'NOPROTO',

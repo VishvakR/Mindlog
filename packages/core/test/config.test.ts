@@ -112,6 +112,21 @@ describe('resolveConfig', () => {
   });
 });
 
+describe('resolveConfig models', () => {
+  test('no model service by default; the endpoint comes from the environment', () => {
+    expect(value(resolveConfig()).models).toEqual({
+      endpoint: undefined,
+      timeoutMs: 2000,
+      breakerFailures: 5,
+      breakerOpenMs: 10_000,
+    });
+    const config = value(
+      resolveConfig({ env: { MINDLOG_MODELS__ENDPOINT: 'model-service:50051' } }),
+    );
+    expect(config.models.endpoint).toBe('model-service:50051');
+  });
+});
+
 describe('resolveConfig ports', () => {
   test('port 0 binds any free port; out-of-range ports are rejected', () => {
     expect(

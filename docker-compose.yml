@@ -67,6 +67,7 @@ services:
     environment:
       MINDLOG_OBSERVABILITY__TRACING__ENDPOINT: http://jaeger:4318
       MINDLOG_OBSERVABILITY__TRACING__SAMPLE_RATIO: '1'
+      MINDLOG_MODELS__ENDPOINT: model-service:50051
     ports:
       - '6379:6379'
       - '8090:8090'
@@ -74,6 +75,7 @@ services:
       - mindlog-data:/data
     depends_on:
       - jaeger
+      - model-service
 
   model-service:
     profiles: [dev]

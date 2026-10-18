@@ -75,6 +75,15 @@ export const configSchema = z.strictObject({
       replicas: z.number().int().min(1).default(3),
     })
     .prefault({}),
+  models: z
+    .strictObject({
+      // `host:port` of the model service (PLAN 14); unset runs memory in degraded mode (PLAN 21).
+      endpoint: z.string().min(1).optional(),
+      timeoutMs: z.number().int().min(1).default(2000),
+      breakerFailures: z.number().int().min(1).default(5),
+      breakerOpenMs: z.number().int().min(1).default(10_000),
+    })
+    .prefault({}),
   features: z
     .strictObject({
       // Cross-range transactions (ADR-0030): off until the simulator has exercised them.

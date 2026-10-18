@@ -1,0 +1,29 @@
+{
+  "name": "@mindlog/models-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Model ports (embedder, entity recognizer, NLI, reranker, extractor), the gRPC adapter to the model service, a circuit breaker and deterministic fakes",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/models-client/"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@connectrpc/connect": "2.2.0",
+    "@connectrpc/connect-node": "2.2.0",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/proto": "workspace:*"
+  }
+}

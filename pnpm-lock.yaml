@@ -270,6 +270,27 @@ importers:
         specifier: workspace:*
         version: link:../multiraft
 
+  packages/models-client:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
+      '@connectrpc/connect':
+        specifier: 2.2.0
+        version: 2.2.0(@bufbuild/protobuf@2.16.0)
+      '@connectrpc/connect-node':
+        specifier: 2.2.0
+        version: 2.2.0(@bufbuild/protobuf@2.16.0)(@connectrpc/connect@2.2.0(@bufbuild/protobuf@2.16.0))
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
+
   packages/multiraft:
     dependencies:
       '@bufbuild/protobuf':

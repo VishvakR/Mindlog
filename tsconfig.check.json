@@ -99,6 +99,12 @@
     },
     {
       "path": "packages/transport/test"
+    },
+    {
+      "path": "packages/models-client"
+    },
+    {
+      "path": "packages/models-client/test"
     }
   ]
 }

@@ -147,6 +147,9 @@ importers:
         specifier: ^4.6.6
         version: 4.6.6
     devDependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
       '@mindlog/eventbus':
         specifier: workspace:*
         version: link:../eventbus
@@ -156,6 +159,9 @@ importers:
       '@mindlog/multiraft':
         specifier: workspace:*
         version: link:../multiraft
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
       '@mindlog/statemachine':
         specifier: workspace:*
         version: link:../statemachine

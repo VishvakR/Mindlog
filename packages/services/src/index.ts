@@ -23,3 +23,10 @@ export { AdminService } from './admin/admin-service.js';
 export type { ClusterAdmin, ClusterStatus } from './cluster/cluster-service.js';
 export { ClusterService } from './cluster/cluster-service.js';
 export * from './admin/schemas.js';
+export type { ClusterAction, PdAdmin } from './cluster/cluster-directory.js';
+export {
+  ClusterDirectory,
+  clusterActionSchema,
+  clusterView,
+  describeKey,
+} from './cluster/cluster-directory.js';

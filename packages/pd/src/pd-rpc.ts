@@ -9,6 +9,8 @@ import type { MindlogError, Result } from '@mindlog/core';
 import { ERROR_CODES, MindlogErrorCode, err, mindlogError, ok } from '@mindlog/core';
 import type { PdClient } from '@mindlog/multiraft';
 import type {
+  AdminRequest,
+  ClusterResponse,
   RangeDescriptor,
   RangeHeartbeatResponse,
   RangeStats,
@@ -161,6 +163,8 @@ export class InProcessPdClient implements PdClient {
   scanRanges = (start: Uint8Array, limit: number) => this.#service.scanRanges(start, limit);
   storeHeartbeat = (stats: StoreStats) => this.#service.storeHeartbeat(stats);
   rangeHeartbeat = (stats: RangeStats) => this.#service.rangeHeartbeat(stats);
+  cluster = () => this.#service.cluster();
+  admin = (request: AdminRequest) => this.#service.admin(request);
 }
 
 /**
@@ -233,5 +237,14 @@ export class ConnectPdClient implements PdClient {
 
   rangeHeartbeat(stats: RangeStats): Promise<Result<RangeHeartbeatResponse, MindlogError>> {
     return this.#call((c) => c.rangeHeartbeat({ stats }));
+  }
+
+  async cluster(): Promise<Result<ClusterResponse, MindlogError>> {
+    return this.#call((c) => c.cluster({}));
+  }
+
+  async admin(request: AdminRequest): Promise<Result<string, MindlogError>> {
+    const r = await this.#call((c) => c.admin(request));
+    return r.ok ? ok(r.value.message) : r;
   }
 }

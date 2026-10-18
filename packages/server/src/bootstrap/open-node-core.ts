@@ -39,6 +39,7 @@ import {
 } from '@mindlog/multiraft';
 import { ConnectPdClient } from '@mindlog/pd';
 import { StoreRouter, connectForwardCall, fromRequest } from '@mindlog/router';
+import type { PdAdmin } from '@mindlog/services';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
 import {
   ApplyHandlerRegistry,
@@ -82,6 +83,8 @@ export interface NodeCore {
   readonly pd: PdRole | undefined;
   /** This node's side of the placement driver; absent when the cluster has none. */
   readonly agent: PdAgent | undefined;
+  /** PD's cluster view and operator actions, for the dashboard; absent without a placement driver. */
+  readonly pdAdmin: PdAdmin | undefined;
   /** Internal Raft listener; absent for a single-voter node. */
   readonly transport: ConnectTransport | undefined;
   readonly stamper: CommandStamper;
@@ -116,7 +119,10 @@ async function openStores(dataDir: string) {
 }
 
 /** How this node reaches the placement driver: configured endpoints, else the PD it runs itself. */
-function pdClientFor(config: MindlogConfig, pd: PdRole | undefined): PdClient | undefined {
+function pdClientFor(
+  config: MindlogConfig,
+  pd: PdRole | undefined,
+): (PdClient & PdAdmin) | undefined {
   if (config.cluster.pdEndpoints.length > 0) return new ConnectPdClient(config.cluster.pdEndpoints);
   if (config.pd.enabled && config.pd.peers.length > 0)
     return new ConnectPdClient(config.pd.peers.map((p) => p.address));
@@ -239,7 +245,7 @@ export async function openNodeCore(
   let store: Store | undefined;
   let pd: PdRole | undefined;
   let agent: PdAgent | undefined;
-  let client: PdClient | undefined;
+  let client: (PdClient & PdAdmin) | undefined;
   let replica: Replica;
   // Forwarded calls arrive on the internal listener before the service exists; they wait for it.
   const running: { service?: KvService } = {};
@@ -384,6 +390,7 @@ export async function openNodeCore(
     store: started,
     pd,
     agent,
+    pdAdmin: client,
     transport,
     stamper,
     stateStore,

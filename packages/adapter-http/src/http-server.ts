@@ -9,6 +9,7 @@ import { openApiDocument } from './openapi.js';
 import type { AnyRouteSpec } from './route.js';
 import { sendProblem } from './route.js';
 import { adminRoutes } from './routes/admin-routes.js';
+import { clusterRoutes } from './routes/cluster-routes.js';
 import { CONSOLE_PROTOCOL, consoleRoutes } from './routes/console-routes.js';
 import { dashboardRoutes, isSpaRoute } from './routes/dashboard-routes.js';
 import { healthRoutes } from './routes/health-routes.js';
@@ -131,6 +132,7 @@ export class HttpServer {
     superuserRoutes(app, this.#routes, deps);
     kvRoutes(app, this.#routes, deps);
     adminRoutes(app, this.#routes, deps);
+    clusterRoutes(app, this.#routes, deps);
     consoleRoutes(app, deps);
     const document = () => openApiDocument(this.#routes, deps.version);
     app.get('/api/openapi.json', { config: { auth: false } }, () => document());

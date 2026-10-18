@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router';
 import { AppShell } from '@/components/app-shell';
 import { session } from '@/lib/api';
+import { ClusterPage } from '@/pages/cluster-page';
 import { ConsolePage } from '@/pages/console-page';
 import { DataPage } from '@/pages/data-page';
 import { LoginPage } from '@/pages/login-page';
@@ -22,6 +23,7 @@ export const router = createBrowserRouter(
           element: <AppShell />,
           children: [
             { index: true, element: <OverviewPage /> },
+            { path: 'cluster', element: <ClusterPage /> },
             { path: 'data', element: <DataPage /> },
             { path: 'console', element: <ConsolePage /> },
             { path: 'settings', element: <SettingsPage /> },

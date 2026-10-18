@@ -110,6 +110,49 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
+export interface ClusterNode {
+  id: string;
+  address: string;
+  zone: string;
+  state: string;
+  binaryVersion: number;
+  ranges: number;
+  leaders: number;
+  usedBytes: number;
+}
+
+export interface ClusterRange {
+  id: string;
+  start: string;
+  end: string;
+  epoch: string;
+  replicas: { replicaId: string; nodeId: string; role: string }[];
+}
+
+export interface ClusterOperator {
+  id: string;
+  rangeId: string;
+  scheduler: string;
+  step: number;
+  steps: string[];
+  explanation: string;
+  status: string;
+  createdMs: number;
+}
+
+export interface ClusterOverview {
+  clusterVersion: number;
+  nodes: ClusterNode[];
+  ranges: ClusterRange[];
+  operators: ClusterOperator[];
+  recent: ClusterOperator[];
+}
+
+export type ClusterAction =
+  | { action: 'drain-node' | 'undrain-node' | 'remove-node'; nodeId: string }
+  | { action: 'transfer-leader'; rangeId: string; replicaId: string }
+  | { action: 'split'; rangeId: string };
+
 const keyPath = (key: string, encoding: Encoding = 'utf8') =>
   `/kv/keys/${encodeURIComponent(key)}${encoding === 'base64' ? '?encoding=base64' : ''}`;
 
@@ -130,6 +173,9 @@ export const api = {
   me: () => request<Superuser>('GET', '/superusers/me'),
   overview: () => request<Record<string, unknown>>('GET', '/admin/overview'),
   settings: () => request<Record<string, unknown>>('GET', '/admin/settings'),
+  cluster: () => request<ClusterOverview>('GET', '/cluster/overview'),
+  clusterAction: (action: ClusterAction) =>
+    request<{ message: string }>('POST', '/cluster/actions', action),
   scan: (p: ScanParams) => {
     const q = new URLSearchParams({ cursor: p.cursor, count: String(p.count ?? 200) });
     if (p.match) q.set('match', p.match);

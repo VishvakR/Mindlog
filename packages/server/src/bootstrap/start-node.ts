@@ -20,7 +20,7 @@ import {
   initTracing,
   ok,
 } from '@mindlog/core';
-import { AdminService, ClusterService, KvBrowser } from '@mindlog/services';
+import { AdminService, ClusterDirectory, ClusterService, KvBrowser } from '@mindlog/services';
 import type { Replica } from '@mindlog/multiraft';
 import type { NodeCore } from './open-node-core.js';
 import { openNodeCore } from './open-node-core.js';
@@ -168,6 +168,7 @@ export async function startNode(
     admin,
     kv: service,
     browser: new KvBrowser(service),
+    cluster: new ClusterDirectory(core.pdAdmin),
     resp: { server: context, handlers, limits },
     prometheus:
       metrics instanceof PromMetrics

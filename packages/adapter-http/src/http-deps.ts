@@ -4,7 +4,7 @@ import type {
   ServerContext,
 } from '@mindlog/adapter-resp';
 import type { Clock, Logger, Metrics, Tracer } from '@mindlog/core';
-import type { AdminService, KvBrowser, KvService } from '@mindlog/services';
+import type { AdminService, ClusterDirectory, KvBrowser, KvService } from '@mindlog/services';
 
 export interface HttpServerOptions {
   readonly host: string;
@@ -18,6 +18,8 @@ export interface HttpServerDeps {
   readonly admin: AdminService;
   readonly kv: KvService;
   readonly browser: KvBrowser;
+  /** The placement driver's view of the cluster, for the Cluster page. */
+  readonly cluster: ClusterDirectory;
   /** What the WebSocket console needs to run RESP connections. */
   readonly resp: {
     readonly server: ServerContext;

@@ -3,6 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { CONSOLE_PROTOCOL, PROBLEM_CONTENT_TYPE } from '@mindlog/adapter-http';
+import { create } from '@bufbuild/protobuf';
+import { ok } from '@mindlog/core';
+import type { AdminRequest } from '@mindlog/proto';
+import { ClusterResponseSchema, NodeState, ReplicaRole } from '@mindlog/proto';
+import type { PdAdmin } from '@mindlog/services';
 import { httpNode } from './support/http-node.js';
 
 type Reply = Awaited<ReturnType<Awaited<ReturnType<typeof httpNode>>['run']>>;
@@ -39,6 +44,8 @@ describe('authentication', () => {
     ['DELETE', '/api/kv/keys/k'],
     ['PUT', '/api/kv/keys/k/ttl'],
     ['GET', '/api/admin/overview'],
+    ['GET', '/api/cluster/overview'],
+    ['POST', '/api/cluster/actions'],
     ['GET', '/api/admin/settings'],
     ['GET', '/api/superusers/me'],
     ['GET', '/api/console'],
@@ -223,6 +230,8 @@ describe('admin and OpenAPI', () => {
     expect(Object.keys(doc.paths).sort()).toEqual([
       '/api/admin/overview',
       '/api/admin/settings',
+      '/api/cluster/actions',
+      '/api/cluster/overview',
       '/api/kv/keys',
       '/api/kv/keys/{key}',
       '/api/kv/keys/{key}/ttl',
@@ -325,5 +334,79 @@ describe('console', () => {
     } finally {
       await node.http.close();
     }
+  });
+});
+
+describe('cluster routes', () => {
+  const pd = (): { admin: PdAdmin; asked: AdminRequest[] } => {
+    const asked: AdminRequest[] = [];
+    return {
+      asked,
+      admin: {
+        cluster: () =>
+          Promise.resolve(
+            ok(
+              create(ClusterResponseSchema, {
+                clusterVersion: 4,
+                nodes: [
+                  {
+                    nodeId: 1n,
+                    address: 'n1:7000',
+                    zone: 'z1',
+                    state: NodeState.LIVE,
+                    binaryVersion: 4,
+                  },
+                ],
+                ranges: [
+                  {
+                    rangeId: 1n,
+                    endKey: new TextEncoder().encode('m'),
+                    replicas: [{ nodeId: 1n, replicaId: 1n, role: ReplicaRole.VOTER }],
+                  },
+                ],
+              }),
+            ),
+          ),
+        admin: (request) => {
+          asked.push(request);
+          return Promise.resolve(ok('draining node 1'));
+        },
+      },
+    };
+  };
+
+  test('the overview shows nodes and ranges in readable form', async () => {
+    const node = await httpNode({ pd: pd().admin });
+    const res = await node.app.inject({ url: '/api/cluster/overview', headers: node.authed });
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ nodes: { id: string; state: string }[]; ranges: { end: string }[] }>();
+    expect(body.nodes[0]).toMatchObject({ id: '1', state: 'live' });
+    expect(body.ranges[0]?.end).toBe('m');
+  });
+
+  test('an action becomes one PD admin request; bad input is a 400', async () => {
+    const fake = pd();
+    const node = await httpNode({ pd: fake.admin });
+    const res = await node.app.inject({
+      method: 'POST',
+      url: '/api/cluster/actions',
+      headers: node.authed,
+      payload: { action: 'drain-node', nodeId: '1' },
+    });
+    expect(res.json()).toEqual({ message: 'draining node 1' });
+    expect(fake.asked[0]?.action).toEqual({ case: 'drainNode', value: 1n });
+    const bad = await node.app.inject({
+      method: 'POST',
+      url: '/api/cluster/actions',
+      headers: node.authed,
+      payload: { action: 'drain-node', nodeId: 'x' },
+    });
+    expect(bad.statusCode).toBe(400);
+  });
+
+  test('without a placement driver the page says so', async () => {
+    const node = await httpNode();
+    const res = await node.app.inject({ url: '/api/cluster/overview', headers: node.authed });
+    expect(res.statusCode).toBe(501);
   });
 });

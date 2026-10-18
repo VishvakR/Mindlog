@@ -2,7 +2,7 @@
 
 - Date: 2026-10-18
 - PLAN: §24 Phase 4 (§8 ranges and routing, §9 transactions)
-- Status: **not signed off**: the simulator gate was cut short and the Docker rebalance run did not finish (see "Not run")
+- Status: **built, awaiting sign-off**: the gate was verified at reduced scale only (see "Not run")
 - Decisions:
   - ADR-0007 amended: HLC carried on node RPCs, clock fencing.
   - ADR-0009: range size, split and merge policy.
@@ -29,6 +29,8 @@
 - **The 1 GB rebalance run did not finish.** The plan asks for 5 GB in 10 minutes; the script is scaled down (default 128 MB with 8 MiB ranges, 16 ranges; 1024 gives over a hundred), because this machine and Docker Desktop cannot load 5 GB in a sensible time. Two attempts were cut short: the first by a session end, the second at the user's request to stop Docker testing. The first attempt showed `TRYAGAIN`, `TIMEOUT` and `no range holds that key` errors while ranges split under load; the router now retries placement failures and retries up to ten times (about three seconds), but that change has **not** been re-run against the cluster.
 - **Maelstrom `lin-kv`, the chaos kill-leader run and the 3-node failover with the new Store**: failover (`FAILOVER_ITERATIONS=3` and `5`) passes; the Maelstrom and chaos Docker runs were skipped at the user's request. The Maelstrom binary is unchanged by this phase and has not been re-run.
 - **No independent review**: the whole-branch review was done by the author, not a fresh reviewer.
+
+After the SimDisk fix a small run passed: 300 plain seeds, 120 `SIM_BANK=1`, 60 `SIM_PD=1 SIM_BANK=1`, and seed 5817.
 
 ## What the simulator checks now
 

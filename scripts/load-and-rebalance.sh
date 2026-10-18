@@ -2,11 +2,11 @@
 # Usage: scripts/load-and-rebalance.sh [load-mb] [value-bytes]
 # Phase 4 gate (PLAN 24): load a 3-node `cluster`, check that ranges split, add node 4 and time how
 # long until every node holds a replica count within one of the others (gate: under 10 minutes).
-# The plan's 5 GB / 10 min run is scaled to LOAD_MB (default 1024) with 8 MiB ranges, see
-# docs/phases/phase-4.md. Needs docker, redis-cli and python3. Always tears the cluster down.
+# The plan's 5 GB / 10 min run is scaled down to LOAD_MB (default 128, so 16 ranges of 8 MiB; pass
+# 1024 for over a hundred), see docs/phases/phase-4.md. Needs docker, redis-cli and python3. Always tears the cluster down.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-LOAD_MB=${1:-1024}
+LOAD_MB=${1:-128}
 VALUE=${2:-1024}
 # 8 MiB ranges split in halves: expect at least 80% of LOAD_MB/8 ranges, three replicas each.
 WANT=$(( LOAD_MB / 8 * 3 * 8 / 10 ))

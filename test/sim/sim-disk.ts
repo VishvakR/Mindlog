@@ -16,6 +16,8 @@ export class SimDisk {
   #durable = new MemoryStore();
   #live = new MemoryStore();
   #unsynced: Op[][] = [];
+  /** Durable writes in the order they were synced. */
+  #durableWrites: Promise<void> = Promise.resolve();
   #incarnation = 0;
 
   /** A handle for the current incarnation; it stops working after a crash. */
@@ -52,13 +54,18 @@ export class SimDisk {
           write: async (options) => {
             check();
             await apply(this.#live, ops);
-            if (options?.sync) {
-              for (const pending of this.#unsynced) await apply(this.#durable, pending);
-              await apply(this.#durable, ops);
-              this.#unsynced = [];
-            } else {
+            if (!options?.sync) {
               this.#unsynced.push(ops);
+              return;
             }
+            // A sync makes everything before it durable, in order. The pending list is taken before
+            // any await: a batch written meanwhile belongs after this one, not lost with it.
+            const pending = [...this.#unsynced, ops];
+            this.#unsynced = [];
+            this.#durableWrites = this.#durableWrites.then(async () => {
+              for (const batch of pending) await apply(this.#durable, batch);
+            });
+            await this.#durableWrites;
           },
         };
       },

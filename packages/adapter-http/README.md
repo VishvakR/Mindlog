@@ -14,6 +14,7 @@ HTTP adapter (layer `interfaces`, PLAN 15.3 and 17, ADR-0024). Fastify serves:
 | `GET/PUT/DELETE /api/kv/keys/:key` | bearer | Typed read, atomic replace (value + TTL), delete |
 | `PUT /api/kv/keys/:key/ttl` | bearer | `{ttlMs}`; `null` persists |
 | `GET /api/admin/overview`, `/api/admin/settings` | bearer | Node status; config with secrets redacted |
+| `POST /api/memory/{remember,recall,get,list,forget,history,graph,scopes}` | bearer | Memory operations (PLAN 15.3) with an explicit `tenant`; the superuser is the principal |
 | `GET /api/console` | bearer (subprotocol) | RESP over WebSocket, subprotocols `mindlog.resp` + `bearer.<token>` |
 | `GET /api/openapi.json` | — | OpenAPI 3.1 built from the Zod schemas |
 | `GET /_/*` | — | Dashboard static assets with SPA fallback and CSP |

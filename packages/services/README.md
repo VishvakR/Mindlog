@@ -10,6 +10,8 @@ Application services (layer `application`): sessions, authentication, and the KV
 | `Session` | Per-connection tenant, principal, authentication flag, MULTI queue and WATCHed keys |
 | `StaticAuthenticator` | Phase 1 auth: one `default` user with `auth.password`; constant-time comparison |
 | `commandName` | Upper-cased command name from argv |
+| `MemoryService` | Memory requests from every interface (PLAN 12, ADR-0016): `remember`, `recall`, `get`, `list`, `forget`, `history`, `graph`, `scopes`. Validates with the shared Zod schemas, finds the user scope's range (`RangeRouter.locate`), runs the engine on the leader here or forwards a `memory` call, and retries `NOT_LEADER`/`RANGE_MOVED` with the origin's request id. Writes wait for cluster version 5. |
+| `rememberSchema` … `scopesSchema` | Zod schemas of the memory requests, shared by RESP, REST and MCP |
 
 ## Request path
 

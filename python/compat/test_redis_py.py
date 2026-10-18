@@ -132,3 +132,22 @@ def test_connection_commands(r: redis.Redis) -> None:
     assert info["loading"] == 0
     assert r.config_get("databases") == {"databases": "1"}
     assert r.dbsize() == 0
+
+
+def _fields(reply: object) -> dict[str, object]:
+    """A MEM.* map reply as a dict, from RESP3 maps or RESP2 flat arrays."""
+    if isinstance(reply, dict):
+        return {str(k): v for k, v in reply.items()}
+    assert isinstance(reply, list)
+    return {str(reply[i]): reply[i + 1] for i in range(0, len(reply), 2)}
+
+
+def test_memory_commands(r: redis.Redis) -> None:
+    scope = f"py-{r.connection_pool.connection_kwargs.get('protocol', 2)}"
+    added = _fields(r.execute_command("MEM.ADD", scope, "I prefer dark roast coffee."))
+    ids = added["ids"]
+    assert isinstance(ids, list) and len(ids) == 1
+    found = r.execute_command("MEM.SEARCH", scope, "dark roast", "K", "3")
+    assert [_fields(item)["text"] for item in found] == ["I prefer dark roast coffee."]
+    assert r.execute_command("MEM.FORGET", scope, ids[0]) == 1
+    assert r.execute_command("MEM.SEARCH", scope, "dark roast") == []

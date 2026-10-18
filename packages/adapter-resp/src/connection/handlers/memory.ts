@@ -1,0 +1,189 @@
+import type { MindlogError, Result } from '@mindlog/core';
+import { parseInteger, replies } from '@mindlog/kv';
+import type { MemoryView } from '@mindlog/memory';
+import type { KvReply } from '@mindlog/proto';
+import type { MemoryService } from '@mindlog/services';
+import type { ConnectionCommand, ConnectionContext } from '../connection-command.js';
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+const text = (value: string): KvReply => replies.bulk(encoder.encode(value));
+const flag = (value: boolean): KvReply => replies.integer(value ? 1 : 0);
+
+function withMemory(
+  ctx: ConnectionContext,
+  run: (memory: MemoryService) => Promise<KvReply>,
+): KvReply | Promise<KvReply> {
+  const memory = ctx.server.memory;
+  return memory ? run(memory) : replies.error('UNIMPLEMENTED', 'memory commands are not available');
+}
+
+/** `user[/agent[/session]]` under the session's tenant (PLAN 5.5). */
+function scopeOf(arg: Uint8Array | undefined): { user: string; agent?: string; session?: string } {
+  const [user = '', agent, session] = decoder.decode(arg ?? new Uint8Array()).split('/');
+  return { user, ...(agent ? { agent } : {}), ...(session ? { session } : {}) };
+}
+
+const caller = (ctx: ConnectionContext) => ({
+  tenant: ctx.session.tenant,
+  principal: ctx.session.principal,
+});
+
+function answer<T>(result: Result<T, MindlogError>, render: (value: T) => KvReply): KvReply {
+  return result.ok ? render(result.value) : replies.error(result.error.code, result.error.message);
+}
+
+function memoryReply(m: MemoryView): KvReply {
+  return replies.map([
+    [text('id'), text(m.id)],
+    [text('kind'), text(m.kind)],
+    [text('text'), text(m.text)],
+    [text('user'), text(m.user)],
+    [text('agent'), text(m.agent ?? '')],
+    [text('session'), text(m.session ?? '')],
+    [text('trust'), text(m.trust)],
+    [text('importance'), replies.double(m.importance)],
+    [text('entities'), replies.array(m.entities.map(text))],
+    [text('created_at'), replies.integer(m.createdAtMs)],
+    [text('expired'), flag(m.expiredAtMs !== undefined)],
+  ]);
+}
+
+type Options = Record<string, string | true>;
+
+/** Parses `TOKEN value` and bare `TOKEN` options after the positional arguments. */
+function options(
+  argv: readonly Uint8Array[],
+  from: number,
+  valued: readonly string[],
+  bare: readonly string[],
+): Options | KvReply {
+  const out: Options = {};
+  for (let i = from; i < argv.length; i++) {
+    const token = decoder.decode(argv[i]).toUpperCase();
+    if (bare.includes(token)) out[token] = true;
+    else if (valued.includes(token) && i + 1 < argv.length) out[token] = decoder.decode(argv[++i]);
+    else return replies.errors.syntax();
+  }
+  return out;
+}
+
+function integerOption(value: string | true | undefined): number | undefined | KvReply {
+  if (value === undefined || value === true) return undefined;
+  const n = parseInteger(encoder.encode(value));
+  return n === undefined
+    ? replies.error('INVALID_ARGUMENT', 'value is not an integer or out of range')
+    : Number(n);
+}
+
+const isReply = (x: unknown): x is KvReply =>
+  typeof x === 'object' && x !== null && '$typeName' in x;
+
+/** `MEM.ADD <scope> <text> [KIND kind] [SOURCE type] [ASYNC]`. */
+export const memAddCommand: ConnectionCommand = {
+  name: 'MEM.ADD',
+  execute: (ctx, argv) =>
+    withMemory(ctx, async (memory) => {
+      const o = options(argv, 3, ['KIND', 'SOURCE'], ['ASYNC']);
+      if (isReply(o)) return o;
+      const result = await memory.remember(caller(ctx), {
+        scope: scopeOf(argv[1]),
+        content: decoder.decode(argv[2]),
+        ...(typeof o.KIND === 'string' ? { kind: o.KIND.toLowerCase() as never } : {}),
+        ...(typeof o.SOURCE === 'string'
+          ? { source: { type: o.SOURCE.toLowerCase() as never } }
+          : {}),
+        ...(o.ASYNC ? { async: true } : {}),
+      });
+      return answer(result, (r) =>
+        replies.map([
+          [text('ids'), replies.array(r.ids.map(text))],
+          [text('degraded'), flag(r.degraded)],
+          ...(r.jobId ? [[text('job'), text(r.jobId)] as const] : []),
+        ]),
+      );
+    }),
+};
+
+/** `MEM.SEARCH <scope> <query> [K n] [BUDGET tokens] [INHERIT]`. */
+export const memSearchCommand: ConnectionCommand = {
+  name: 'MEM.SEARCH',
+  execute: (ctx, argv) =>
+    withMemory(ctx, async (memory) => {
+      const o = options(argv, 3, ['K', 'BUDGET'], ['INHERIT']);
+      if (isReply(o)) return o;
+      const k = integerOption(o.K);
+      const budget = integerOption(o.BUDGET);
+      if (isReply(k)) return k;
+      if (isReply(budget)) return budget;
+      const result = await memory.recall(caller(ctx), {
+        scope: scopeOf(argv[1]),
+        query: decoder.decode(argv[2]),
+        ...(k !== undefined ? { k } : {}),
+        ...(budget !== undefined ? { tokenBudget: budget } : {}),
+        ...(o.INHERIT ? { inherit: true } : {}),
+      });
+      return answer(result, (r) =>
+        replies.array(
+          r.items.map((item) =>
+            replies.map([
+              [text('id'), text(item.memory.id)],
+              [text('text'), text(item.memory.text)],
+              [text('kind'), text(item.memory.kind)],
+              [text('score'), replies.double(Math.round(item.score * 1e6) / 1e6)],
+            ]),
+          ),
+        ),
+      );
+    }),
+};
+
+/** `MEM.GET <scope> <id>`. */
+export const memGetCommand: ConnectionCommand = {
+  name: 'MEM.GET',
+  execute: (ctx, argv) =>
+    withMemory(ctx, async (memory) =>
+      answer(
+        await memory.get(caller(ctx), { scope: scopeOf(argv[1]), id: decoder.decode(argv[2]) }),
+        (m) => (m ? memoryReply(m) : replies.nil()),
+      ),
+    ),
+};
+
+/** `MEM.FORGET <scope> <id> [id ...]`. */
+export const memForgetCommand: ConnectionCommand = {
+  name: 'MEM.FORGET',
+  execute: (ctx, argv) =>
+    withMemory(ctx, async (memory) =>
+      answer(
+        await memory.forget(caller(ctx), {
+          scope: scopeOf(argv[1]),
+          ids: argv.slice(2).map((a) => decoder.decode(a)),
+          reason: `MEM.FORGET by ${ctx.session.principal}`,
+        }),
+        (r) => replies.integer(r.count),
+      ),
+    ),
+};
+
+/** `MEM.HISTORY <scope> <id>`: versions newest first. */
+export const memHistoryCommand: ConnectionCommand = {
+  name: 'MEM.HISTORY',
+  execute: (ctx, argv) =>
+    withMemory(ctx, async (memory) =>
+      answer(
+        await memory.history(caller(ctx), { scope: scopeOf(argv[1]), id: decoder.decode(argv[2]) }),
+        (versions) =>
+          replies.array(
+            versions.map((v) =>
+              replies.map([
+                [text('version'), text(v.version)],
+                [text('at'), replies.integer(v.atMs)],
+                [text('text'), text(v.memory.text)],
+                [text('expired'), flag(v.memory.expiredAtMs !== undefined)],
+              ]),
+            ),
+          ),
+      ),
+    ),
+};

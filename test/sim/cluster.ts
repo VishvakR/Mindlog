@@ -4,10 +4,19 @@ import {
   ClockSync,
   MemoryLogger,
   MemoryMetrics,
+  OtelTracer,
   SYSTEM_TENANT,
   SeededRandom,
   UlidGenerator,
 } from '@mindlog/core';
+import { jobCompleteHandler, jobLeaseHandler, jobRangeHooks } from '@mindlog/jobs';
+import {
+  MemoryEngine,
+  VectorCache,
+  memoryCommitHandler,
+  memoryForgetHandler,
+} from '@mindlog/memory';
+import { FakeModels } from '@mindlog/models-client';
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import {
   createKvRegistry,
@@ -49,6 +58,7 @@ import { compareBytes } from '@mindlog/storage';
 import type { RegisterOp } from './linearizability.js';
 import { checkRegister } from './linearizability.js';
 import { Bank } from './bank.js';
+import { MemoryLoad } from './memory-load.js';
 import { SimDisk } from './sim-disk.js';
 import { SimNetwork } from './sim-network.js';
 import {
@@ -93,6 +103,8 @@ export interface ScenarioOptions {
   readonly spare: number;
   /** Accounts of the bank-transfer workload (phase 4 gate, ADR-0030); 0 turns it off. */
   readonly bank: number;
+  /** User scopes of the memory workload (phase 5); 0 turns it off. */
+  readonly memory: number;
 }
 
 export interface SimResult {
@@ -112,6 +124,8 @@ export interface SimResult {
     fencedSteps: number;
     /** Bank-transfer workload: transfers committed, transactions that gave up, consistent audits. */
     bank: { committed: number; aborted: number; audits: number };
+    /** Memory workload: memories remembered and forgotten (acknowledged). */
+    memory: { remembered: number; forgotten: number };
     /** At the end: ranges, and replicas created by PD operators (ids from 1000). */
     ranges: number;
     placed: number;
@@ -156,6 +170,7 @@ interface Incarnation {
   readonly sync: ClockSync;
   readonly clock: Clock;
   readonly metrics: MemoryMetrics;
+  readonly engine: MemoryEngine;
   readonly logger: MemoryLogger;
 }
 
@@ -194,6 +209,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     membership: 0,
     fencedSteps: 0,
     bank: { committed: 0, aborted: 0, audits: 0 },
+    memory: { remembered: 0, forgotten: 0 },
     ranges: 0,
     placed: 0,
   };
@@ -243,6 +259,10 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       kvBatchHandler(registry, guard),
       expireHandler,
       gcThresholdHandler,
+      memoryCommitHandler,
+      memoryForgetHandler,
+      jobLeaseHandler,
+      jobCompleteHandler,
       ...PD_HANDLERS,
       ...(o.bank > 0
         ? [
@@ -283,7 +303,8 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       const machine = await StateMachine.open({
         store: stateStore,
         handlers,
-        rangeHooks: o.bank > 0 ? [kvRangeHooks, txnRangeHooks] : [kvRangeHooks],
+        rangeHooks:
+          o.bank > 0 ? [kvRangeHooks, jobRangeHooks, txnRangeHooks] : [kvRangeHooks, jobRangeHooks],
         events,
         clock,
         logger,
@@ -359,10 +380,24 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       await store.close();
       return;
     }
+    const vectors = new VectorCache({ state: stateStore, maxScopes: 16 });
+    vectors.attach(events);
+    const engine = new MemoryEngine({
+      models: new FakeModels(),
+      stamper,
+      ids: new UlidGenerator(clock, new SeededRandom(seed + 7n)),
+      clock,
+      metrics,
+      logger,
+      tracer: new OtelTracer(),
+      vectors,
+      ranges: () => undefined,
+    });
     node.up = {
       scheduler,
       store,
       stateStore,
+      engine,
       services: new WeakMap(),
       sessions: new Map(),
       epochs: new Map(),
@@ -652,6 +687,42 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     every(300, 900, () => bank.audit());
   }
 
+  const memory =
+    o.memory > 0
+      ? new MemoryLoad({
+          world,
+          nodes: () =>
+            nodes.flatMap((n) =>
+              n.up
+                ? [
+                    {
+                      id: n.id,
+                      store: n.up.store,
+                      stateStore: n.up.stateStore,
+                      engine: n.up.engine,
+                    },
+                  ]
+                : [],
+            ),
+          users: o.memory,
+          say,
+          violate,
+        })
+      : undefined;
+  if (memory) {
+    const every = (lo: number, hi: number, work: () => Promise<void>): void => {
+      const tick = (): void => {
+        if (!clientsOn) return;
+        void work().finally(() => {
+          world.at(world.now + world.between(lo, hi), tick);
+        });
+      };
+      world.at(world.now + world.between(lo, hi), tick);
+    };
+    for (let w = 0; w < 2; w++) every(50, 250, () => memory.remember());
+    every(400, 1200, () => memory.forget());
+  }
+
   // ---- run ----
   for (const node of nodes) world.at(0, () => void boot(node));
   for (let c = 0; c < o.clients; c++) client(c);
@@ -698,6 +769,9 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
 
   async function finalChecks(): Promise<void> {
     if (bank) await bankSettle(bank);
+    if (memory)
+      for (let pass = 0; pass < 10 && memory.inFlight > 0; pass++)
+        await world.run(world.now + 5000, checkStep);
     const up = nodes.map((n) => n.up);
     if (up.some((u) => !u)) {
       violate('a node did not come back up');
@@ -799,6 +873,10 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       if (problem) violate(`${key}: ${problem}`);
     }
     if (bank) await bankChecks(bank);
+    if (memory) {
+      await memory.check();
+      stats.memory = { remembered: memory.committed, forgotten: memory.forgotten.size };
+    }
   }
 
   /** After healing: resolve what is left, so nothing is in flight when the replicas are compared. */
@@ -907,6 +985,7 @@ export function scenario(seed: bigint) {
     pd: false,
     spare: 0,
     bank: 0,
+    memory: 0,
   };
   const dsl = {
     pd: (spare = 0) => {
@@ -917,6 +996,7 @@ export function scenario(seed: bigint) {
       return dsl;
     },
     bank: (accounts = 8) => ((o.bank = accounts), dsl),
+    memory: (users = 4) => ((o.memory = users), dsl),
     nodes: (n: number) => ((o.nodes = n), dsl),
     clients: (n: number) => ((o.clients = n), dsl),
     keys: (n: number) => ((o.keys = n), dsl),

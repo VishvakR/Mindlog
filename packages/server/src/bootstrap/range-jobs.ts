@@ -1,5 +1,7 @@
 import type { Clock, Logger, Metrics } from '@mindlog/core';
 import { ExpiryJob, GcJob } from '@mindlog/kv';
+import type { WorkerRegistry } from '@mindlog/jobs';
+import { JobRunner } from '@mindlog/jobs';
 import type { Store } from '@mindlog/multiraft';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { HeldLock } from '@mindlog/txn';
@@ -15,6 +17,8 @@ export interface RangeJobsDeps {
   readonly metrics: Metrics;
   /** Resolves a stopped transaction's lock; present when cross-range transactions are on. */
   readonly resolve?: (held: HeldLock) => Promise<unknown>;
+  /** Workers for durable jobs (ADR-0017); without them no job runner starts. */
+  readonly workers?: WorkerRegistry;
   /** How often the set of local ranges is checked (default 1 s). */
   readonly syncMs?: number;
 }
@@ -26,7 +30,10 @@ export interface RangeJobsDeps {
  */
 export class RangeJobs {
   readonly #d: RangeJobsDeps;
-  readonly #jobs = new Map<bigint, { expiry: ExpiryJob; gc: GcJob; locks?: LockResolverJob }>();
+  readonly #jobs = new Map<
+    bigint,
+    { expiry: ExpiryJob; gc: GcJob; locks?: LockResolverJob; runner?: JobRunner }
+  >();
   #timer: NodeJS.Timeout | undefined;
 
   constructor(deps: RangeJobsDeps) {
@@ -51,6 +58,7 @@ export class RangeJobs {
         jobs.expiry.stop(),
         jobs.gc.stop(),
         jobs.locks?.stop() ?? Promise.resolve(),
+        jobs.runner?.stop() ?? Promise.resolve(),
       ]);
     }
     for (const [rangeId, replica] of live) {
@@ -76,10 +84,20 @@ export class RangeJobs {
             resolve,
           })
         : undefined;
+      const workers = this.#d.workers;
+      const runner = workers
+        ? new JobRunner({ ...common, rangeId, state: this.#d.state, workers })
+        : undefined;
       expiry.start();
       gc.start();
       locks?.start();
-      this.#jobs.set(rangeId, { expiry, gc, ...(locks ? { locks } : {}) });
+      runner?.start();
+      this.#jobs.set(rangeId, {
+        expiry,
+        gc,
+        ...(locks ? { locks } : {}),
+        ...(runner ? { runner } : {}),
+      });
     }
   }
 
@@ -88,7 +106,12 @@ export class RangeJobs {
     const all = [...this.#jobs.values()];
     this.#jobs.clear();
     await Promise.all(
-      all.flatMap((j) => [j.expiry.stop(), j.gc.stop(), j.locks?.stop() ?? Promise.resolve()]),
+      all.flatMap((j) => [
+        j.expiry.stop(),
+        j.gc.stop(),
+        j.locks?.stop() ?? Promise.resolve(),
+        j.runner?.stop() ?? Promise.resolve(),
+      ]),
     );
   }
 }

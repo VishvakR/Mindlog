@@ -50,6 +50,8 @@ KvService (registry, stamper: HLC + ULID, StaticAuthenticator, tracer, metrics)
 RespServer (CommandTable from JSON specs, connection commands, limits, resp.command spans)
 HttpServer (AdminService, KvBrowser, RESP console over WebSocket, /metrics, dashboard at /_/)
 ExpiryJob (100 ms) · GcJob (1 s)          → leader only: propose Expire / GcThreshold commands
+MemoryService + MemoryEngine (open-memory.ts): GrpcModels behind GuardedModels, or NoModels (degraded)
+JobRunner per range (500 ms)            → leader only: lease and run jobs (memory.enrich)
 ```
 
 ## Lifecycle

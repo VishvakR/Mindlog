@@ -124,6 +124,7 @@ export async function twoRanges(
       state: store,
       descriptor: () => span,
       owns: (tenant, key) => options.movedAway !== true && inSpan(span, headerKey(tenant, key)),
+      covers: (key) => options.movedAway !== true && inSpan(span, key),
     });
   }
   const forwarded: Forwarded[] = [];
@@ -137,6 +138,7 @@ export async function twoRanges(
   const ref: { service?: KvService } = {};
   const router: RangeRouter = {
     place: (_tenant, keys) => Promise.resolve(ok(keys.map((k) => placement(rangeOf(k))))),
+    locate: (key) => Promise.resolve(ok(placement(compareBytes(key, split) < 0 ? 1n : 2n))),
     refresh: (p) => Promise.resolve(ok(p)),
     forward: async (p, caller, call) => {
       forwarded.push({ rangeId: p.rangeId, call });

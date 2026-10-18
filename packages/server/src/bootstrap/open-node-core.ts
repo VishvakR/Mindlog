@@ -20,6 +20,9 @@ import {
   err,
 } from '@mindlog/core';
 import { InMemoryEventBus } from '@mindlog/eventbus';
+import { jobCompleteHandler, jobLeaseHandler, jobRangeHooks } from '@mindlog/jobs';
+import type { WorkerRegistry } from '@mindlog/jobs';
+import { memoryCommitHandler, memoryForgetHandler } from '@mindlog/memory';
 import {
   createKvRegistry,
   replies,
@@ -39,7 +42,7 @@ import {
 } from '@mindlog/multiraft';
 import { ConnectPdClient } from '@mindlog/pd';
 import { StoreRouter, connectForwardCall, fromRequest } from '@mindlog/router';
-import type { PdAdmin } from '@mindlog/services';
+import type { MemoryService, PdAdmin } from '@mindlog/services';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
 import {
   ApplyHandlerRegistry,
@@ -63,6 +66,7 @@ import {
 } from '@mindlog/txn';
 import type { PdRole } from './open-pd.js';
 import { BINARY_VERSION, openPdRole } from './open-pd.js';
+import { openMemory } from './open-memory.js';
 
 export interface CoreDeps {
   readonly logger: Logger;
@@ -90,6 +94,10 @@ export interface NodeCore {
   readonly stamper: CommandStamper;
   readonly stateStore: LevelDbStore;
   readonly service: KvService;
+  /** Memory requests (PLAN 12); routed to the leader of each user scope. */
+  readonly memory: MemoryService;
+  /** Job workers for the range jobs (ADR-0017). */
+  readonly workers: WorkerRegistry;
   /** Log entries applied while opening (ADR-0005). */
   readonly replayed: number;
   /** Stops the replica, flushes state and closes the stores. */
@@ -201,6 +209,11 @@ export async function openNodeCore(
     kvBatchHandler(registry, txnOn ? lockGuard : undefined),
     expireHandler,
     gcThresholdHandler,
+    // Memory and jobs (ADR-0032): every v5 binary applies them; proposing waits for cluster version 5.
+    memoryCommitHandler,
+    memoryForgetHandler,
+    jobLeaseHandler,
+    jobCompleteHandler,
     ...(txnOn
       ? [
           txnPrewriteHandler(registry),
@@ -229,7 +242,9 @@ export async function openNodeCore(
     StateMachine.open({
       store: stateStore,
       handlers,
-      rangeHooks: txnOn ? [kvRangeHooks, txnRangeHooks] : [kvRangeHooks],
+      rangeHooks: txnOn
+        ? [kvRangeHooks, jobRangeHooks, txnRangeHooks]
+        : [kvRangeHooks, jobRangeHooks],
       events,
       clock,
       logger,
@@ -248,7 +263,7 @@ export async function openNodeCore(
   let client: (PdClient & PdAdmin) | undefined;
   let replica: Replica;
   // Forwarded calls arrive on the internal listener before the service exists; they wait for it.
-  const running: { service?: KvService } = {};
+  const running: { service?: KvService; memory?: MemoryService } = {};
   try {
     const peers = single
       ? [{ id: raftId, address: '' }]
@@ -265,8 +280,10 @@ export async function openNodeCore(
         routes: forwardRoutes(
           () => async (request) => {
             const forwarded = fromRequest(request);
-            if (!running.service || !forwarded)
+            if (!running.service || !running.memory || !forwarded)
               return replies.error('UNAVAILABLE', 'the node is starting');
+            if (forwarded.call.kind === 'memory')
+              return running.memory.forwarded(forwarded.rangeId, forwarded.caller, forwarded.call);
             return running.service.forwarded(forwarded.rangeId, forwarded.caller, forwarded.call);
           },
           clockSync,
@@ -359,6 +376,8 @@ export async function openNodeCore(
       ),
     );
   }
+  // A single node is its own cluster; members follow PD's cluster version (PLAN 19.5).
+  const clusterVersion = (): number => (single ? BINARY_VERSION : (agent?.clusterVersion ?? 0));
   const router = new StoreRouter({
     ranges: store,
     state: stateStore,
@@ -373,7 +392,7 @@ export async function openNodeCore(
     proposer: replica,
     readBarrier: replica,
     router,
-    ...(txnOn && client ? { tso: () => client.tso(1) } : {}),
+    ...(txnOn && client ? { tso: () => gatedTso(client, clusterVersion) } : {}),
     stamper,
     clock,
     authenticator: new StaticAuthenticator(config.auth.password),
@@ -381,7 +400,20 @@ export async function openNodeCore(
     tracer,
     maxTransactionCommands: config.limits.maxTransactionCommands,
   });
+  const memory = openMemory({
+    config,
+    state: stateStore,
+    events,
+    stamper,
+    router,
+    clusterVersion,
+    clock,
+    metrics,
+    logger,
+    tracer,
+  });
   running.service = service;
+  running.memory = memory.service;
   const started = store as Store | undefined;
   if (!started) throw new Error('the store opens before the replica');
   return ok({
@@ -396,6 +428,8 @@ export async function openNodeCore(
     stamper,
     stateStore,
     service,
+    memory: memory.service,
+    workers: memory.workers,
     replayed: Number(machine.appliedIndex - before),
     async close() {
       await agent?.stop();
@@ -406,4 +440,21 @@ export async function openNodeCore(
       await Promise.all([logStore.close(), stateStore.close()]);
     },
   });
+}
+
+/** Cluster version that knows the transaction commands (ADR-0030, PLAN 19.5). */
+const TXN_CLUSTER_VERSION = 4;
+
+/** Timestamps for transactions only once every node can apply transaction commands. */
+function gatedTso(client: PdClient, clusterVersion: () => number) {
+  if (clusterVersion() < TXN_CLUSTER_VERSION)
+    return Promise.resolve(
+      err(
+        mindlogError(
+          'UNAVAILABLE',
+          'the cluster has not reached the version of transactions yet; retry',
+        ),
+      ),
+    );
+  return client.tso(1);
 }

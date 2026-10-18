@@ -113,6 +113,7 @@ message ExecuteRequest {
     // A serialised Command carrying only a transaction body (ADR-0030).
     bytes txn_command = 10;
     ExecuteSnapshot snapshot = 11;
+    ExecuteMemory memory = 12;
   }
 }
 
@@ -127,6 +128,12 @@ message ExecuteSnapshot {
 
 message ExecuteWatch {
   repeated bytes keys = 1;
+}
+
+// A memory request for the range leader (ADR-0016): its operation and Zod-validated JSON input.
+message ExecuteMemory {
+  string op = 1;
+  string json = 2;
 }
 
 service KvForwardService {

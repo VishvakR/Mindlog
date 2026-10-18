@@ -10,6 +10,7 @@ port that `@mindlog/services` declares.
   TTL cache of PD's directory. `refresh` drops the cache entry and places the key again.
 - `connectForwardCall`, `toRequest`, `fromRequest` — carry a call to another node over the
   `KvForwardService` RPC (served by `@mindlog/transport`), stamping the sender's HLC.
+- `locate(key)` places an encoded storage key, such as a memory scope's `tenant · 'm' · (user)` (ADR-0031). Memory calls travel as `ExecuteRequest.memory {op, json}` (ADR-0016).
 
 ## Invariants
 

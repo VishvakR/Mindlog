@@ -8,9 +8,20 @@
   },
   "include": ["src", "src/**/*.json"],
   "references": [
-    { "path": "../core" },
-    { "path": "../kv" },
-    { "path": "../proto" },
-    { "path": "../services" }
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../kv"
+    },
+    {
+      "path": "../memory"
+    },
+    {
+      "path": "../proto"
+    },
+    {
+      "path": "../services"
+    }
   ]
 }

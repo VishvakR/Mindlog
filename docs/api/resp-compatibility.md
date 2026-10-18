@@ -20,6 +20,7 @@ Every write is appended to the durable log and applied before it is acknowledged
 | Connection | `PING` `ECHO` `AUTH` `HELLO` `SELECT` `QUIT` `RESET` `CLIENT ID` `CLIENT GETNAME` `CLIENT SETNAME` `CLIENT SETINFO` `CLIENT INFO` `CLIENT LIST` |
 | Server | `DBSIZE` `TIME` `INFO` `CONFIG GET` `COMMAND` `COMMAND COUNT` `COMMAND INFO` `COMMAND DOCS` `COMMAND LIST` |
 | Cluster (Mindlog) | `CLUSTER.INFO` `CLUSTER.ADDLEARNER` `CLUSTER.PROMOTE` `CLUSTER.REMOVE` `CLUSTER.TRANSFER` (ADR-0006) |
+| Memory (Mindlog) | `MEM.ADD` `MEM.SEARCH` `MEM.GET` `MEM.FORGET` `MEM.HISTORY` (PLAN 15.1; scope is `user[/agent[/session]]` under the connection's tenant) |
 
 ## Protocol
 

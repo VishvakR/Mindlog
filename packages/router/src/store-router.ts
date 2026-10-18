@@ -65,6 +65,10 @@ export class StoreRouter implements RangeRouter {
     return ok(out);
   }
 
+  locate(key: Uint8Array): Promise<Result<Placement, MindlogError>> {
+    return this.#find(key);
+  }
+
   async refresh(placement: Placement): Promise<Result<Placement, MindlogError>> {
     this.#cache.delete(placement.rangeId);
     if (!placement.probe) return ok(placement);
@@ -127,6 +131,7 @@ export class StoreRouter implements RangeRouter {
       state: this.#d.state,
       descriptor: () => replica.descriptor,
       owns: (tenant, key) => inSpan(replica.descriptor, headerKey(tenant, key)),
+      covers: (key) => inSpan(replica.descriptor, key),
     };
   }
 

@@ -1,0 +1,68 @@
+{
+  "MEM.ADD": {
+    "summary": "Remembers text in a scope: facts are extracted, embedded and indexed (PLAN 12.3).",
+    "complexity": "O(N) in the text length",
+    "group": "memory",
+    "since": "0.5.0",
+    "arity": -3,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "text", "type": "string" },
+      { "name": "kind", "type": "string", "token": "KIND", "optional": true },
+      { "name": "source", "type": "string", "token": "SOURCE", "optional": true },
+      { "name": "async", "type": "pure-token", "token": "ASYNC", "optional": true }
+    ]
+  },
+  "MEM.SEARCH": {
+    "summary": "Recalls the memories of a scope most relevant to a query (PLAN 12.4).",
+    "complexity": "O(N) in the scope's memories",
+    "group": "memory",
+    "since": "0.5.0",
+    "arity": -3,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "query", "type": "string" },
+      { "name": "k", "type": "integer", "token": "K", "optional": true },
+      { "name": "budget", "type": "integer", "token": "BUDGET", "optional": true },
+      { "name": "inherit", "type": "pure-token", "token": "INHERIT", "optional": true }
+    ]
+  },
+  "MEM.GET": {
+    "summary": "Returns one memory of a scope, or nil.",
+    "complexity": "O(1)",
+    "group": "memory",
+    "since": "0.5.0",
+    "arity": 3,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "id", "type": "string" }
+    ]
+  },
+  "MEM.FORGET": {
+    "summary": "Forgets memories of a scope (append-only: history is kept); returns how many.",
+    "complexity": "O(N) in the ids",
+    "group": "memory",
+    "since": "0.5.0",
+    "arity": -3,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "id", "type": "string", "multiple": true }
+    ]
+  },
+  "MEM.HISTORY": {
+    "summary": "Returns the stored versions of a memory, newest first.",
+    "complexity": "O(N) in its versions",
+    "group": "memory",
+    "since": "0.5.0",
+    "arity": 3,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "id", "type": "string" }
+    ]
+  }
+}

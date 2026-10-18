@@ -29,15 +29,18 @@
     "@mindlog/adapter-resp": "workspace:*",
     "@mindlog/core": "workspace:*",
     "@mindlog/eventbus": "workspace:*",
+    "@mindlog/jobs": "workspace:*",
     "@mindlog/kv": "workspace:*",
+    "@mindlog/memory": "workspace:*",
+    "@mindlog/models-client": "workspace:*",
     "@mindlog/multiraft": "workspace:*",
     "@mindlog/pd": "workspace:*",
     "@mindlog/proto": "workspace:*",
     "@mindlog/router": "workspace:*",
     "@mindlog/services": "workspace:*",
-    "@mindlog/txn": "workspace:*",
     "@mindlog/statemachine": "workspace:*",
     "@mindlog/storage": "workspace:*",
-    "@mindlog/transport": "workspace:*"
+    "@mindlog/transport": "workspace:*",
+    "@mindlog/txn": "workspace:*"
   }
 }

@@ -30,3 +30,26 @@ export {
   clusterView,
   describeKey,
 } from './cluster/cluster-directory.js';
+export type { MemoryServiceDeps } from './memory/memory-service.js';
+export { MEMORY_CLUSTER_VERSION, MemoryService } from './memory/memory-service.js';
+export type {
+  ForgetRequest,
+  GetMemoryRequest,
+  GraphRequest,
+  HistoryRequest,
+  ListMemoryRequest,
+  RecallRequest,
+  RememberRequest,
+  ScopesRequest,
+} from './memory/schemas.js';
+export {
+  forgetSchema,
+  getMemorySchema,
+  graphSchema,
+  historySchema,
+  listMemorySchema,
+  memoryScopeSchema,
+  recallSchema,
+  rememberSchema,
+  scopesSchema,
+} from './memory/schemas.js';

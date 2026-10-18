@@ -253,6 +253,9 @@ export class RoutedKv {
           watches: [...call.watches],
         },
       });
+    // Memory calls go to MemoryService, which shares the forwarding RPC (ADR-0016).
+    if (call.kind === 'memory')
+      return replies.error('INVALID_ARGUMENT', 'a memory call reached the key-value service');
     const command = call.argv[0] ? this.#d.registry.get(call.argv[0]) : undefined;
     const reads = new KvReadExecutor(this.#d.registry, target.reader);
     if (!command) return reads.execute(caller.tenant, call.argv, this.#d.clock.now());

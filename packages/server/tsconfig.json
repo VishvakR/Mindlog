@@ -20,7 +20,28 @@
       "path": "../eventbus"
     },
     {
+      "path": "../jobs"
+    },
+    {
       "path": "../kv"
+    },
+    {
+      "path": "../memory"
+    },
+    {
+      "path": "../models-client"
+    },
+    {
+      "path": "../multiraft"
+    },
+    {
+      "path": "../pd"
+    },
+    {
+      "path": "../proto"
+    },
+    {
+      "path": "../raft"
     },
     {
       "path": "../router"
@@ -29,28 +50,16 @@
       "path": "../services"
     },
     {
-      "path": "../txn"
-    },
-    {
       "path": "../statemachine"
     },
     {
       "path": "../storage"
     },
     {
-      "path": "../multiraft"
-    },
-    {
       "path": "../transport"
     },
     {
-      "path": "../raft"
-    },
-    {
-      "path": "../pd"
-    },
-    {
-      "path": "../proto"
+      "path": "../txn"
     }
   ]
 }

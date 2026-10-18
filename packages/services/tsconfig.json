@@ -7,11 +7,26 @@
   },
   "include": ["src"],
   "references": [
-    { "path": "../core" },
-    { "path": "../kv" },
-    { "path": "../proto" },
-    { "path": "../statemachine" },
-    { "path": "../storage" },
-    { "path": "../txn" }
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../kv"
+    },
+    {
+      "path": "../memory"
+    },
+    {
+      "path": "../proto"
+    },
+    {
+      "path": "../statemachine"
+    },
+    {
+      "path": "../storage"
+    },
+    {
+      "path": "../txn"
+    }
   ]
 }

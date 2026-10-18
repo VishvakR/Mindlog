@@ -7,7 +7,7 @@ import { create } from '@bufbuild/protobuf';
 import { ok } from '@mindlog/core';
 import type { AdminRequest } from '@mindlog/proto';
 import { ClusterResponseSchema, NodeState, ReplicaRole } from '@mindlog/proto';
-import type { PdAdmin } from '@mindlog/services';
+import type { MemoryService, PdAdmin } from '@mindlog/services';
 import { httpNode } from './support/http-node.js';
 
 type Reply = Awaited<ReturnType<Awaited<ReturnType<typeof httpNode>>['run']>>;
@@ -46,6 +46,7 @@ describe('authentication', () => {
     ['GET', '/api/admin/overview'],
     ['GET', '/api/cluster/overview'],
     ['POST', '/api/cluster/actions'],
+    ['POST', '/api/memory/recall'],
     ['GET', '/api/admin/settings'],
     ['GET', '/api/superusers/me'],
     ['GET', '/api/console'],
@@ -235,6 +236,14 @@ describe('admin and OpenAPI', () => {
       '/api/kv/keys',
       '/api/kv/keys/{key}',
       '/api/kv/keys/{key}/ttl',
+      '/api/memory/forget',
+      '/api/memory/get',
+      '/api/memory/graph',
+      '/api/memory/history',
+      '/api/memory/list',
+      '/api/memory/recall',
+      '/api/memory/remember',
+      '/api/memory/scopes',
       '/api/superusers/auth-with-password',
       '/api/superusers/exists',
       '/api/superusers/me',
@@ -407,6 +416,77 @@ describe('cluster routes', () => {
   test('without a placement driver the page says so', async () => {
     const node = await httpNode();
     const res = await node.app.inject({ url: '/api/cluster/overview', headers: node.authed });
+    expect(res.statusCode).toBe(501);
+  });
+});
+
+describe('memory routes', () => {
+  /** The adapter only parses and serialises; a stand-in service records what it was asked. */
+  function stubMemory() {
+    const asked: Array<{ op: string; caller: unknown; input: unknown }> = [];
+    const answer = (op: string, value: unknown) => (caller: unknown, input: unknown) => {
+      asked.push({ op, caller, input });
+      return Promise.resolve(ok(value));
+    };
+    const memory = {
+      remember: answer('remember', { ids: ['m1'], memories: [], degraded: false }),
+      recall: answer('recall', { items: [], context: '', tokens: 0, degraded: true }),
+      get: answer('get', undefined),
+      list: answer('list', { memories: [] }),
+      forget: answer('forget', { ids: [], count: 0 }),
+      history: answer('history', []),
+      graph: answer('graph', { nodes: [], edges: [], memories: [], truncated: false }),
+      scopes: answer('scopes', { users: ['alice'] }),
+    } as unknown as MemoryService;
+    return { memory, asked };
+  }
+
+  test('passes the tenant and the superuser as the caller, and the rest as input', async () => {
+    const { memory, asked } = stubMemory();
+    const node = await httpNode({ memory });
+    const res = await node.app.inject({
+      method: 'POST',
+      url: '/api/memory/remember',
+      headers: node.authed,
+      payload: { tenant: 'acme', scope: { user: 'alice' }, content: 'I prefer tea' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ids: ['m1'], memories: [], degraded: false });
+    expect(asked).toEqual([
+      {
+        op: 'remember',
+        caller: { tenant: 'acme', principal: 'admin@example.com' },
+        input: { scope: { user: 'alice' }, content: 'I prefer tea' },
+      },
+    ]);
+  });
+
+  test('a missing memory is null, bad input is 400 with the field, no engine is 501', async () => {
+    const { memory } = stubMemory();
+    const node = await httpNode({ memory });
+    const missing = await node.app.inject({
+      method: 'POST',
+      url: '/api/memory/get',
+      headers: node.authed,
+      payload: { scope: { user: 'alice' }, id: 'nope' },
+    });
+    expect(missing.statusCode).toBe(200);
+    expect(missing.body).toBe('null');
+    const bad = await node.app.inject({
+      method: 'POST',
+      url: '/api/memory/recall',
+      headers: node.authed,
+      payload: { scope: { user: 'alice' }, query: '' },
+    });
+    expect(bad.statusCode).toBe(400);
+    expect(Object.keys(bad.json<{ fields: Record<string, string> }>().fields)).toEqual(['query']);
+    const none = await httpNode();
+    const res = await none.app.inject({
+      method: 'POST',
+      url: '/api/memory/scopes',
+      headers: none.authed,
+      payload: {},
+    });
     expect(res.statusCode).toBe(501);
   });
 });

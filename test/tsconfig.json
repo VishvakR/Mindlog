@@ -36,6 +36,18 @@
     },
     {
       "path": "../packages/storage"
+    },
+    {
+      "path": "../packages/jobs"
+    },
+    {
+      "path": "../packages/memory"
+    },
+    {
+      "path": "../packages/models-client"
+    },
+    {
+      "path": "../packages/index-text"
     }
   ]
 }

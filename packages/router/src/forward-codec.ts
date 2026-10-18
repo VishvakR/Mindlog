@@ -42,7 +42,9 @@ export function toRequest(
                   watches: [...call.watches],
                 },
               }
-            : { case: 'watch' as const, value: { keys: [...call.keys] } };
+            : call.kind === 'memory'
+              ? { case: 'memory' as const, value: { op: call.op, json: call.json } }
+              : { case: 'watch' as const, value: { keys: [...call.keys] } };
   return create(ExecuteRequestSchema, { ...base, call: kind });
 }
 
@@ -82,7 +84,9 @@ export function fromRequest(
           }
         : c.case === 'watch'
           ? { kind: 'watch', keys: c.value.keys }
-          : undefined;
+          : c.case === 'memory'
+            ? { kind: 'memory', op: c.value.op, json: c.value.json, ...id }
+            : undefined;
   return call ? { rangeId: request.rangeId, caller, call } : undefined;
 }
 

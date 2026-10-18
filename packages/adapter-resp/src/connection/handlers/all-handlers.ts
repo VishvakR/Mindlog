@@ -11,6 +11,13 @@ import { commandCommand } from './command.js';
 import { configCommand } from './config.js';
 import { helloCommand } from './hello.js';
 import { infoCommand } from './info.js';
+import {
+  memAddCommand,
+  memForgetCommand,
+  memGetCommand,
+  memHistoryCommand,
+  memSearchCommand,
+} from './memory.js';
 import { quitCommand, resetCommand, selectCommand } from './session-commands.js';
 
 /** Every command the RESP adapter answers itself. */
@@ -29,5 +36,10 @@ export function createConnectionCommands(): ConnectionCommandRegistry {
     clusterPromoteCommand,
     clusterRemoveCommand,
     clusterTransferCommand,
+    memAddCommand,
+    memSearchCommand,
+    memGetCommand,
+    memForgetCommand,
+    memHistoryCommand,
   ]);
 }

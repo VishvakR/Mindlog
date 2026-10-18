@@ -4,6 +4,7 @@
 # processes (PLAN 22.2; the phase 3 gate is 10,000). Prints each failing seed.
 # SIM_PD=1 scripts/sim.sh ... runs the placement-driver scenario (5 nodes, 2 empty) instead.
 # SIM_BANK=1 scripts/sim.sh ... adds the bank-transfer workload (cross-range transactions) to every seed.
+# SIM_MEM=1 scripts/sim.sh ... adds the memory workload (remember and forget, phase 5) to every seed.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SEEDS=${1:-10000}

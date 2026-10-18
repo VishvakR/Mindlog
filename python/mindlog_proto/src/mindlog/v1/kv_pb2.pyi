@@ -132,7 +132,7 @@ class KvReplyPair(_message.Message):
     def __init__(self, key: _Optional[_Union[KvReply, _Mapping]] = ..., value: _Optional[_Union[KvReply, _Mapping]] = ...) -> None: ...
 
 class ExecuteRequest(_message.Message):
-    __slots__ = ("range_id", "tenant", "principal", "hlc", "from_address", "request_id", "command", "batch", "watch", "txn_command", "snapshot")
+    __slots__ = ("range_id", "tenant", "principal", "hlc", "from_address", "request_id", "command", "batch", "watch", "txn_command", "snapshot", "memory")
     RANGE_ID_FIELD_NUMBER: _ClassVar[int]
     TENANT_FIELD_NUMBER: _ClassVar[int]
     PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
@@ -144,6 +144,7 @@ class ExecuteRequest(_message.Message):
     WATCH_FIELD_NUMBER: _ClassVar[int]
     TXN_COMMAND_FIELD_NUMBER: _ClassVar[int]
     SNAPSHOT_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_FIELD_NUMBER: _ClassVar[int]
     range_id: int
     tenant: str
     principal: str
@@ -155,7 +156,8 @@ class ExecuteRequest(_message.Message):
     watch: ExecuteWatch
     txn_command: bytes
     snapshot: ExecuteSnapshot
-    def __init__(self, range_id: _Optional[int] = ..., tenant: _Optional[str] = ..., principal: _Optional[str] = ..., hlc: _Optional[int] = ..., from_address: _Optional[str] = ..., request_id: _Optional[bytes] = ..., command: _Optional[_Union[KvWrite, _Mapping]] = ..., batch: _Optional[_Union[KvBatch, _Mapping]] = ..., watch: _Optional[_Union[ExecuteWatch, _Mapping]] = ..., txn_command: _Optional[bytes] = ..., snapshot: _Optional[_Union[ExecuteSnapshot, _Mapping]] = ...) -> None: ...
+    memory: ExecuteMemory
+    def __init__(self, range_id: _Optional[int] = ..., tenant: _Optional[str] = ..., principal: _Optional[str] = ..., hlc: _Optional[int] = ..., from_address: _Optional[str] = ..., request_id: _Optional[bytes] = ..., command: _Optional[_Union[KvWrite, _Mapping]] = ..., batch: _Optional[_Union[KvBatch, _Mapping]] = ..., watch: _Optional[_Union[ExecuteWatch, _Mapping]] = ..., txn_command: _Optional[bytes] = ..., snapshot: _Optional[_Union[ExecuteSnapshot, _Mapping]] = ..., memory: _Optional[_Union[ExecuteMemory, _Mapping]] = ...) -> None: ...
 
 class ExecuteResponse(_message.Message):
     __slots__ = ("reply",)
@@ -176,3 +178,11 @@ class ExecuteWatch(_message.Message):
     KEYS_FIELD_NUMBER: _ClassVar[int]
     keys: _containers.RepeatedScalarFieldContainer[bytes]
     def __init__(self, keys: _Optional[_Iterable[bytes]] = ...) -> None: ...
+
+class ExecuteMemory(_message.Message):
+    __slots__ = ("op", "json")
+    OP_FIELD_NUMBER: _ClassVar[int]
+    JSON_FIELD_NUMBER: _ClassVar[int]
+    op: str
+    json: str
+    def __init__(self, op: _Optional[str] = ..., json: _Optional[str] = ...) -> None: ...

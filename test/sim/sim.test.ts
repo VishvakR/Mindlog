@@ -17,10 +17,14 @@ const WITH_PD = process.env.SIM_PD === '1';
 // SIM_BANK=1 adds the bank-transfer workload (cross-range transactions, ADR-0030) to every seed.
 const WITH_BANK = process.env.SIM_BANK === '1';
 
+// SIM_MEM=1 adds the memory workload (remember and forget through the engine, phase 5) to every seed.
+const WITH_MEM = process.env.SIM_MEM === '1';
+
 async function violations(seed: bigint): Promise<string[]> {
   const nodes = seed % 2n === 0n ? 5 : 3;
   const sized = WITH_PD ? scenario(seed).nodes(5).pd(2) : scenario(seed).nodes(nodes);
-  const base = WITH_BANK ? sized.bank(8) : sized;
+  const banked = WITH_BANK ? sized.bank(8) : sized;
+  const base = WITH_MEM ? banked.memory(4) : banked;
   const result = await base.verbose(process.env.SIM_VERBOSE === '1').run();
   return result.violations.map((v) => `replay: SIM_SEED=${seed} SIM_VERBOSE=1 pnpm sim → ${v}`);
 }
@@ -79,6 +83,20 @@ describe('simulator', () => {
         committed += result.stats.bank.committed;
       }
       expect(committed).toBeGreaterThan(0);
+    },
+  );
+
+  test(
+    'memory indexes match their records under splits, partitions and crashes',
+    { timeout: 300_000 },
+    async () => {
+      let remembered = 0;
+      for (const seed of [1n, 2n, 3n]) {
+        const result = await scenario(seed).nodes(3).memory(4).run();
+        expect(result.violations).toEqual([]);
+        remembered += result.stats.memory.remembered;
+      }
+      expect(remembered).toBeGreaterThan(0);
     },
   );
 

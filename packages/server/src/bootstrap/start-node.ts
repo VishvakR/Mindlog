@@ -136,6 +136,7 @@ export async function startNode(
   const context = {
     service,
     cluster: new ClusterService(replica),
+    memory: core.memory,
     commands: new CommandTable(loadCommandSpecs()),
     clients: new ClientRegistry(),
     clock,
@@ -170,6 +171,7 @@ export async function startNode(
     kv: service,
     browser: new KvBrowser(service),
     cluster: new ClusterDirectory(core.pdAdmin),
+    memory: core.memory,
     resp: { server: context, handlers, limits },
     prometheus:
       metrics instanceof PromMetrics
@@ -202,6 +204,7 @@ export async function startNode(
   const jobs = new RangeJobs({
     store: core.store,
     state: stateStore,
+    workers: core.workers,
     stamper,
     clock,
     logger,

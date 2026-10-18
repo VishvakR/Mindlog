@@ -17,6 +17,8 @@ export interface RangeTarget {
   descriptor(): RangeDescriptor;
   /** Whether the replica still holds the key's range: a split may have moved it since placement. */
   owns(tenant: string, key: Uint8Array): boolean;
+  /** Whether the replica still holds an encoded storage key (memory scopes, ADR-0031). */
+  covers(key: Uint8Array): boolean;
 }
 
 /** Where a key lives: its range, and this node's replica of it if it has one. */
@@ -60,7 +62,14 @@ export type RangeCall =
   /** A read as of `ts` that reports a lock instead of guessing; the reply is a serialised `TxnOutcome`. */
   | { readonly kind: 'snapshot'; readonly ts: bigint; readonly argv: readonly Uint8Array[] }
   /** MVCC versions of the keys' headers, for WATCH. */
-  | { readonly kind: 'watch'; readonly keys: readonly Uint8Array[] };
+  | { readonly kind: 'watch'; readonly keys: readonly Uint8Array[] }
+  /** A memory request run by the range leader's engine (ADR-0016); the reply is its JSON. */
+  | {
+      readonly kind: 'memory';
+      readonly op: string;
+      readonly json: string;
+      readonly requestId?: Uint8Array;
+    };
 
 /**
  * Finds the range of a key and reaches it (ADR-0029). Declared here, where
@@ -71,6 +80,8 @@ export type RangeCall =
 export interface RangeRouter {
   /** One placement per key, in input order. */
   place(tenant: string, keys: readonly Uint8Array[]): Promise<Result<Placement[], MindlogError>>;
+  /** The placement of an encoded storage key, such as a memory scope's (ADR-0031). */
+  locate(key: Uint8Array): Promise<Result<Placement, MindlogError>>;
   /** Runs `call` on a range this node holds no replica of, at a node that does. */
   forward(
     placement: Placement,

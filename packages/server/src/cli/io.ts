@@ -13,6 +13,8 @@ export interface MainIo {
 /** A started node, or the exit code to use when nothing was started. */
 export type MainResult =
   | { readonly kind: 'running'; readonly node: RunningNode }
+  /** `mcp`: relaying stdio until the host closes it. */
+  | { readonly kind: 'proxying' }
   | { readonly kind: 'exit'; readonly code: number };
 
 /** Exit codes (sysexits.h): usage and configuration errors are distinct. */

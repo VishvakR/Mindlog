@@ -6,6 +6,7 @@ import type {
 import type { Clock, Logger, Metrics, Tracer } from '@mindlog/core';
 import type {
   AdminService,
+  ApiKeyService,
   ClusterDirectory,
   KvBrowser,
   KvService,
@@ -22,6 +23,8 @@ export interface HttpServerOptions {
 
 export interface HttpServerDeps {
   readonly admin: AdminService;
+  /** API keys for MCP agents; absent on nodes without them. */
+  readonly apiKeys?: ApiKeyService;
   readonly kv: KvService;
   readonly browser: KvBrowser;
   /** The placement driver's view of the cluster, for the Cluster page. */

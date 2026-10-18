@@ -11,6 +11,7 @@ import { sendProblem } from './route.js';
 import { adminRoutes } from './routes/admin-routes.js';
 import { clusterRoutes } from './routes/cluster-routes.js';
 import { memoryRoutes } from './routes/memory-routes.js';
+import { apiKeyRoutes } from './routes/api-key-routes.js';
 import { CONSOLE_PROTOCOL, consoleRoutes } from './routes/console-routes.js';
 import { dashboardRoutes, isSpaRoute } from './routes/dashboard-routes.js';
 import { healthRoutes } from './routes/health-routes.js';
@@ -135,6 +136,7 @@ export class HttpServer {
     adminRoutes(app, this.#routes, deps);
     clusterRoutes(app, this.#routes, deps);
     memoryRoutes(app, this.#routes, deps);
+    apiKeyRoutes(app, this.#routes, deps);
     consoleRoutes(app, deps);
     const document = () => openApiDocument(this.#routes, deps.version);
     app.get('/api/openapi.json', { config: { auth: false } }, () => document());

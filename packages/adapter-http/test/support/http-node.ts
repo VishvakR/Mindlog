@@ -18,6 +18,7 @@ import {
 import type { MemoryService, PdAdmin } from '@mindlog/services';
 import {
   AdminService,
+  ApiKeyService,
   ClusterDirectory,
   KvBrowser,
   KvService,
@@ -110,6 +111,7 @@ export async function httpNode(
   };
   const http = new HttpServer({
     admin,
+    apiKeys: new ApiKeyService({ service: kv, clock }),
     kv,
     browser: new KvBrowser(kv),
     cluster: new ClusterDirectory(options.pd),

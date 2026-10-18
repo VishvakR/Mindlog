@@ -3,6 +3,7 @@ import type { MindlogConfig } from '@mindlog/core';
 import { create } from '@bufbuild/protobuf';
 import { MemoryLogger, MemoryMetrics, packHlc, resolveConfig } from '@mindlog/core';
 import { CommandSchema } from '@mindlog/proto';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { RunningNode } from '@mindlog/server';
 import { startNode } from '@mindlog/server';
 import { respClient } from './support/resp-client.js';
@@ -12,7 +13,11 @@ function config(dataDir: string, extra: Record<string, unknown> = {}): MindlogCo
   const result = resolveConfig({
     flags: {
       node: { dataDir },
-      listen: { resp: { host: '127.0.0.1', port: 0 }, http: { host: '127.0.0.1', port: 0 } },
+      listen: {
+        resp: { host: '127.0.0.1', port: 0 },
+        http: { host: '127.0.0.1', port: 0 },
+        mcp: { http: { port: 0 } },
+      },
       ...extra,
     },
   });
@@ -126,4 +131,34 @@ describe('startNode', () => {
     const node = await start(config(await tempDir()));
     await Promise.all([node.close(), node.close()]);
   });
+});
+
+describe('startNode MCP', () => {
+  test('an agent remembers and recalls over MCP with an API key', async () => {
+    const node = await start(config(await tempDir()));
+    const key = await node.apiKeys.create({ tenant: 'default', user: 'alice', name: 'test agent' });
+    if (!key.ok) throw new Error(key.error.message);
+    const url = new URL(`http://127.0.0.1:${String(node.mcp.port)}/mcp`);
+    const client = new Client(
+      { name: 'agent', version: '1.0.0' },
+      { versionNegotiation: { mode: 'auto' } },
+    );
+    await client.connect(
+      new StreamableHTTPClientTransport(url, {
+        requestInit: { headers: { authorization: `Bearer ${key.value.key}` } },
+      }),
+    );
+    const remembered = await client.callTool({
+      name: 'remember',
+      arguments: { content: 'I prefer dark roast coffee.' },
+    });
+    expect(remembered.structuredContent).toMatchObject({ degraded: true });
+    const recalled = await client.callTool({
+      name: 'recall',
+      arguments: { query: 'dark roast coffee' },
+    });
+    expect(recalled.structuredContent).toMatchObject({ context: '- I prefer dark roast coffee.' });
+    await client.close();
+    await node.close();
+  }, 20_000);
 });

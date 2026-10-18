@@ -11,6 +11,9 @@
       "path": "../adapter-http"
     },
     {
+      "path": "../adapter-mcp"
+    },
+    {
       "path": "../adapter-resp"
     },
     {

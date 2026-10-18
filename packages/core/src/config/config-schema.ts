@@ -143,7 +143,14 @@ export const configSchema = z.strictObject({
       internal: listener(7000),
       mcp: z
         .strictObject({
-          http: z.strictObject({ port: port.default(8765) }).prefault({}),
+          // Localhost by default (DNS-rebinding protection); other binds must list their host names.
+          http: z
+            .strictObject({
+              host: host.default('127.0.0.1'),
+              port: port.default(8765),
+              allowedHosts: z.array(z.string().min(1)).default([]),
+            })
+            .prefault({}),
           stdio: z.boolean().default(true),
         })
         .prefault({}),

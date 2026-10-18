@@ -1,12 +1,8 @@
 import { parseArgs } from 'node:util';
-import { MemoryMetrics, OtelTracer, SystemClock, createLogger } from '@mindlog/core';
 import { AdminService } from '@mindlog/services';
-import { loadConfig } from '../bootstrap/load-config.js';
-import { isSingleNode, openNodeCore } from '../bootstrap/open-node-core.js';
-
-const LEADER_WAIT_MS = 10_000;
 import type { MainIo, MainResult } from './io.js';
 import { EXIT, formatError } from './io.js';
+import { withOfflineCore } from './offline-core.js';
 
 export const SUPERUSER_USAGE = `Usage: mindlog-server superuser upsert <email> <password> [options]
 
@@ -38,63 +34,23 @@ export async function superuserCommand(argv: readonly string[], io: MainIo): Pro
     io.stderr(`${SUPERUSER_USAGE}\n`);
     return { kind: 'exit', code: EXIT.usage };
   }
-  const dataDir = parsed.values['data-dir'];
-  const config = await loadConfig({
-    cwd: io.cwd,
-    env: io.env,
-    configPath: parsed.values.config,
-    flags: dataDir === undefined ? {} : { node: { dataDir } },
-  });
-  if (!config.ok) {
-    io.stderr(formatError(config.error));
-    return { kind: 'exit', code: EXIT.config };
-  }
-  const clock = io.node?.clock ?? new SystemClock();
-  const core = await openNodeCore(config.value, {
-    logger: io.node?.logger ?? createLogger({ level: 'warn', name: 'mindlog' }),
-    metrics: new MemoryMetrics(),
-    clock,
-    tracer: new OtelTracer(),
-  });
-  if (!core.ok) {
-    io.stderr(formatError(core.error));
-    io.stderr(
-      'Is the server running? Stop it first; only one process may open a data directory.\n',
-    );
-    return { kind: 'exit', code: EXIT.failure };
-  }
-  try {
-    // A cluster member must hear from (or become) the leader before it can write.
-    if (!isSingleNode(config.value)) {
-      const known = await Promise.race([
-        core.value.replica.leaderKnown().then(() => true),
-        new Promise<false>((done) =>
-          setTimeout(() => {
-            done(false);
-          }, LEADER_WAIT_MS).unref(),
-        ),
-      ]);
-      if (!known) {
-        io.stderr(
-          'mindlog-server: no leader is reachable; start the other cluster members first\n',
-        );
-        return { kind: 'exit', code: EXIT.failure };
+  return withOfflineCore(
+    { config: parsed.values.config, dataDir: parsed.values['data-dir'] },
+    io,
+    async (core, clock) => {
+      const saved = await new AdminService({ service: core.service, clock }).upsertSuperuser({
+        email,
+        password,
+      });
+      if (!saved.ok) {
+        io.stderr(formatError(saved.error));
+        return {
+          kind: 'exit',
+          code: saved.error.code === 'INVALID_ARGUMENT' ? EXIT.usage : EXIT.failure,
+        };
       }
-    }
-    const saved = await new AdminService({ service: core.value.service, clock }).upsertSuperuser({
-      email,
-      password,
-    });
-    if (!saved.ok) {
-      io.stderr(formatError(saved.error));
-      return {
-        kind: 'exit',
-        code: saved.error.code === 'INVALID_ARGUMENT' ? EXIT.usage : EXIT.failure,
-      };
-    }
-    io.stdout(`Superuser ${saved.value.email} saved.\n`);
-    return { kind: 'exit', code: EXIT.ok };
-  } finally {
-    await core.value.close();
-  }
+      io.stdout(`Superuser ${saved.value.email} saved.\n`);
+      return { kind: 'exit', code: EXIT.ok };
+    },
+  );
 }

@@ -125,6 +125,7 @@ beforeAll(async () => {
       'listen:',
       '  resp: { host: 127.0.0.1, port: 0 }',
       '  http: { host: 127.0.0.1, port: 0 }',
+      '  mcp: { http: { port: 0 } }',
       `  internal: { host: 127.0.0.1, port: ${internalPorts[i]} }`,
       'observability: { logLevel: info }',
     ].join('\n');

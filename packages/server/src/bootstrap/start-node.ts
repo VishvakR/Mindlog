@@ -20,7 +20,14 @@ import {
   initTracing,
   ok,
 } from '@mindlog/core';
-import { AdminService, ClusterDirectory, ClusterService, KvBrowser } from '@mindlog/services';
+import {
+  AdminService,
+  ApiKeyService,
+  ClusterDirectory,
+  ClusterService,
+  KvBrowser,
+} from '@mindlog/services';
+import { McpHttpServer } from '@mindlog/adapter-mcp';
 import type { Replica } from '@mindlog/multiraft';
 import type { HeldLock } from '@mindlog/txn';
 import type { NodeCore } from './open-node-core.js';
@@ -40,6 +47,10 @@ export interface RunningNode {
   readonly config: MindlogConfig;
   readonly resp: AddressInfo;
   readonly http: AddressInfo;
+  /** MCP Streamable HTTP listener (PLAN 15.2). */
+  readonly mcp: AddressInfo;
+  /** API keys for agents; `mindlog-server apikey create` makes them offline. */
+  readonly apiKeys: ApiKeyService;
   /** Internal Raft listener; absent for a single-voter node. */
   readonly internal: AddressInfo | undefined;
   readonly replica: Replica;
@@ -161,6 +172,7 @@ export async function startNode(
   let ready = false;
   let httpAddress = '';
   const admin = new AdminService({ service, clock });
+  const apiKeys = new ApiKeyService({ service, clock });
   const httpOptions: HttpServerOptions = {
     host: config.listen.http.host,
     port: config.listen.http.port,
@@ -172,6 +184,7 @@ export async function startNode(
     browser: new KvBrowser(service),
     cluster: new ClusterDirectory(core.pdAdmin),
     memory: core.memory,
+    apiKeys,
     resp: { server: context, handlers, limits },
     prometheus:
       metrics instanceof PromMetrics
@@ -189,13 +202,24 @@ export async function startNode(
     options: httpOptions,
   });
 
+  const mcp = new McpHttpServer({
+    memory: core.memory,
+    keys: apiKeys,
+    host: config.listen.mcp.http.host,
+    port: config.listen.mcp.http.port,
+    allowedHosts: config.listen.mcp.http.allowedHosts,
+    version: mindlogVersion(),
+  });
   const respBound = await resp.listen();
   const httpBound = respBound.ok ? await http.listen() : undefined;
-  if (!respBound.ok || !httpBound?.ok) {
+  const mcpBound = httpBound?.ok ? await mcp.listen() : undefined;
+  if (!respBound.ok || !httpBound?.ok || !mcpBound?.ok) {
+    if (httpBound?.ok) await http.close();
     if (respBound.ok) await resp.close();
     await core.close();
     await tracing.shutdown();
-    return err(respBound.ok ? (httpBound as { error: MindlogError }).error : respBound.error);
+    const failed = [respBound, httpBound, mcpBound].find((b) => b && !b.ok);
+    return err((failed as { error: MindlogError }).error);
   }
   // The bound port is known only now (port 0); no connection has been accepted yet.
   context.info = serverInfo(config, respBound.value.port, startedAtMs);
@@ -223,6 +247,7 @@ export async function startNode(
     dataDir: core.dataDir,
     resp: `${respBound.value.address}:${String(respBound.value.port)}`,
     http: httpAddress,
+    mcp: `${mcpBound.value.address}:${String(mcpBound.value.port)}`,
     ...(core.transport
       ? { internal: `${core.transport.address.address}:${String(core.transport.address.port)}` }
       : {}),
@@ -240,6 +265,7 @@ export async function startNode(
   let closing: Promise<void> | undefined;
   const close = async () => {
     ready = false;
+    await mcp.close();
     await http.close();
     await resp.close();
     await jobs.stop();
@@ -251,6 +277,8 @@ export async function startNode(
     config,
     resp: respBound.value,
     http: httpBound.value,
+    mcp: mcpBound.value,
+    apiKeys,
     internal: core.transport?.address,
     replica,
     logger,

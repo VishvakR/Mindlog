@@ -47,6 +47,9 @@ describe('authentication', () => {
     ['GET', '/api/cluster/overview'],
     ['POST', '/api/cluster/actions'],
     ['POST', '/api/memory/recall'],
+    ['GET', '/api/admin/api-keys'],
+    ['POST', '/api/admin/api-keys'],
+    ['DELETE', '/api/admin/api-keys/x'],
     ['GET', '/api/admin/settings'],
     ['GET', '/api/superusers/me'],
     ['GET', '/api/console'],
@@ -229,6 +232,8 @@ describe('admin and OpenAPI', () => {
     }>();
     expect(doc.openapi).toBe('3.1.0');
     expect(Object.keys(doc.paths).sort()).toEqual([
+      '/api/admin/api-keys',
+      '/api/admin/api-keys/{id}',
       '/api/admin/overview',
       '/api/admin/settings',
       '/api/cluster/actions',
@@ -488,5 +493,39 @@ describe('memory routes', () => {
       payload: {},
     });
     expect(res.statusCode).toBe(501);
+  });
+});
+
+describe('API key routes', () => {
+  test('a superuser creates, lists and revokes keys; the secret is shown once', async () => {
+    const node = await httpNode();
+    const created = await node.app.inject({
+      method: 'POST',
+      url: '/api/admin/api-keys',
+      headers: node.authed,
+      payload: { tenant: 'acme', user: 'alice', name: 'desktop' },
+    });
+    expect(created.statusCode).toBe(200);
+    const key = created.json<{ id: string; key: string }>();
+    expect(key.key).toMatch(/^mlk_/);
+    const listed = await node.app.inject({ url: '/api/admin/api-keys', headers: node.authed });
+    const { keys } = listed.json<{ keys: Array<Record<string, string>> }>();
+    expect(keys.map((k) => [k.id, k.tenant, k.user, k.name])).toEqual([
+      [key.id, 'acme', 'alice', 'desktop'],
+    ]);
+    expect(keys[0]?.created).toMatch(/^\d{4}-/);
+    expect(listed.body).not.toContain(key.key);
+    const revoked = await node.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/api-keys/${key.id}`,
+      headers: node.authed,
+    });
+    expect(revoked.statusCode).toBe(204);
+    const gone = await node.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/api-keys/${key.id}`,
+      headers: node.authed,
+    });
+    expect(gone.statusCode).toBe(404);
   });
 });

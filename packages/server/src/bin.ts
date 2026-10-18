@@ -10,6 +10,8 @@ const result = await main(process.argv.slice(2), {
 
 if (result.kind === 'exit') {
   process.exitCode = result.code;
+} else if (result.kind === 'proxying') {
+  // The stdio proxy keeps the process alive until the host closes stdin.
 } else {
   const { node } = result;
   let stopping = false;

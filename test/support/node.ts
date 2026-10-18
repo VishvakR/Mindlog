@@ -11,7 +11,11 @@ export async function startTestNode(overrides: Record<string, unknown> = {}) {
   const config = resolveConfig({
     flags: {
       node: { dataDir },
-      listen: { resp: { host: '127.0.0.1', port: 0 }, http: { host: '127.0.0.1', port: 0 } },
+      listen: {
+        resp: { host: '127.0.0.1', port: 0 },
+        http: { host: '127.0.0.1', port: 0 },
+        mcp: { http: { port: 0 } },
+      },
       ...overrides,
     },
   });

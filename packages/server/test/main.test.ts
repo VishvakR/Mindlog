@@ -58,6 +58,8 @@ describe('main', () => {
         '0',
         '--http-port',
         '0',
+        '--mcp-port',
+        '0',
         '--data-dir',
         join(run.cwd, 'data'),
       ],
@@ -81,7 +83,17 @@ describe('main', () => {
     expect(created).toEqual({ kind: 'exit', code: EXIT.ok });
     expect(run.out()).toBe('Superuser admin@example.com saved.\n');
     const result = await main(
-      ['--single-node', '--port', '0', '--http-port', '0', '--data-dir', dataDir],
+      [
+        '--single-node',
+        '--port',
+        '0',
+        '--http-port',
+        '0',
+        '--mcp-port',
+        '0',
+        '--data-dir',
+        dataDir,
+      ],
       run.value,
     );
     if (result.kind !== 'running') throw new Error('not running');
@@ -124,5 +136,64 @@ describe('main', () => {
       ),
     ).toEqual({ kind: 'exit', code: EXIT.usage });
     expect(weak.err()).toContain('password');
+  });
+});
+
+describe('main apikey and mcp', () => {
+  test('apikey create, list and revoke work offline on the data directory', async () => {
+    const run = await io();
+    const dataDir = join(run.cwd, 'data');
+    expect(
+      await main(
+        [
+          'apikey',
+          'create',
+          '--tenant',
+          'acme',
+          '--user',
+          'alice',
+          '--name',
+          'desktop',
+          '--data-dir',
+          dataDir,
+        ],
+        run.value,
+      ),
+    ).toEqual({ kind: 'exit', code: EXIT.ok });
+    const key = /mlk_[A-Za-z0-9_-]+/.exec(run.out())?.[0];
+    const id = /id (\w+)/.exec(run.out())?.[1];
+    expect(key).toBeDefined();
+    expect(id).toBeDefined();
+    const list = await io();
+    expect(await main(['apikey', 'list', '--data-dir', dataDir], list.value)).toEqual({
+      kind: 'exit',
+      code: EXIT.ok,
+    });
+    expect(list.out()).toContain(`${id ?? ''}  acme  alice  desktop`);
+    expect(list.out()).not.toContain(key ?? 'x');
+    const revoke = await io();
+    expect(await main(['apikey', 'revoke', id ?? '', '--data-dir', dataDir], revoke.value)).toEqual(
+      {
+        kind: 'exit',
+        code: EXIT.ok,
+      },
+    );
+    const again = await io();
+    expect(await main(['apikey', 'revoke', id ?? '', '--data-dir', dataDir], again.value)).toEqual({
+      kind: 'exit',
+      code: EXIT.failure,
+    });
+  });
+
+  test('apikey and mcp usage errors', async () => {
+    const usage = await io();
+    expect(await main(['apikey', 'create', '--name', 'x'], usage.value)).toEqual({
+      kind: 'exit',
+      code: EXIT.usage,
+    });
+    expect(usage.err()).toContain('apikey create');
+    const mcp = await io();
+    expect(await main(['mcp'], mcp.value)).toEqual({ kind: 'exit', code: EXIT.usage });
+    expect(mcp.err()).toContain('--api-key');
   });
 });

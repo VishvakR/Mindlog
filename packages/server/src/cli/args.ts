@@ -13,6 +13,8 @@ export interface CliArgs {
 
 export const USAGE = `Usage: mindlog-server --single-node [options]
        mindlog-server superuser upsert <email> <password> [-c <path>] [--data-dir <path>]
+       mindlog-server apikey create --tenant <t> --name <n> [--user <u>] | list | revoke <id>
+       mindlog-server mcp --api-key <key> [--url http://127.0.0.1:8765/mcp]
 
 Options:
   --single-node          Run one node with a local durable log (phase 1)
@@ -20,6 +22,7 @@ Options:
   -p, --port <port>      RESP port (listen.resp.port)
       --host <host>      RESP bind address (listen.resp.host)
       --http-port <port> HTTP API and dashboard port (listen.http.port)
+      --mcp-port <port>  MCP Streamable HTTP port (listen.mcp.http.port)
       --data-dir <path>  Data directory (node.dataDir)
       --log-level <lvl>  trace | debug | info | warn | error | fatal
   -h, --help             Show this help
@@ -44,6 +47,7 @@ export function parseCliArgs(argv: readonly string[]): Result<CliArgs, MindlogEr
         port: { type: 'string', short: 'p' },
         host: { type: 'string' },
         'http-port': { type: 'string' },
+        'mcp-port': { type: 'string' },
         'data-dir': { type: 'string' },
         'log-level': { type: 'string' },
         help: { type: 'boolean', short: 'h', default: false },
@@ -65,6 +69,11 @@ export function parseCliArgs(argv: readonly string[]): Result<CliArgs, MindlogEr
   if (httpPort !== undefined) {
     if (!/^\d+$/.test(httpPort)) return invalid(`--http-port must be a number, got '${httpPort}'`);
     listen.http = { port: Number(httpPort) };
+  }
+  const mcpPort = values['mcp-port'];
+  if (mcpPort !== undefined) {
+    if (!/^\d+$/.test(mcpPort)) return invalid(`--mcp-port must be a number, got '${mcpPort}'`);
+    listen.mcp = { http: { port: Number(mcpPort) } };
   }
   const flags: Record<string, unknown> = {};
   if (Object.keys(listen).length > 0) flags.listen = listen;

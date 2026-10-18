@@ -56,3 +56,11 @@ describe('parseCliArgs', () => {
     }
   });
 });
+
+describe('parseCliArgs --mcp-port', () => {
+  test('sets the MCP listener port', () => {
+    const args = parseCliArgs(['--single-node', '--mcp-port', '0']);
+    expect(args.ok && args.value.flags).toEqual({ listen: { mcp: { http: { port: 0 } } } });
+    expect(parseCliArgs(['--mcp-port', 'x']).ok).toBe(false);
+  });
+});

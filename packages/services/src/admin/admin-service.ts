@@ -6,6 +6,7 @@ import type { KvService } from '../kv/kv-service.js';
 import { Session } from '../session/session.js';
 import { hasValidSignature, readClaims, signToken } from './auth-token.js';
 import { DUMMY_HASH, hashPassword, verifyPassword } from './password-hash.js';
+import { strings, toRecord } from './kv-strings.js';
 import type { AuthResult, Superuser, SuperuserCredentials } from './schemas.js';
 import { superuserCredentialsSchema } from './schemas.js';
 
@@ -19,27 +20,9 @@ export interface AdminServiceDeps {
 const DAY_MS = 86_400_000;
 const SETTINGS_KEY = 'settings:auth';
 const userKey = (email: string) => `superuser:${email}`;
-const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const invalid = () => mindlogError('INVALID_CREDENTIALS', 'Invalid email or password.');
 const unauthenticated = () => mindlogError('UNAUTHENTICATED', 'Missing or invalid auth token.');
-
-/** Bulk strings of a reply, flattened (HGETALL map, SCAN arrays). */
-function strings(reply: KvReply): string[] {
-  const k = reply.kind;
-  if (k.case === 'bulk') return [decoder.decode(k.value)];
-  if (k.case === 'simple') return [k.value];
-  if (k.case === 'array' || k.case === 'set') return k.value.items.flatMap(strings);
-  if (k.case === 'map')
-    return k.value.entries.flatMap((e) => [e.key, e.value].flatMap((r) => (r ? strings(r) : [])));
-  return [];
-}
-
-const toRecord = (flat: string[]): Record<string, string> => {
-  const out: Record<string, string> = {};
-  for (let i = 0; i + 1 < flat.length; i += 2) out[flat[i] as string] = flat[i + 1] as string;
-  return out;
-};
 
 /**
  * Dashboard superusers (ADR-0024): hashes in the system tenant written through

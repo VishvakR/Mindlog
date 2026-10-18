@@ -135,6 +135,12 @@
     },
     {
       "path": "packages/memory/test"
+    },
+    {
+      "path": "packages/adapter-mcp"
+    },
+    {
+      "path": "packages/adapter-mcp/test"
     }
   ]
 }

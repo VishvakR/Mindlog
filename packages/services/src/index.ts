@@ -53,3 +53,5 @@ export {
   rememberSchema,
   scopesSchema,
 } from './memory/schemas.js';
+export type { ApiKeyIdentity, ApiKeyInfo, ApiKeyInput } from './admin/api-keys.js';
+export { ApiKeyService, apiKeyInputSchema, authorizeScope } from './admin/api-keys.js';

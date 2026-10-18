@@ -5,6 +5,8 @@ import { startNode } from '../bootstrap/start-node.js';
 import { USAGE, parseCliArgs } from './args.js';
 import type { MainIo, MainResult } from './io.js';
 import { EXIT, formatError } from './io.js';
+import { apikeyCommand } from './apikey.js';
+import { mcpCommand } from './mcp.js';
 import { superuserCommand } from './superuser.js';
 
 const exit = (code: number): MainResult => ({ kind: 'exit', code });
@@ -12,6 +14,8 @@ const exit = (code: number): MainResult => ({ kind: 'exit', code });
 /** `mindlog-server [options]` starts the node; `mindlog-server superuser ...` manages superusers. */
 export async function main(argv: readonly string[], io: MainIo): Promise<MainResult> {
   if (argv[0] === 'superuser') return superuserCommand(argv.slice(1), io);
+  if (argv[0] === 'apikey') return apikeyCommand(argv.slice(1), io);
+  if (argv[0] === 'mcp') return mcpCommand(argv.slice(1), io);
   const args = parseCliArgs(argv);
   if (!args.ok) {
     io.stderr(`${formatError(args.error)}\n${USAGE}\n`);

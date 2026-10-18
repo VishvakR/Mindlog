@@ -1,0 +1,32 @@
+{
+  "name": "@mindlog/adapter-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "MCP server for agents: memory tools, resources and prompts over Streamable HTTP and a stdio proxy",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/adapter-mcp/"
+  },
+  "dependencies": {
+    "@mindlog/core": "workspace:*",
+    "@mindlog/memory": "workspace:*",
+    "@mindlog/services": "workspace:*",
+    "@modelcontextprotocol/client": "2.3.0",
+    "@modelcontextprotocol/fastify": "2.0.1",
+    "@modelcontextprotocol/node": "2.1.1",
+    "@modelcontextprotocol/server": "2.3.0",
+    "fastify": "^5.12.5",
+    "zod": "^4.6.6"
+  }
+}

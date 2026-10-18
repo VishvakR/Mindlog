@@ -19,7 +19,10 @@ describe('resolveConfig', () => {
     expect(config.listen.http.port).toBe(8090);
     expect(config.listen.grpc.port).toBe(9090);
     expect(config.listen.internal.port).toBe(7000);
-    expect(config.listen.mcp).toEqual({ http: { port: 8765 }, stdio: true });
+    expect(config.listen.mcp).toEqual({
+      http: { host: '127.0.0.1', port: 8765, allowedHosts: [] },
+      stdio: true,
+    });
     expect(config.observability.tracing.endpoint).toBeUndefined();
     expect(config.profile).toBe('dev');
   });

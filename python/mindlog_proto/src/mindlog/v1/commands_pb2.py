@@ -26,9 +26,10 @@ from mindlog.v1 import common_pb2 as mindlog_dot_v1_dot_common__pb2
 from mindlog.v1 import kv_pb2 as mindlog_dot_v1_dot_kv__pb2
 from mindlog.v1 import pd_pb2 as mindlog_dot_v1_dot_pd__pb2
 from mindlog.v1 import range_pb2 as mindlog_dot_v1_dot_range__pb2
+from mindlog.v1 import txn_pb2 as mindlog_dot_v1_dot_txn__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19mindlog/v1/commands.proto\x12\nmindlog.v1\x1a\x17mindlog/v1/common.proto\x1a\x13mindlog/v1/kv.proto\x1a\x13mindlog/v1/pd.proto\x1a\x16mindlog/v1/range.proto\"\xee\x05\n\x07\x43ommand\x12\x12\n\nrequest_id\x18\x01 \x01(\x0c\x12\x11\n\tprincipal\x18\x02 \x01(\t\x12\x0b\n\x03hlc\x18\x03 \x01(\x04\x12\x0e\n\x06\x62ranch\x18\x04 \x01(\t\x12\x0e\n\x06tenant\x18\x05 \x01(\t\x12\'\n\x08kv_write\x18\n \x01(\x0b\x32\x13.mindlog.v1.KvWriteH\x00\x12\'\n\x08kv_batch\x18\x0b \x01(\x0b\x32\x13.mindlog.v1.KvBatchH\x00\x12$\n\x06\x65xpire\x18\x0c \x01(\x0b\x32\x12.mindlog.v1.ExpireH\x00\x12/\n\x0cgc_threshold\x18\r \x01(\x0b\x32\x17.mindlog.v1.GcThresholdH\x00\x12\"\n\x05split\x18P \x01(\x0b\x32\x11.mindlog.v1.SplitH\x00\x12$\n\x06\x66reeze\x18Q \x01(\x0b\x32\x12.mindlog.v1.FreezeH\x00\x12\"\n\x05merge\x18R \x01(\x0b\x32\x11.mindlog.v1.MergeH\x00\x12.\n\x0cpd_alloc_ids\x18Z \x01(\x0b\x32\x16.mindlog.v1.PdAllocIdsH\x00\x12,\n\x0bpd_put_node\x18[ \x01(\x0b\x32\x15.mindlog.v1.PdPutNodeH\x00\x12.\n\x0cpd_put_range\x18\\ \x01(\x0b\x32\x16.mindlog.v1.PdPutRangeH\x00\x12\x34\n\x0fpd_remove_range\x18] \x01(\x0b\x32\x19.mindlog.v1.PdRemoveRangeH\x00\x12*\n\npd_set_tso\x18^ \x01(\x0b\x32\x14.mindlog.v1.PdSetTsoH\x00\x12\x32\n\x0epd_set_version\x18_ \x01(\x0b\x32\x18.mindlog.v1.PdSetVersionH\x00\x12:\n\x12pd_record_operator\x18` \x01(\x0b\x32\x1c.mindlog.v1.PdRecordOperatorH\x00\x42\x06\n\x04\x62odyJ\x04\x08\x0e\x10PJ\x04\x08S\x10ZJ\x04\x08\x61\x10\x64\"L\n\x0bGcThreshold\x12\x17\n\x0b\x62\x65low_index\x18\x01 \x01(\x04\x42\x02\x18\x01\x12\r\n\x05limit\x18\x02 \x01(\r\x12\x15\n\rbelow_version\x18\x03 \x01(\x04\"g\n\rCommandResult\x12!\n\x02kv\x18\x01 \x01(\x0b\x32\x13.mindlog.v1.KvReplyH\x00\x12(\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x17.mindlog.v1.ErrorDetailH\x00\x42\t\n\x07outcomeb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19mindlog/v1/commands.proto\x12\nmindlog.v1\x1a\x17mindlog/v1/common.proto\x1a\x13mindlog/v1/kv.proto\x1a\x13mindlog/v1/pd.proto\x1a\x16mindlog/v1/range.proto\x1a\x14mindlog/v1/txn.proto\"\xae\x07\n\x07\x43ommand\x12\x12\n\nrequest_id\x18\x01 \x01(\x0c\x12\x11\n\tprincipal\x18\x02 \x01(\t\x12\x0b\n\x03hlc\x18\x03 \x01(\x04\x12\x0e\n\x06\x62ranch\x18\x04 \x01(\t\x12\x0e\n\x06tenant\x18\x05 \x01(\t\x12\'\n\x08kv_write\x18\n \x01(\x0b\x32\x13.mindlog.v1.KvWriteH\x00\x12\'\n\x08kv_batch\x18\x0b \x01(\x0b\x32\x13.mindlog.v1.KvBatchH\x00\x12$\n\x06\x65xpire\x18\x0c \x01(\x0b\x32\x12.mindlog.v1.ExpireH\x00\x12/\n\x0cgc_threshold\x18\r \x01(\x0b\x32\x17.mindlog.v1.GcThresholdH\x00\x12/\n\x0ctxn_prewrite\x18< \x01(\x0b\x32\x17.mindlog.v1.TxnPrewriteH\x00\x12+\n\ntxn_commit\x18= \x01(\x0b\x32\x15.mindlog.v1.TxnCommitH\x00\x12/\n\x0ctxn_rollback\x18> \x01(\x0b\x32\x17.mindlog.v1.TxnRollbackH\x00\x12)\n\ttxn_check\x18? \x01(\x0b\x32\x14.mindlog.v1.TxnCheckH\x00\x12\"\n\x05split\x18P \x01(\x0b\x32\x11.mindlog.v1.SplitH\x00\x12$\n\x06\x66reeze\x18Q \x01(\x0b\x32\x12.mindlog.v1.FreezeH\x00\x12\"\n\x05merge\x18R \x01(\x0b\x32\x11.mindlog.v1.MergeH\x00\x12.\n\x0cpd_alloc_ids\x18Z \x01(\x0b\x32\x16.mindlog.v1.PdAllocIdsH\x00\x12,\n\x0bpd_put_node\x18[ \x01(\x0b\x32\x15.mindlog.v1.PdPutNodeH\x00\x12.\n\x0cpd_put_range\x18\\ \x01(\x0b\x32\x16.mindlog.v1.PdPutRangeH\x00\x12\x34\n\x0fpd_remove_range\x18] \x01(\x0b\x32\x19.mindlog.v1.PdRemoveRangeH\x00\x12*\n\npd_set_tso\x18^ \x01(\x0b\x32\x14.mindlog.v1.PdSetTsoH\x00\x12\x32\n\x0epd_set_version\x18_ \x01(\x0b\x32\x18.mindlog.v1.PdSetVersionH\x00\x12:\n\x12pd_record_operator\x18` \x01(\x0b\x32\x1c.mindlog.v1.PdRecordOperatorH\x00\x42\x06\n\x04\x62odyJ\x04\x08\x0e\x10<J\x04\x08@\x10PJ\x04\x08S\x10ZJ\x04\x08\x61\x10\x64\"L\n\x0bGcThreshold\x12\x17\n\x0b\x62\x65low_index\x18\x01 \x01(\x04\x42\x02\x18\x01\x12\r\n\x05limit\x18\x02 \x01(\r\x12\x15\n\rbelow_version\x18\x03 \x01(\x04\"\x8e\x01\n\rCommandResult\x12!\n\x02kv\x18\x01 \x01(\x0b\x32\x13.mindlog.v1.KvReplyH\x00\x12(\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x17.mindlog.v1.ErrorDetailH\x00\x12%\n\x03txn\x18\x03 \x01(\x0b\x32\x16.mindlog.v1.TxnOutcomeH\x00\x42\t\n\x07outcomeb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,10 +38,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_GCTHRESHOLD'].fields_by_name['below_index']._loaded_options = None
   _globals['_GCTHRESHOLD'].fields_by_name['below_index']._serialized_options = b'\030\001'
-  _globals['_COMMAND']._serialized_start=133
-  _globals['_COMMAND']._serialized_end=883
-  _globals['_GCTHRESHOLD']._serialized_start=885
-  _globals['_GCTHRESHOLD']._serialized_end=961
-  _globals['_COMMANDRESULT']._serialized_start=963
-  _globals['_COMMANDRESULT']._serialized_end=1066
+  _globals['_COMMAND']._serialized_start=155
+  _globals['_COMMAND']._serialized_end=1097
+  _globals['_GCTHRESHOLD']._serialized_start=1099
+  _globals['_GCTHRESHOLD']._serialized_end=1175
+  _globals['_COMMANDRESULT']._serialized_start=1178
+  _globals['_COMMANDRESULT']._serialized_end=1320
 # @@protoc_insertion_point(module_scope)

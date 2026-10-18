@@ -297,6 +297,11 @@ export class Replica implements Proposer, InboundHandler {
     });
   }
 
+  /** Proposals waiting for their result. */
+  get pendingProposals(): number {
+    return this.#pendingCount();
+  }
+
   /** True while the range is idle and not ticking (ADR-0028). */
   get quiesced(): boolean {
     return this.#quiesced;

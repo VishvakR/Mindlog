@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/kv.proto.
  */
 export const file_mindlog_v1_kv: GenFile = /*@__PURE__*/
-  fileDesc("ChNtaW5kbG9nL3YxL2t2LnByb3RvEgptaW5kbG9nLnYxIhcKB0t2V3JpdGUSDAoEYXJndhgBIAMoDCIqCgpXYXRjaGVkS2V5EgsKA2tleRgBIAEoDBIPCgd2ZXJzaW9uGAIgASgEIlcKB0t2QmF0Y2gSIwoGd3JpdGVzGAEgAygLMhMubWluZGxvZy52MS5LdldyaXRlEicKB3dhdGNoZXMYAiADKAsyFi5taW5kbG9nLnYxLldhdGNoZWRLZXkiLwoGRXhwaXJlEiUKBGtleXMYASADKAsyFy5taW5kbG9nLnYxLkV4cGlyaW5nS2V5IjAKC0V4cGlyaW5nS2V5EgsKA2tleRgBIAEoDBIUCgxleHBpcmVfYXRfbXMYAiABKAQiqwEKCEt2SGVhZGVyEiAKBHR5cGUYASABKA4yEi5taW5kbG9nLnYxLkt2VHlwZRISCgpnZW5lcmF0aW9uGAIgASgEEg0KBWNvdW50GAMgASgEEhQKDGV4cGlyZV9hdF9tcxgEIAEoBBIPCgd2ZXJzaW9uGAUgASgEEhEKCWxpc3RfaGVhZBgGIAEoEhIRCglsaXN0X3RhaWwYByABKBISDQoFdmFsdWUYCCABKAwisgIKB0t2UmVwbHkSIgoEbnVsbBgBIAEoCzISLm1pbmRsb2cudjEuS3ZOdWxsSAASEQoHaW50ZWdlchgCIAEoEkgAEg4KBGJ1bGsYAyABKAxIABIQCgZzaW1wbGUYBCABKAlIABIQCgZkb3VibGUYBSABKAFIABIRCgdib29sZWFuGAYgASgISAASKAoFYXJyYXkYByABKAsyFy5taW5kbG9nLnYxLkt2UmVwbHlMaXN0SAASJgoDc2V0GAggASgLMhcubWluZGxvZy52MS5LdlJlcGx5TGlzdEgAEiUKA21hcBgJIAEoCzIWLm1pbmRsb2cudjEuS3ZSZXBseU1hcEgAEigKBWVycm9yGAogASgLMhcubWluZGxvZy52MS5FcnJvckRldGFpbEgAQgYKBGtpbmQiCAoGS3ZOdWxsIkAKC0t2UmVwbHlMaXN0EiIKBWl0ZW1zGAEgAygLMhMubWluZGxvZy52MS5LdlJlcGx5Eg0KBXBhaXJzGAIgASgIIjYKCkt2UmVwbHlNYXASKAoHZW50cmllcxgBIAMoCzIXLm1pbmRsb2cudjEuS3ZSZXBseVBhaXIiUwoLS3ZSZXBseVBhaXISIAoDa2V5GAEgASgLMhMubWluZGxvZy52MS5LdlJlcGx5EiIKBXZhbHVlGAIgASgLMhMubWluZGxvZy52MS5LdlJlcGx5Iv0BCg5FeGVjdXRlUmVxdWVzdBIQCghyYW5nZV9pZBgBIAEoBBIOCgZ0ZW5hbnQYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJEgsKA2hsYxgEIAEoBBIUCgxmcm9tX2FkZHJlc3MYBSABKAkSEgoKcmVxdWVzdF9pZBgJIAEoDBImCgdjb21tYW5kGAYgASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJAoFYmF0Y2gYByABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIpCgV3YXRjaBgIIAEoCzIYLm1pbmRsb2cudjEuRXhlY3V0ZVdhdGNoSABCBgoEY2FsbCI1Cg9FeGVjdXRlUmVzcG9uc2USIgoFcmVwbHkYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHkiHAoMRXhlY3V0ZVdhdGNoEgwKBGtleXMYASADKAwqjgEKBkt2VHlwZRIXChNLVl9UWVBFX1VOU1BFQ0lGSUVEEAASEgoOS1ZfVFlQRV9TVFJJTkcQARIQCgxLVl9UWVBFX0hBU0gQAhIQCgxLVl9UWVBFX0xJU1QQAxIPCgtLVl9UWVBFX1NFVBAEEhAKDEtWX1RZUEVfWlNFVBAFEhAKDEtWX1RZUEVfSlNPThAGMlYKEEt2Rm9yd2FyZFNlcnZpY2USQgoHRXhlY3V0ZRIaLm1pbmRsb2cudjEuRXhlY3V0ZVJlcXVlc3QaGy5taW5kbG9nLnYxLkV4ZWN1dGVSZXNwb25zZWIGcHJvdG8z", [file_mindlog_v1_common]);
+  fileDesc("ChNtaW5kbG9nL3YxL2t2LnByb3RvEgptaW5kbG9nLnYxIhcKB0t2V3JpdGUSDAoEYXJndhgBIAMoDCIqCgpXYXRjaGVkS2V5EgsKA2tleRgBIAEoDBIPCgd2ZXJzaW9uGAIgASgEIlcKB0t2QmF0Y2gSIwoGd3JpdGVzGAEgAygLMhMubWluZGxvZy52MS5LdldyaXRlEicKB3dhdGNoZXMYAiADKAsyFi5taW5kbG9nLnYxLldhdGNoZWRLZXkiLwoGRXhwaXJlEiUKBGtleXMYASADKAsyFy5taW5kbG9nLnYxLkV4cGlyaW5nS2V5IjAKC0V4cGlyaW5nS2V5EgsKA2tleRgBIAEoDBIUCgxleHBpcmVfYXRfbXMYAiABKAQiqwEKCEt2SGVhZGVyEiAKBHR5cGUYASABKA4yEi5taW5kbG9nLnYxLkt2VHlwZRISCgpnZW5lcmF0aW9uGAIgASgEEg0KBWNvdW50GAMgASgEEhQKDGV4cGlyZV9hdF9tcxgEIAEoBBIPCgd2ZXJzaW9uGAUgASgEEhEKCWxpc3RfaGVhZBgGIAEoEhIRCglsaXN0X3RhaWwYByABKBISDQoFdmFsdWUYCCABKAwisgIKB0t2UmVwbHkSIgoEbnVsbBgBIAEoCzISLm1pbmRsb2cudjEuS3ZOdWxsSAASEQoHaW50ZWdlchgCIAEoEkgAEg4KBGJ1bGsYAyABKAxIABIQCgZzaW1wbGUYBCABKAlIABIQCgZkb3VibGUYBSABKAFIABIRCgdib29sZWFuGAYgASgISAASKAoFYXJyYXkYByABKAsyFy5taW5kbG9nLnYxLkt2UmVwbHlMaXN0SAASJgoDc2V0GAggASgLMhcubWluZGxvZy52MS5LdlJlcGx5TGlzdEgAEiUKA21hcBgJIAEoCzIWLm1pbmRsb2cudjEuS3ZSZXBseU1hcEgAEigKBWVycm9yGAogASgLMhcubWluZGxvZy52MS5FcnJvckRldGFpbEgAQgYKBGtpbmQiCAoGS3ZOdWxsIkAKC0t2UmVwbHlMaXN0EiIKBWl0ZW1zGAEgAygLMhMubWluZGxvZy52MS5LdlJlcGx5Eg0KBXBhaXJzGAIgASgIIjYKCkt2UmVwbHlNYXASKAoHZW50cmllcxgBIAMoCzIXLm1pbmRsb2cudjEuS3ZSZXBseVBhaXIiUwoLS3ZSZXBseVBhaXISIAoDa2V5GAEgASgLMhMubWluZGxvZy52MS5LdlJlcGx5EiIKBXZhbHVlGAIgASgLMhMubWluZGxvZy52MS5LdlJlcGx5IsUCCg5FeGVjdXRlUmVxdWVzdBIQCghyYW5nZV9pZBgBIAEoBBIOCgZ0ZW5hbnQYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJEgsKA2hsYxgEIAEoBBIUCgxmcm9tX2FkZHJlc3MYBSABKAkSEgoKcmVxdWVzdF9pZBgJIAEoDBImCgdjb21tYW5kGAYgASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJAoFYmF0Y2gYByABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIpCgV3YXRjaBgIIAEoCzIYLm1pbmRsb2cudjEuRXhlY3V0ZVdhdGNoSAASFQoLdHhuX2NvbW1hbmQYCiABKAxIABIvCghzbmFwc2hvdBgLIAEoCzIbLm1pbmRsb2cudjEuRXhlY3V0ZVNuYXBzaG90SABCBgoEY2FsbCI1Cg9FeGVjdXRlUmVzcG9uc2USIgoFcmVwbHkYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHkiMAoPRXhlY3V0ZVNuYXBzaG90Eg8KB3JlYWRfdHMYASABKAQSDAoEYXJndhgCIAMoDCIcCgxFeGVjdXRlV2F0Y2gSDAoEa2V5cxgBIAMoDCqOAQoGS3ZUeXBlEhcKE0tWX1RZUEVfVU5TUEVDSUZJRUQQABISCg5LVl9UWVBFX1NUUklORxABEhAKDEtWX1RZUEVfSEFTSBACEhAKDEtWX1RZUEVfTElTVBADEg8KC0tWX1RZUEVfU0VUEAQSEAoMS1ZfVFlQRV9aU0VUEAUSEAoMS1ZfVFlQRV9KU09OEAYyVgoQS3ZGb3J3YXJkU2VydmljZRJCCgdFeGVjdXRlEhoubWluZGxvZy52MS5FeGVjdXRlUmVxdWVzdBobLm1pbmRsb2cudjEuRXhlY3V0ZVJlc3BvbnNlYgZwcm90bzM", [file_mindlog_v1_common]);
 
 /**
  * One Redis write command exactly as the client sent it, command name first.
@@ -406,6 +406,20 @@ export type ExecuteRequest = Message<"mindlog.v1.ExecuteRequest"> & {
      */
     value: ExecuteWatch;
     case: "watch";
+  } | {
+    /**
+     * A serialised Command carrying only a transaction body (ADR-0030).
+     *
+     * @generated from field: bytes txn_command = 10;
+     */
+    value: Uint8Array;
+    case: "txnCommand";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.ExecuteSnapshot snapshot = 11;
+     */
+    value: ExecuteSnapshot;
+    case: "snapshot";
   } | { case: undefined; value?: undefined };
 };
 
@@ -434,6 +448,28 @@ export const ExecuteResponseSchema: GenMessage<ExecuteResponse> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_kv, 12);
 
 /**
+ * @generated from message mindlog.v1.ExecuteSnapshot
+ */
+export type ExecuteSnapshot = Message<"mindlog.v1.ExecuteSnapshot"> & {
+  /**
+   * @generated from field: uint64 read_ts = 1;
+   */
+  readTs: bigint;
+
+  /**
+   * @generated from field: repeated bytes argv = 2;
+   */
+  argv: Uint8Array[];
+};
+
+/**
+ * Describes the message mindlog.v1.ExecuteSnapshot.
+ * Use `create(ExecuteSnapshotSchema)` to create a new message.
+ */
+export const ExecuteSnapshotSchema: GenMessage<ExecuteSnapshot> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_kv, 13);
+
+/**
  * @generated from message mindlog.v1.ExecuteWatch
  */
 export type ExecuteWatch = Message<"mindlog.v1.ExecuteWatch"> & {
@@ -448,7 +484,7 @@ export type ExecuteWatch = Message<"mindlog.v1.ExecuteWatch"> & {
  * Use `create(ExecuteWatchSchema)` to create a new message.
  */
 export const ExecuteWatchSchema: GenMessage<ExecuteWatch> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_kv, 13);
+  messageDesc(file_mindlog_v1_kv, 14);
 
 /**
  * @generated from enum mindlog.v1.KvType

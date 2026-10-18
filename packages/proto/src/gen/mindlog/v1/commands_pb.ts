@@ -12,13 +12,15 @@ import type { PdAllocIds, PdPutNode, PdPutRange, PdRecordOperator, PdRemoveRange
 import { file_mindlog_v1_pd } from "./pd_pb.js";
 import type { Freeze, Merge, Split } from "./range_pb.js";
 import { file_mindlog_v1_range } from "./range_pb.js";
+import type { TxnCheck, TxnCommit, TxnOutcome, TxnPrewrite, TxnRollback } from "./txn_pb.js";
+import { file_mindlog_v1_txn } from "./txn_pb.js";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file mindlog/v1/commands.proto.
  */
 export const file_mindlog_v1_commands: GenFile = /*@__PURE__*/
-  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIu4FCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIiCgVzcGxpdBhQIAEoCzIRLm1pbmRsb2cudjEuU3BsaXRIABIkCgZmcmVlemUYUSABKAsyEi5taW5kbG9nLnYxLkZyZWV6ZUgAEiIKBW1lcmdlGFIgASgLMhEubWluZGxvZy52MS5NZXJnZUgAEi4KDHBkX2FsbG9jX2lkcxhaIAEoCzIWLm1pbmRsb2cudjEuUGRBbGxvY0lkc0gAEiwKC3BkX3B1dF9ub2RlGFsgASgLMhUubWluZGxvZy52MS5QZFB1dE5vZGVIABIuCgxwZF9wdXRfcmFuZ2UYXCABKAsyFi5taW5kbG9nLnYxLlBkUHV0UmFuZ2VIABI0Cg9wZF9yZW1vdmVfcmFuZ2UYXSABKAsyGS5taW5kbG9nLnYxLlBkUmVtb3ZlUmFuZ2VIABIqCgpwZF9zZXRfdHNvGF4gASgLMhQubWluZGxvZy52MS5QZFNldFRzb0gAEjIKDnBkX3NldF92ZXJzaW9uGF8gASgLMhgubWluZGxvZy52MS5QZFNldFZlcnNpb25IABI6ChJwZF9yZWNvcmRfb3BlcmF0b3IYYCABKAsyHC5taW5kbG9nLnYxLlBkUmVjb3JkT3BlcmF0b3JIAEIGCgRib2R5SgQIDhBQSgQIUxBaSgQIYRBkIkwKC0djVGhyZXNob2xkEhcKC2JlbG93X2luZGV4GAEgASgEQgIYARINCgVsaW1pdBgCIAEoDRIVCg1iZWxvd192ZXJzaW9uGAMgASgEImcKDUNvbW1hbmRSZXN1bHQSIQoCa3YYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHlIABIoCgVlcnJvchgCIAEoCzIXLm1pbmRsb2cudjEuRXJyb3JEZXRhaWxIAEIJCgdvdXRjb21lYgZwcm90bzM", [file_mindlog_v1_common, file_mindlog_v1_kv, file_mindlog_v1_pd, file_mindlog_v1_range]);
+  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIq4HCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIvCgx0eG5fcHJld3JpdGUYPCABKAsyFy5taW5kbG9nLnYxLlR4blByZXdyaXRlSAASKwoKdHhuX2NvbW1pdBg9IAEoCzIVLm1pbmRsb2cudjEuVHhuQ29tbWl0SAASLwoMdHhuX3JvbGxiYWNrGD4gASgLMhcubWluZGxvZy52MS5UeG5Sb2xsYmFja0gAEikKCXR4bl9jaGVjaxg/IAEoCzIULm1pbmRsb2cudjEuVHhuQ2hlY2tIABIiCgVzcGxpdBhQIAEoCzIRLm1pbmRsb2cudjEuU3BsaXRIABIkCgZmcmVlemUYUSABKAsyEi5taW5kbG9nLnYxLkZyZWV6ZUgAEiIKBW1lcmdlGFIgASgLMhEubWluZGxvZy52MS5NZXJnZUgAEi4KDHBkX2FsbG9jX2lkcxhaIAEoCzIWLm1pbmRsb2cudjEuUGRBbGxvY0lkc0gAEiwKC3BkX3B1dF9ub2RlGFsgASgLMhUubWluZGxvZy52MS5QZFB1dE5vZGVIABIuCgxwZF9wdXRfcmFuZ2UYXCABKAsyFi5taW5kbG9nLnYxLlBkUHV0UmFuZ2VIABI0Cg9wZF9yZW1vdmVfcmFuZ2UYXSABKAsyGS5taW5kbG9nLnYxLlBkUmVtb3ZlUmFuZ2VIABIqCgpwZF9zZXRfdHNvGF4gASgLMhQubWluZGxvZy52MS5QZFNldFRzb0gAEjIKDnBkX3NldF92ZXJzaW9uGF8gASgLMhgubWluZGxvZy52MS5QZFNldFZlcnNpb25IABI6ChJwZF9yZWNvcmRfb3BlcmF0b3IYYCABKAsyHC5taW5kbG9nLnYxLlBkUmVjb3JkT3BlcmF0b3JIAEIGCgRib2R5SgQIDhA8SgQIQBBQSgQIUxBaSgQIYRBkIkwKC0djVGhyZXNob2xkEhcKC2JlbG93X2luZGV4GAEgASgEQgIYARINCgVsaW1pdBgCIAEoDRIVCg1iZWxvd192ZXJzaW9uGAMgASgEIo4BCg1Db21tYW5kUmVzdWx0EiEKAmt2GAEgASgLMhMubWluZGxvZy52MS5LdlJlcGx5SAASKAoFZXJyb3IYAiABKAsyFy5taW5kbG9nLnYxLkVycm9yRGV0YWlsSAASJQoDdHhuGAMgASgLMhYubWluZGxvZy52MS5UeG5PdXRjb21lSABCCQoHb3V0Y29tZWIGcHJvdG8z", [file_mindlog_v1_common, file_mindlog_v1_kv, file_mindlog_v1_pd, file_mindlog_v1_range, file_mindlog_v1_txn]);
 
 /**
  * Envelope of every replicated command in a range's Raft log (PLAN 6.1,
@@ -95,6 +97,30 @@ export type Command = Message<"mindlog.v1.Command"> & {
      */
     value: GcThreshold;
     case: "gcThreshold";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.TxnPrewrite txn_prewrite = 60;
+     */
+    value: TxnPrewrite;
+    case: "txnPrewrite";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.TxnCommit txn_commit = 61;
+     */
+    value: TxnCommit;
+    case: "txnCommit";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.TxnRollback txn_rollback = 62;
+     */
+    value: TxnRollback;
+    case: "txnRollback";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.TxnCheck txn_check = 63;
+     */
+    value: TxnCheck;
+    case: "txnCheck";
   } | {
     /**
      * @generated from field: mindlog.v1.Split split = 80;
@@ -223,6 +249,12 @@ export type CommandResult = Message<"mindlog.v1.CommandResult"> & {
      */
     value: ErrorDetail;
     case: "error";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.TxnOutcome txn = 3;
+     */
+    value: TxnOutcome;
+    case: "txn";
   } | { case: undefined; value?: undefined };
 };
 

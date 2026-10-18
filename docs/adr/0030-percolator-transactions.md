@@ -60,3 +60,13 @@ txn.write(argv)                  // staged; keys from KvCommand.keys
   - transfers run as transactions alongside splits, partitions, crashes and clock skew;
   - invariants: the total is conserved in every snapshot read, every committed transfer is visible exactly once, and after healing no lock remains and every account is ≥ 0.
 - `features.crossRangeTxn` stays off by default until phase 9 uses it for unique indexes.
+
+## Amendment (phase 4, as built)
+
+- **Lock state** lives in range-local keys (`txn-lock`, `txn-commit`, `txn-rb`) and moves with its keys on split and merge through `txnRangeHooks`; snapshot reads therefore read locks from the node's whole state store, because a span reader hides range-local keys.
+- **Commit** writes the staged argv at exactly `commitTs` (not `max(commitTs, lastVersion + 1)`): the key is locked from prewrite on, so no version of it can exceed `startTs`, and a reader at `commitTs` or later must see the write. It decides every key before changing any, so an abort leaves no partial commit.
+- **Reads** are `snapshot` range calls, not replicated commands: after a linearizable barrier they answer `LOCKED` for a lock with `startTs <= readTs`, `RANGE_MOVED` if the key left the range, or the value as of `readTs`.
+- **Plain writes** to a locked key are refused by `lockGuard` (`UNAVAILABLE`, retry); nothing is applied.
+- **Routing:** transaction steps travel as `RangeCall` kinds `txn` and `snapshot`; their replies are a serialised `TxnOutcome` in a bulk reply. With `features.crossRangeTxn`, `MSET` (as `SET`s) and `MULTI/EXEC` without `WATCH` that span ranges run as one transaction; other cross-range writes stay `CROSS_RANGE`.
+- **Not done:** garbage collection of commit and rollback records (they follow the GC threshold later); `WATCH` across ranges.
+- **Simulator:** `scenario(seed).bank(8)` (`SIM_BANK=1`) runs transfers as transactions over ranges that split, merge and move under partitions and crashes. It checks that every snapshot sums to the same total, no balance is negative, no lock survives healing, and nothing stays in flight.

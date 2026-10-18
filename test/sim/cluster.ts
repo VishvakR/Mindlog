@@ -18,6 +18,14 @@ import {
   kvRangeHooks,
   kvWriteHandler,
 } from '@mindlog/kv';
+import {
+  lockGuard,
+  txnCheckHandler,
+  txnCommitHandler,
+  txnPrewriteHandler,
+  txnRangeHooks,
+  txnRollbackHandler,
+} from '@mindlog/txn';
 import type { ReplicaOptions, ReplicaViews } from '@mindlog/multiraft';
 import { DEFAULT_REPLICA_OPTIONS, PdAgent, Replica, Store } from '@mindlog/multiraft';
 import { DEFAULT_PD_CONFIG, PD_DESCRIPTOR, PD_HANDLERS, PD_RANGE_ID, PdService } from '@mindlog/pd';
@@ -40,6 +48,7 @@ import type { KvStore } from '@mindlog/storage';
 import { compareBytes } from '@mindlog/storage';
 import type { RegisterOp } from './linearizability.js';
 import { checkRegister } from './linearizability.js';
+import { Bank } from './bank.js';
 import { SimDisk } from './sim-disk.js';
 import { SimNetwork } from './sim-network.js';
 import {
@@ -82,6 +91,8 @@ export interface ScenarioOptions {
   readonly pd: boolean;
   /** Nodes at the end of the list that start without any replica (PD must fill them). */
   readonly spare: number;
+  /** Accounts of the bank-transfer workload (phase 4 gate, ADR-0030); 0 turns it off. */
+  readonly bank: number;
 }
 
 export interface SimResult {
@@ -99,6 +110,8 @@ export interface SimResult {
     membership: number;
     /** Event steps during which some node was fenced for clock skew. */
     fencedSteps: number;
+    /** Bank-transfer workload: transfers committed, transactions that gave up, consistent audits. */
+    bank: { committed: number; aborted: number; audits: number };
     /** At the end: ranges, and replicas created by PD operators (ids from 1000). */
     ranges: number;
     placed: number;
@@ -180,6 +193,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     transfers: 0,
     membership: 0,
     fencedSteps: 0,
+    bank: { committed: 0, aborted: 0, audits: 0 },
     ranges: 0,
     placed: 0,
   };
@@ -223,12 +237,21 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     const logger = new MemoryLogger('info');
     const metrics = new MemoryMetrics();
     const handlers = new ApplyHandlerRegistry();
+    const guard = o.bank > 0 ? lockGuard : undefined;
     for (const h of [
-      kvWriteHandler(registry),
-      kvBatchHandler(registry),
+      kvWriteHandler(registry, guard),
+      kvBatchHandler(registry, guard),
       expireHandler,
       gcThresholdHandler,
       ...PD_HANDLERS,
+      ...(o.bank > 0
+        ? [
+            txnPrewriteHandler(registry),
+            txnCommitHandler(registry),
+            txnRollbackHandler,
+            txnCheckHandler,
+          ]
+        : []),
     ])
       handlers.register(h);
     const events = new InMemoryEventBus({ logger, metrics });
@@ -260,7 +283,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       const machine = await StateMachine.open({
         store: stateStore,
         handlers,
-        rangeHooks: [kvRangeHooks],
+        rangeHooks: o.bank > 0 ? [kvRangeHooks, txnRangeHooks] : [kvRangeHooks],
         events,
         clock,
         logger,
@@ -586,6 +609,49 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     });
   }
 
+  const bank =
+    o.bank > 0
+      ? new Bank({
+          world,
+          registry,
+          nodes: () =>
+            nodes.flatMap((n) =>
+              n.up
+                ? [
+                    {
+                      id: n.id,
+                      store: n.up.store,
+                      stateStore: n.up.stateStore,
+                      stamper: n.up.stamper,
+                    },
+                  ]
+                : [],
+            ),
+          startMs: START_MS,
+          accounts: o.bank,
+          initial: 100,
+          say,
+          violate,
+          splitSome: () => {
+            splitSomeRange(ranges);
+          },
+        })
+      : undefined;
+  if (bank) {
+    world.at(1000, () => void bank.setup());
+    const every = (lo: number, hi: number, work: () => Promise<void>): void => {
+      const tick = (): void => {
+        if (!clientsOn) return;
+        void work().finally(() => {
+          world.at(world.now + world.between(lo, hi), tick);
+        });
+      };
+      world.at(world.now + world.between(lo, hi), tick);
+    };
+    for (let w = 0; w < 3; w++) every(20, 120, () => bank.transfer());
+    every(300, 900, () => bank.audit());
+  }
+
   // ---- run ----
   for (const node of nodes) world.at(0, () => void boot(node));
   for (let c = 0; c < o.clients; c++) client(c);
@@ -631,6 +697,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
   return { seed: o.seed, violations, stats };
 
   async function finalChecks(): Promise<void> {
+    if (bank) await bankSettle(bank);
     const up = nodes.map((n) => n.up);
     if (up.some((u) => !u)) {
       violate('a node did not come back up');
@@ -731,6 +798,40 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       const problem = checkRegister(ops);
       if (problem) violate(`${key}: ${problem}`);
     }
+    if (bank) await bankChecks(bank);
+  }
+
+  /** After healing: resolve what is left, so nothing is in flight when the replicas are compared. */
+  async function bankSettle(b: Bank): Promise<void> {
+    for (let pass = 0; pass < 10; pass++) {
+      const swept = b.sweep();
+      await world.run(world.now + 5000, checkStep);
+      await swept;
+      if (b.idle && (await b.locksLeft()) === 0) break;
+    }
+  }
+
+  /** No lock survives, nothing is in flight, and the total is intact (ADR-0030). */
+  async function bankChecks(b: Bank): Promise<void> {
+    const left = await b.locksLeft();
+    if (left > 0) violate(`bank: ${left} locks survive after healing`);
+    if (!b.idle) {
+      const where = nodes.flatMap((n) =>
+        (n.up?.store.replicas() ?? []).map((r) => {
+          const st = r.status();
+          return `n${n.id}/r${r.rangeId}:${st.role}@${st.term} lead ${st.lead} pending ${r.pendingProposals} frozen ${r.frozenFor} quiesced ${r.quiesced}`;
+        }),
+      );
+      violate(
+        `bank: a transaction never finished: ${[...b.pending.values()].join('; ')} | ${where.join('; ')}`,
+      );
+    }
+    const before = b.audits;
+    const audited = b.audit();
+    await world.run(world.now + 5000, checkStep);
+    await audited;
+    if (b.audits === before) violate('bank: the final audit could not read every account');
+    stats.bank = { committed: b.committed, aborted: b.aborted, audits: b.audits };
   }
 }
 
@@ -805,6 +906,7 @@ export function scenario(seed: bigint) {
     verbose: false,
     pd: false,
     spare: 0,
+    bank: 0,
   };
   const dsl = {
     pd: (spare = 0) => {
@@ -814,6 +916,7 @@ export function scenario(seed: bigint) {
       o.faults = { ...o.faults, splits: false, merges: false, membership: false };
       return dsl;
     },
+    bank: (accounts = 8) => ((o.bank = accounts), dsl),
     nodes: (n: number) => ((o.nodes = n), dsl),
     clients: (n: number) => ((o.clients = n), dsl),
     keys: (n: number) => ((o.keys = n), dsl),

@@ -4,6 +4,7 @@ import type { ApplyHandler } from '@mindlog/statemachine';
 import { errorResult } from '@mindlog/statemachine';
 import type { KvCommandRegistry } from '../commands/registry.js';
 import { applyKeyspace, outsideRange } from './apply-keyspace.js';
+import type { WriteGuard } from './write-guard.js';
 import { array, nil } from '../model/replies.js';
 import { watchVersion } from '../model/watch.js';
 import { kvResult } from './kv-write-handler.js';
@@ -13,7 +14,7 @@ import { kvResult } from './kv-write-handler.js';
  * WATCH the reply is nil and nothing runs; otherwise every queued command runs
  * in order within this one apply and the reply is the array of their replies.
  */
-export function kvBatchHandler(registry: KvCommandRegistry): ApplyHandler {
+export function kvBatchHandler(registry: KvCommandRegistry, guard?: WriteGuard): ApplyHandler {
   return {
     body: 'kvBatch',
     async apply(context) {
@@ -28,6 +29,8 @@ export function kvBatchHandler(registry: KvCommandRegistry): ApplyHandler {
       ];
       const moved = outsideRange(context, keys);
       if (moved) return moved;
+      const vetoed = await guard?.(context, keys);
+      if (vetoed) return vetoed;
       for (const watched of batch.watches) {
         if ((await watchVersion(txn, command.tenant, watched.key)) !== watched.version) {
           return kvResult(nil());

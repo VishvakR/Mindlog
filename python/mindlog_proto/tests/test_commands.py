@@ -30,7 +30,31 @@ def test_command_round_trips_with_a_full_range_hlc() -> None:
 
 def test_command_uses_body_numbers_10_to_13() -> None:
     numbers = {f.number for f in commands_pb2.Command.DESCRIPTOR.fields}
-    assert numbers == {1, 2, 3, 4, 5, 10, 11, 12, 13, 80, 81, 82, 90, 91, 92, 93, 94, 95, 96}
+    assert numbers == {
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        60,
+        61,
+        62,
+        63,
+        80,
+        81,
+        82,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+    }
 
 
 def test_command_with_kv_write_round_trips() -> None:

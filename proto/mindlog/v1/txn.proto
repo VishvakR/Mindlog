@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+import "mindlog/v1/kv.proto";
+
+// Percolator cross-range transactions (ADR-0030).
+
+// Locks the keys the writes touch, if no newer version or other lock is there.
+// The staged argv runs only at commit.
+message TxnPrewrite {
+  uint64 start_ts = 1;
+  // The transaction's first written key: its fate decides everyone's.
+  bytes primary = 2;
+  uint64 ttl_ms = 3;
+  repeated KvWrite writes = 4;
+}
+
+// Runs the staged writes of these keys at commit_ts and releases their locks.
+message TxnCommit {
+  uint64 start_ts = 1;
+  uint64 commit_ts = 2;
+  repeated bytes keys = 3;
+  bytes primary = 4;
+}
+
+// Releases the locks of these keys and leaves a rollback record, so a late
+// prewrite of the same transaction fails.
+message TxnRollback {
+  uint64 start_ts = 1;
+  repeated bytes keys = 2;
+}
+
+// What became of the transaction, asked of the primary's range. If its lock
+// is absent or past its TTL the transaction is rolled back there.
+message TxnCheck {
+  uint64 start_ts = 1;
+  bytes primary = 2;
+}
+
+enum TxnStatus {
+  TXN_STATUS_UNSPECIFIED = 0;
+  TXN_STATUS_OK = 1;
+  // A key is locked by another transaction: see the locked_* fields.
+  TXN_STATUS_LOCKED = 2;
+  // A newer version exists, or the transaction was rolled back.
+  TXN_STATUS_CONFLICT = 3;
+  TXN_STATUS_COMMITTED = 4;
+  TXN_STATUS_ROLLED_BACK = 5;
+  // The commit found neither its lock nor a record of the commit.
+  TXN_STATUS_ABORTED = 6;
+}
+
+message TxnOutcome {
+  TxnStatus status = 1;
+  uint64 commit_ts = 2;
+  bytes locked_key = 3;
+  bytes locked_primary = 4;
+  uint64 locked_start_ts = 5;
+  // For a commit: the replies of the staged writes, in lock order.
+  repeated KvReply replies = 6;
+}
+
+// A lock as stored in the range-local state of the range holding the key.
+message TxnLock {
+  uint64 start_ts = 1;
+  bytes primary = 2;
+  uint64 ttl_ms = 3;
+  // Physical time of the prewrite command's HLC.
+  uint64 locked_at_ms = 4;
+  // The write staged on this key; empty for the other keys of a multi-key write.
+  repeated bytes argv = 5;
+}

@@ -171,3 +171,21 @@ export type {
   TsoRequest,
   TsoResponse,
 } from './gen/mindlog/v1/pd_pb.js';
+export {
+  TxnCheckSchema,
+  TxnCommitSchema,
+  TxnLockSchema,
+  TxnOutcomeSchema,
+  TxnPrewriteSchema,
+  TxnRollbackSchema,
+  TxnStatus,
+  file_mindlog_v1_txn,
+} from './gen/mindlog/v1/txn_pb.js';
+export type {
+  TxnCheck,
+  TxnCommit,
+  TxnLock,
+  TxnOutcome,
+  TxnPrewrite,
+  TxnRollback,
+} from './gen/mindlog/v1/txn_pb.js';

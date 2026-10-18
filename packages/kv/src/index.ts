@@ -21,6 +21,8 @@ export * as replies from './model/replies.js';
 export type { CommandFlag, KeyPositions, KvCommand } from './commands/kv-command.js';
 export { isWrite } from './commands/kv-command.js';
 export { KvCommandRegistry } from './commands/registry.js';
+export type { WriteGuard } from './apply/write-guard.js';
+export { applyKeyspace, outsideRange } from './apply/apply-keyspace.js';
 export { kvResult, kvWriteHandler } from './apply/kv-write-handler.js';
 export { KvReadExecutor } from './read/kv-read-executor.js';
 export { allKvCommands, createKvRegistry } from './commands/all-commands.js';

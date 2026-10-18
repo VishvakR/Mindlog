@@ -110,11 +110,19 @@ message ExecuteRequest {
     KvWrite command = 6;
     KvBatch batch = 7;
     ExecuteWatch watch = 8;
+    // A serialised Command carrying only a transaction body (ADR-0030).
+    bytes txn_command = 10;
+    ExecuteSnapshot snapshot = 11;
   }
 }
 
 message ExecuteResponse {
   KvReply reply = 1;
+}
+
+message ExecuteSnapshot {
+  uint64 read_ts = 1;
+  repeated bytes argv = 2;
 }
 
 message ExecuteWatch {

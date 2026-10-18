@@ -1,0 +1,33 @@
+{
+  "name": "@mindlog/txn",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Percolator transactions across ranges: apply handlers, lock resolution and the coordinator",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/txn/"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/kv": "workspace:*",
+    "@mindlog/proto": "workspace:*",
+    "@mindlog/statemachine": "workspace:*",
+    "@mindlog/storage": "workspace:*"
+  },
+  "devDependencies": {
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/multiraft": "workspace:*"
+  }
+}

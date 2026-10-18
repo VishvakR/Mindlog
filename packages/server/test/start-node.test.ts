@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import type { MindlogConfig } from '@mindlog/core';
-import { MemoryLogger, MemoryMetrics, resolveConfig } from '@mindlog/core';
+import { create } from '@bufbuild/protobuf';
+import { MemoryLogger, MemoryMetrics, packHlc, resolveConfig } from '@mindlog/core';
+import { CommandSchema } from '@mindlog/proto';
 import type { RunningNode } from '@mindlog/server';
 import { startNode } from '@mindlog/server';
 import { respClient } from './support/resp-client.js';
@@ -86,6 +88,39 @@ describe('startNode', () => {
     await client.close();
     await node.close();
   });
+
+  test('an abandoned transaction lock is resolved when cross-range transactions are on', async () => {
+    const node = await start(config(await tempDir(), { features: { crossRangeTxn: true } }));
+    const b = (s: string): Uint8Array => new TextEncoder().encode(s);
+    const prewrite = await node.replica.propose(
+      create(CommandSchema, {
+        requestId: b('abandoned-prewrite'),
+        principal: 'test',
+        tenant: 'default',
+        hlc: packHlc(BigInt(Date.now()), 0n),
+        body: {
+          case: 'txnPrewrite',
+          value: {
+            startTs: packHlc(BigInt(Date.now()), 0n),
+            primary: b('k'),
+            ttlMs: 1n,
+            writes: [{ argv: ['SET', 'k', 'staged'].map(b) }],
+          },
+        },
+      }),
+    );
+    expect(prewrite.ok).toBe(true);
+    const client = await respClient(node.resp.port);
+    let reply = '';
+    for (let tries = 0; tries < 40; tries++) {
+      reply = await client.call('SET', 'k', 'v');
+      if (reply === '+OK\r\n') break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    expect(reply).toBe('+OK\r\n');
+    await client.close();
+    await node.close();
+  }, 20_000);
 
   test('close is idempotent', async () => {
     const node = await start(config(await tempDir()));

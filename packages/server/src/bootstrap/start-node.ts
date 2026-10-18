@@ -22,6 +22,7 @@ import {
 } from '@mindlog/core';
 import { AdminService, ClusterDirectory, ClusterService, KvBrowser } from '@mindlog/services';
 import type { Replica } from '@mindlog/multiraft';
+import type { HeldLock } from '@mindlog/txn';
 import type { NodeCore } from './open-node-core.js';
 import { openNodeCore } from './open-node-core.js';
 import { RangeJobs } from './range-jobs.js';
@@ -205,6 +206,12 @@ export async function startNode(
     clock,
     logger,
     metrics,
+    ...(config.features.crossRangeTxn
+      ? {
+          resolve: (held: HeldLock) =>
+            service.resolveLock(held.tenant, held.key, held.lock.primary, held.lock.startTs),
+        }
+      : {}),
   });
   jobs.start();
   ready = true;

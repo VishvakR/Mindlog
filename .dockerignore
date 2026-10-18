@@ -17,3 +17,6 @@ packages/server/dashboard
 CLAUDE.md
 AGENTS.md
 data
+# Model weights are only for the model-service image (python/ context).
+python/model_service/models
+.superpowers

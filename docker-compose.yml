@@ -1,7 +1,8 @@
 # Profiles (PLAN 3, design.md): `dev` = one node + model service + Prometheus, Grafana, Jaeger;
 # `chaos` = a 3-node Raft cluster (RESP 6381-6383) for scripts/chaos/*.sh; `cluster` = 3 nodes that
 # also form the placement driver (RESP 6391-6393), `cluster-join` adds node 4 (RESP 6394) for
-# scripts/load-and-rebalance.sh.
+# scripts/load-and-rebalance.sh; `offline` = node + model service + demo agent on a network with no
+# route out (scripts/offline-demo.sh, phase 5 gate).
 #   docker compose --profile dev run --rm mindlog superuser upsert you@example.com 'a long password' --data-dir /data
 #   docker compose --profile dev up --build
 # Dashboard http://localhost:8090/_/ · RESP localhost:6379 · Grafana http://localhost:3000 · Jaeger http://localhost:16686
@@ -115,9 +116,45 @@ services:
     ports:
       - '16686:16686'
 
+  # ---- offline (phase 5 gate): no network route out; see scripts/offline-demo.sh ----
+  offline-models:
+    profiles: [offline]
+    build:
+      context: python
+      dockerfile: model_service/Dockerfile
+    image: mindlog-model-service:offline
+    networks: [offline]
+
+  offline-mindlog:
+    profiles: [offline]
+    build: .
+    image: mindlog:offline
+    command: ['--single-node', '-c', '/etc/mindlog/mindlog.yaml', '--data-dir', '/data']
+    volumes:
+      - ./deploy/offline/mindlog.yaml:/etc/mindlog/mindlog.yaml:ro
+      - offline-data:/data
+    networks: [offline]
+    depends_on:
+      offline-models:
+        condition: service_healthy
+
+  offline-demo:
+    profiles: [offline]
+    build:
+      context: python
+      dockerfile: demo_agents/Dockerfile
+    image: mindlog-demo-agents:offline
+    environment:
+      MINDLOG_MCP_URL: http://offline-mindlog:8765/mcp
+    networks: [offline]
+
 volumes:
   mindlog-data:
+  offline-data:
 
 networks:
   chaos: {}
   cluster: {}
+  # No external connectivity: the offline gate (ADR-0020).
+  offline:
+    internal: true

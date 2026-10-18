@@ -1,0 +1,8 @@
+# Offline profile (ADR-0020, phase 5 gate): the node, the model service and the demo agent share
+# an internal network with no route out. MCP binds beyond localhost, so its host names are listed.
+listen:
+  http: { host: 0.0.0.0 }
+  mcp:
+    http: { host: 0.0.0.0, allowedHosts: [offline-mindlog, localhost, 127.0.0.1] }
+models: { endpoint: 'offline-models:50051', timeoutMs: 10000 }
+observability: { logLevel: info }

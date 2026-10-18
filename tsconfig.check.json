@@ -44,6 +44,12 @@
       "path": "packages/services/test"
     },
     {
+      "path": "packages/router"
+    },
+    {
+      "path": "packages/router/test"
+    },
+    {
       "path": "packages/statemachine"
     },
     {

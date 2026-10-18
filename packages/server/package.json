@@ -33,6 +33,7 @@
     "@mindlog/multiraft": "workspace:*",
     "@mindlog/pd": "workspace:*",
     "@mindlog/proto": "workspace:*",
+    "@mindlog/router": "workspace:*",
     "@mindlog/services": "workspace:*",
     "@mindlog/statemachine": "workspace:*",
     "@mindlog/storage": "workspace:*",

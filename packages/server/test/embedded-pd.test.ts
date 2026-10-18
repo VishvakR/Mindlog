@@ -70,4 +70,34 @@ describe('a single node with its embedded placement driver', () => {
       await core.close();
     }
   });
+
+  test('keeps serving MGET, DBSIZE and writes across ranges after a split', async () => {
+    const core = await open(await tempDir(), {
+      ranges: { maxBytes: 3000 },
+      pd: { storeHeartbeatMs: 50, rangeHeartbeatMs: 50, schedulerIntervalMs: 50 },
+    });
+    try {
+      const session = core.service.openSession('t');
+      const enc = new TextEncoder();
+      const run = (...argv: string[]) =>
+        core.service.execute(
+          session,
+          argv.map((a) => enc.encode(a)),
+        );
+      const names = ['apple', 'melon', 'zebra', 'quince', 'banana', 'yak'];
+      for (let i = 0; i < 60; i++) await run('SET', names[i % 6] as string, 'x'.repeat(100));
+      const deadline = Date.now() + 20_000;
+      while (core.store.replicas().length < 2 && Date.now() < deadline)
+        await new Promise((r) => setTimeout(r, 100));
+      expect(core.store.replicas().length).toBeGreaterThanOrEqual(2);
+      expect((await run('DBSIZE')).kind).toMatchObject({ case: 'integer', value: 6n });
+      const many = await run('MGET', ...names);
+      expect(
+        many.kind.case === 'array' && many.kind.value.items.every((i) => i.kind.case === 'bulk'),
+      ).toBe(true);
+      expect((await run('INCR', 'counter-z')).kind).toMatchObject({ case: 'integer', value: 1n });
+    } finally {
+      await core.close();
+    }
+  });
 });

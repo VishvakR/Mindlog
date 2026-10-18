@@ -23,6 +23,9 @@
       "path": "../kv"
     },
     {
+      "path": "../router"
+    },
+    {
       "path": "../services"
     },
     {

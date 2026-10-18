@@ -90,4 +90,15 @@ describe('KvService over two ranges (ADR-0029)', () => {
     expect(forwarded.some((f) => f.call.kind === 'batch')).toBe(true);
     expect(forwarded.some((f) => f.call.kind === 'watch')).toBe(true);
   });
+
+  test('a write retried after NOT_LEADER keeps its request id and is applied once', async () => {
+    const { run, forwarded } = await twoRanges({ remoteRange2: true, refuseFirstForward: true });
+    expect(await run('INCR', 'zebra')).toBe(1);
+    expect(await run('GET', 'zebra')).toBe('1');
+    const ids = forwarded.flatMap((f) =>
+      f.call.kind === 'command' && f.call.requestId ? [f.call.requestId.join()] : [],
+    );
+    expect(ids.length).toBeGreaterThanOrEqual(2);
+    expect(ids[0]).toBe(ids[1]);
+  });
 });

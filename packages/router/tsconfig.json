@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../kv" },
+    { "path": "../multiraft" },
+    { "path": "../proto" },
+    { "path": "../services" },
+    { "path": "../statemachine" },
+    { "path": "../storage" },
+    { "path": "../transport" }
+  ]
+}

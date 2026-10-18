@@ -47,7 +47,9 @@ export interface Forwarded {
  * Raft group. Range 2 can be marked remote: then this "node" holds no
  * replica of it and `forward` answers from a stand-in node that does.
  */
-export async function twoRanges(options: { remoteRange2?: boolean } = {}) {
+export async function twoRanges(
+  options: { remoteRange2?: boolean; refuseFirstForward?: boolean } = {},
+) {
   const clock = new ManualClock(1_760_000_000_000n);
   const logger = new MemoryLogger();
   const metrics = new MemoryMetrics();
@@ -106,8 +108,12 @@ export async function twoRanges(options: { remoteRange2?: boolean } = {}) {
   const ref: { service?: KvService } = {};
   const router: RangeRouter = {
     place: (_tenant, keys) => Promise.resolve(ok(keys.map((k) => placement(rangeOf(k))))),
+    refresh: (p) => Promise.resolve(ok(p)),
     forward: async (p, caller, call) => {
       forwarded.push({ rangeId: p.rangeId, call });
+      // The first forward is refused as if the leader had just moved.
+      if (options.refuseFirstForward && forwarded.length === 1)
+        return err(mindlogError('NOT_LEADER', 'moved'));
       // The stand-in node that holds range 2 runs the call on its own replica.
       const reply = await ref.service?.forwarded(p.rangeId, caller, call);
       return reply ? ok(reply) : err(mindlogError('UNAVAILABLE', 'no service'));

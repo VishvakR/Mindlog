@@ -27,6 +27,10 @@ const FAN_OUT = new Set(['MGET', 'EXISTS', 'TOUCH', 'DEL', 'UNLINK']);
 /** Keyless reads that cover the whole keyspace. */
 const SCATTER = new Set(['DBSIZE', 'KEYS', 'SCAN']);
 
+const RETRYABLE = new Set<string>(['NOT_LEADER', 'RANGE_MOVED']);
+const MAX_RETRIES = 6;
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 const asError = (e: MindlogError): KvReply => replies.error(e.code, e.message);
 
 export interface RoutedKvDeps {
@@ -139,7 +143,7 @@ export class RoutedKv {
       return replies.array(versions.map((v) => replies.integer(v)));
     }
     if (call.kind === 'batch')
-      return this.#propose(target, caller, {
+      return this.#propose(target, caller, call, {
         case: 'kvBatch',
         value: {
           writes: call.writes.map((argv) => ({ argv: [...argv] })),
@@ -154,10 +158,39 @@ export class RoutedKv {
       if (!ready.ok) return asError(ready.error);
       return reads.execute(caller.tenant, call.argv, this.#d.clock.now());
     }
-    return this.#propose(target, caller, { case: 'kvWrite', value: { argv: [...call.argv] } });
+    return this.#propose(target, caller, call, {
+      case: 'kvWrite',
+      value: { argv: [...call.argv] },
+    });
   }
 
   async #on(placement: Placement, caller: Caller, call: RangeCall): Promise<KvReply> {
+    let at = placement;
+    // A retried call keeps its request id, so a write that did commit is not applied twice.
+    const sent =
+      call.kind === 'watch' || call.requestId
+        ? call
+        : {
+            ...call,
+            requestId: this.#d.stamper.stamp(caller.tenant, caller.principal, {
+              case: 'kvWrite',
+              value: { argv: [] },
+            }).requestId,
+          };
+    for (let attempt = 0; ; attempt++) {
+      const reply = await this.#once(at, caller, sent);
+      const code = reply.kind.case === 'error' ? reply.kind.value.code : '';
+      // Only failures that happened before anything was proposed are safe to repeat.
+      if (!RETRYABLE.has(code) || attempt >= MAX_RETRIES || !this.#d.router.refresh) return reply;
+      // Exponential backoff with jitter; a split or election usually settles within a few ticks.
+      await delay(Math.min(25 * 2 ** attempt, 400) * (0.5 + Math.random()));
+      const next = await this.#d.router.refresh(at);
+      if (!next.ok) return asError(next.error);
+      at = next.value;
+    }
+  }
+
+  async #once(placement: Placement, caller: Caller, call: RangeCall): Promise<KvReply> {
     if (placement.local) return this.runLocal(placement.local, caller, call);
     const reply = await this.#d.router.forward(placement, caller, call);
     return reply.ok ? reply.value : asError(reply.error);
@@ -166,9 +199,15 @@ export class RoutedKv {
   async #propose(
     target: RangeTarget,
     caller: Caller,
+    call: RangeCall,
     body: Parameters<CommandStamper['stamp']>[2],
   ): Promise<KvReply> {
-    const command = this.#d.stamper.stamp(caller.tenant, caller.principal, body);
+    const command = this.#d.stamper.stamp(
+      caller.tenant,
+      caller.principal,
+      body,
+      call.kind === 'watch' ? undefined : call.requestId,
+    );
     const proposal = await target.proposer.propose(command);
     if (!proposal.ok) return asError(proposal.error);
     const outcome = proposal.value.result.outcome;

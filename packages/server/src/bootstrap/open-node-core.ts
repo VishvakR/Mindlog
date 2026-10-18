@@ -22,6 +22,7 @@ import {
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import {
   createKvRegistry,
+  replies,
   expireHandler,
   gcThresholdHandler,
   kvBatchHandler,
@@ -37,6 +38,7 @@ import {
   SystemScheduler,
 } from '@mindlog/multiraft';
 import { ConnectPdClient } from '@mindlog/pd';
+import { StoreRouter, connectForwardCall, fromRequest } from '@mindlog/router';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
 import {
   ApplyHandlerRegistry,
@@ -49,7 +51,7 @@ import {
   writeTombstone,
 } from '@mindlog/statemachine';
 import { GroupCommitStore, LevelDbStore } from '@mindlog/storage';
-import { ConnectTransport } from '@mindlog/transport';
+import { ConnectTransport, KvForwarder, forwardRoutes } from '@mindlog/transport';
 import type { PdRole } from './open-pd.js';
 import { BINARY_VERSION, openPdRole } from './open-pd.js';
 
@@ -219,7 +221,10 @@ export async function openNodeCore(
   let store: Store | undefined;
   let pd: PdRole | undefined;
   let agent: PdAgent | undefined;
+  let client: PdClient | undefined;
   let replica: Replica;
+  // Forwarded calls arrive on the internal listener before the service exists; they wait for it.
+  const running: { service?: KvService } = {};
   try {
     const peers = single
       ? [{ id: raftId, address: '' }]
@@ -233,6 +238,15 @@ export async function openNodeCore(
         clock: clockSync,
         logger,
         metrics,
+        routes: forwardRoutes(
+          () => async (request) => {
+            const forwarded = fromRequest(request);
+            if (!running.service || !forwarded)
+              return replies.error('UNAVAILABLE', 'the node is starting');
+            return running.service.forwarded(forwarded.rangeId, forwarded.caller, forwarded.call);
+          },
+          clockSync,
+        ),
       });
     }
     const bootstrap = config.cluster.join ? {} : { bootstrap: peers };
@@ -289,7 +303,7 @@ export async function openNodeCore(
         options,
         network: !single,
       });
-    const client = pdClientFor(config, pd);
+    client = pdClientFor(config, pd);
     if (client) {
       agent = new PdAgent(store, client, new SystemScheduler(), {
         node: {
@@ -320,11 +334,20 @@ export async function openNodeCore(
       ),
     );
   }
+  const router = new StoreRouter({
+    ranges: store,
+    state: stateStore,
+    ...(client ? { pd: client } : {}),
+    nodes: () => agent?.nodes ?? new Map(),
+    clock,
+    send: connectForwardCall(new KvForwarder(), clockSync, () => transport?.self ?? ''),
+  });
   const service = new KvService({
     registry,
     store: stateStore,
     proposer: replica,
     readBarrier: replica,
+    router,
     stamper,
     clock,
     authenticator: new StaticAuthenticator(config.auth.password),
@@ -332,6 +355,7 @@ export async function openNodeCore(
     tracer,
     maxTransactionCommands: config.limits.maxTransactionCommands,
   });
+  running.service = service;
   const started = store as Store | undefined;
   if (!started) throw new Error('the store opens before the replica');
   return ok({

@@ -20,11 +20,11 @@ import {
   initTracing,
   ok,
 } from '@mindlog/core';
-import { ExpiryJob, GcJob } from '@mindlog/kv';
 import { AdminService, ClusterService, KvBrowser } from '@mindlog/services';
 import type { Replica } from '@mindlog/multiraft';
 import type { NodeCore } from './open-node-core.js';
 import { openNodeCore } from './open-node-core.js';
+import { RangeJobs } from './range-jobs.js';
 import { mindlogVersion, serverInfo } from './server-info.js';
 
 export interface NodeOptions {
@@ -197,29 +197,15 @@ export async function startNode(
   context.info = serverInfo(config, respBound.value.port, startedAtMs);
   httpAddress = `${httpBound.value.address}:${String(httpBound.value.port)}`;
 
-  // Expiry and GC are replicated commands; only the leader proposes them (CLAUDE.md rule 8).
-  const active = () => replica.isLeader();
-  const expiry = new ExpiryJob({
-    store: stateStore,
-    rangeId: machine.rangeId,
-    proposer: replica,
-    active,
+  const jobs = new RangeJobs({
+    store: core.store,
+    state: stateStore,
     stamper,
     clock,
     logger,
     metrics,
   });
-  const gc = new GcJob({
-    proposer: replica,
-    active,
-    stamper,
-    appliedIndex: () => machine.appliedIndex,
-    clock,
-    logger,
-    metrics,
-  });
-  expiry.start();
-  gc.start();
+  jobs.start();
   ready = true;
   logger.info('node started', {
     nodeId: config.node.id,
@@ -245,7 +231,7 @@ export async function startNode(
     ready = false;
     await http.close();
     await resp.close();
-    await Promise.all([expiry.stop(), gc.stop()]);
+    await jobs.stop();
     await core.close();
     await tracing.shutdown();
     logger.info('node stopped', { nodeId: config.node.id, appliedIndex: machine.appliedIndex });

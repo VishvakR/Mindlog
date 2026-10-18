@@ -17,6 +17,10 @@ export interface RangeTarget {
 export interface Placement {
   readonly rangeId: bigint;
   readonly local?: RangeTarget;
+  /** Internal address of the node believed to lead the range, when it is not this one. */
+  readonly address?: string;
+  /** A storage key inside the range, to look it up again after a retryable failure. */
+  readonly probe?: Uint8Array;
 }
 
 /** Who is asking, for commands forwarded to another node. */
@@ -27,9 +31,15 @@ export interface Caller {
 
 /** What to run on a range, whether here or on another node (ADR-0029). */
 export type RangeCall =
-  | { readonly kind: 'command'; readonly argv: readonly Uint8Array[] }
+  | {
+      readonly kind: 'command';
+      readonly argv: readonly Uint8Array[];
+      /** Set by the node that took the client's request; every retry of a write reuses it. */
+      readonly requestId?: Uint8Array;
+    }
   | {
       readonly kind: 'batch';
+      readonly requestId?: Uint8Array;
       readonly writes: ReadonlyArray<readonly Uint8Array[]>;
       readonly watches: ReadonlyArray<{ readonly key: Uint8Array; readonly version: bigint }>;
     }
@@ -51,6 +61,8 @@ export interface RangeRouter {
     caller: Caller,
     call: RangeCall,
   ): Promise<Result<KvReply, MindlogError>>;
+  /** Drops what is cached for the range and places it again; absent when nothing is cached. */
+  refresh?(placement: Placement): Promise<Result<Placement, MindlogError>>;
   /** Every range in key order, for commands that cover the keyspace (DBSIZE, KEYS, SCAN). */
   ranges(): Promise<Result<Placement[], MindlogError>>;
   /** This node's replica of `rangeId`, if it has an initialised one. */

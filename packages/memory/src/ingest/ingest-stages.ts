@@ -4,7 +4,7 @@ import type { Stage } from '../pipeline/stage.js';
 import type { MemoryKind, MemoryLinkView, MemoryScope, RememberInput, Trust } from '../types.js';
 import type { VectorCache } from '../vector-cache.js';
 import { matchesScope } from '../recall/scope-filter.js';
-import { byteLength, chunk, importance, normalizeText, trustOf } from './text.js';
+import { byteLength, chunk, importance, normalizeText, trustOf, usefulEntity } from './text.js';
 
 export interface DraftFact {
   readonly text: string;
@@ -119,7 +119,9 @@ export function ingestStages(
         return ok(
           mapFacts(d, (f, i) => {
             const spans = r.value.spans[i] ?? [];
-            const named = spans.map((s) => ({ name: s.text, type: s.label }));
+            const named = spans
+              .filter((s) => usefulEntity(s.text))
+              .map((s) => ({ name: s.text, type: s.label }));
             // Relation ends become entities too; their type is the recognised one when known.
             const typeOf = (name: string) =>
               named.find((n) => n.name.toLowerCase() === name.toLowerCase())?.type ?? 'concept';

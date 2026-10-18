@@ -6,6 +6,11 @@ import type { CallContext } from '../types.js';
 import type { IngestDraft } from './ingest-stages.js';
 import { initialStrength } from './text.js';
 
+/** Relation of entities named in the same memory when no relation was extracted. */
+export const CO_MENTION = 'mentioned_with';
+/** Entities of one memory that get co-mention edges (pairs grow quadratically). */
+const MAX_CO_MENTIONS = 6;
+
 export interface Assembled {
   readonly memories: NewMemory[];
   readonly edges: EntityEdge[];
@@ -83,6 +88,24 @@ export function assemble(
           memoryId: id,
         }),
       );
+    }
+    // Without extracted relations, entities named together are linked, so the graph still connects.
+    if (fact.relations.length === 0) {
+      const named = fact.mentions.slice(0, MAX_CO_MENTIONS);
+      named.forEach((a, i) => {
+        for (const b of named.slice(i + 1))
+          edges.push(
+            create(EntityEdgeSchema, {
+              srcName: a.name,
+              srcType: a.type,
+              relation: CO_MENTION,
+              dstName: b.name,
+              dstType: b.type,
+              weight: 1,
+              memoryId: id,
+            }),
+          );
+      });
     }
   }
   return { memories, edges };

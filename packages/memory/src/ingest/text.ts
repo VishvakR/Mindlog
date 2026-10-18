@@ -66,3 +66,15 @@ export function trustOf(source: SourceType): Trust {
 
 /** Forgetting-curve stability S in days for a new memory: important ones decay slower. */
 export const initialStrength = (importanceScore: number): number => 1 + 4 * importanceScore;
+
+const PRONOUNS = new Set(
+  'i me my mine we us our ours you your yours he him his she her hers it its they them their theirs this that'.split(
+    ' ',
+  ),
+);
+
+/** Whether a recognised span names something: not a pronoun, not a single character. */
+export function usefulEntity(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return t.length > 1 && !PRONOUNS.has(t);
+}

@@ -259,3 +259,33 @@ describe('get, forget, history, list and graph', () => {
     expect(!missing.ok && missing.error.code).toBe('NOT_FOUND');
   });
 });
+
+describe('entities and edges without an LLM', () => {
+  test('entities named in the same memory are linked as mentioned_with', async () => {
+    const n = await memoryNode();
+    await remember(n, 'My sister Ana works at Acme in Lisbon.');
+    const g = await n.engine.graph(n.range, scope(), 'Ana', 1);
+    expect(g.ok).toBe(true);
+    if (!g.ok) return;
+    expect(g.value.nodes.map((x) => x.name).sort()).toEqual(['Acme', 'Ana', 'Lisbon']);
+    expect(g.value.edges.map((e) => e.relation)).toEqual(['mentioned_with', 'mentioned_with']);
+  });
+
+  test('pronouns and one-letter spans are not entities', async () => {
+    const n = await memoryNode();
+    n.models.recognize = (texts) =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          modelId: 'stub',
+          spans: texts.map((t) => [
+            { start: 0, end: 1, text: t.slice(0, 1), label: 'person', score: 0.9 },
+            { start: 0, end: 2, text: 'me', label: 'person', score: 0.9 },
+            { start: 0, end: 3, text: 'Ana', label: 'person', score: 0.9 },
+          ]),
+        },
+      });
+    const out = await remember(n, 'I told Ana about the plan.');
+    expect(out.memories[0]?.entities).toEqual(['person:ana']);
+  });
+});

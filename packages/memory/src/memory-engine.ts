@@ -50,7 +50,7 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
     'place',
     'product',
     'project',
-    'preference',
+    // No 'preference' label: preferences are facts; as a label it tags verbs like "prefer".
     'date',
     'event',
   ],

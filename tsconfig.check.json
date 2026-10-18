@@ -123,6 +123,12 @@
     },
     {
       "path": "packages/index-graph/test"
+    },
+    {
+      "path": "packages/jobs"
+    },
+    {
+      "path": "packages/jobs/test"
     }
   ]
 }

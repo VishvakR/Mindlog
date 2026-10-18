@@ -1,0 +1,32 @@
+{
+  "name": "@mindlog/jobs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Durable jobs in the scope's range: enqueue, replicated leases and completion, backoff, dead letters and the leader-only runner",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/jobs/"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/proto": "workspace:*",
+    "@mindlog/statemachine": "workspace:*",
+    "@mindlog/storage": "workspace:*"
+  },
+  "devDependencies": {
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/multiraft": "workspace:*"
+  }
+}

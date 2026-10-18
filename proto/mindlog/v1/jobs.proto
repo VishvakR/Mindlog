@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+// Durable jobs in the scope's range (PLAN 12.7, ADR-0017). Leasing and completion
+// are replicated commands, so a leader change never loses or double-completes a job.
+
+enum JobState {
+  JOB_STATE_UNSPECIFIED = 0;
+  JOB_STATE_QUEUED = 1;
+  JOB_STATE_LEASED = 2;
+  JOB_STATE_DONE = 3;
+  JOB_STATE_DEAD = 4;
+}
+
+// A job to enqueue, chosen by the proposer.
+message JobSpec {
+  // ULID.
+  string id = 1;
+  // Worker that runs it, e.g. "memory.enrich".
+  string kind = 2;
+  bytes payload = 3;
+  // Not before this physical time (ms); 0 means now.
+  uint64 run_at_ms = 4;
+}
+
+// Stored at m/(user, 'j', id).
+message Job {
+  string id = 1;
+  string kind = 2;
+  bytes payload = 3;
+  JobState state = 4;
+  // Leases granted so far; the current lease's number fences its completion.
+  uint32 attempts = 5;
+  uint64 run_at_ms = 6;
+  uint64 lease_until_ms = 7;
+  // Last failure.
+  string error = 8;
+  // HLC of the enqueueing command.
+  uint64 created_at = 9;
+}
+
+// Command body 71: lease a due job (or one whose lease expired) for lease_ms.
+message JobLease {
+  string user = 1;
+  string id = 2;
+  uint64 lease_ms = 3;
+}
+
+// Command body 72: finish lease number `attempt`; an empty error means done.
+message JobComplete {
+  string user = 1;
+  string id = 2;
+  uint32 attempt = 3;
+  string error = 4;
+}
+
+// Result of a lease or completion.
+message JobOutcome {
+  uint32 attempt = 1;
+  JobState state = 2;
+}

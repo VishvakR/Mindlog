@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+import "mindlog/v1/jobs.proto";
+
+// Agent memory (PLAN 5.3-5.5, 12; ADR-0031, ADR-0032). Every value here was decided
+// by the proposing leader, model outputs included, so apply only stores and indexes.
+
+message MemoryLink {
+  string to = 1;
+  // related | supports | derived_from | supersedes | contradicts
+  string relation = 2;
+  float weight = 3;
+}
+
+message MemorySource {
+  // user | agent | tool | web | document | system | consolidation
+  string type = 1;
+  string ref = 2;
+  string principal = 3;
+}
+
+// Stored at m/(user, 'r', id). Append-only: forgetting sets expired_at.
+message MemoryRecord {
+  // ULID.
+  string id = 1;
+  string user = 2;
+  string agent = 3;
+  string session = 4;
+  // episodic | semantic | procedural | working | theme | tool_trace
+  string kind = 5;
+  string text = 6;
+  // Entity ids (type:normalized name), filled by apply from the mentions.
+  repeated string entities = 7;
+  repeated MemoryLink links = 8;
+  MemorySource source = 9;
+  // verified | normal | quarantined
+  string trust = 10;
+  float importance = 11;
+  // Forgetting-curve stability S in days.
+  float strength = 12;
+  // HLC of the committing command (set by apply).
+  uint64 created_at = 13;
+  // HLC when it was forgotten or superseded; 0 while current.
+  uint64 expired_at = 14;
+  repeated string tags = 15;
+  uint32 version = 16;
+  // Model that computed the vector (PLAN 14.5).
+  string embedding_model = 17;
+  // Commit index in its range (set by apply).
+  uint64 log_index = 18;
+  string branch = 19;
+  uint64 valid_from = 20;
+  uint64 valid_to = 21;
+  uint32 recall_count = 22;
+  uint64 last_recalled_at = 23;
+  // Free-form JSON object.
+  string meta_json = 24;
+  // Why it was forgotten (audit).
+  string forget_reason = 25;
+}
+
+// Stored at m/(user, 'v', id).
+message MemoryVector {
+  string model_id = 1;
+  // float32 little-endian, L2-normalised.
+  bytes vector = 2;
+}
+
+message TermCount {
+  string term = 1;
+  uint32 count = 2;
+}
+
+message EntityMention {
+  string name = 1;
+  string type = 2;
+}
+
+message NewMemory {
+  MemoryRecord record = 1;
+  // Empty when no embedder was available (degraded mode).
+  bytes vector = 2;
+  // BM25 terms and the document length, tokenized by the leader.
+  repeated TermCount terms = 3;
+  uint32 length = 4;
+  repeated EntityMention mentions = 5;
+}
+
+// A relation between two entities named by a fact.
+message EntityEdge {
+  string src_name = 1;
+  string src_type = 2;
+  string relation = 3;
+  string dst_name = 4;
+  string dst_type = 5;
+  float weight = 6;
+  // Memory stating it.
+  string memory_id = 7;
+}
+
+message JobRef {
+  string id = 1;
+  uint32 attempt = 2;
+}
+
+// Command body 20: new memories of one user, applied atomically with their
+// indexes, any jobs to enqueue, and optionally the completion of the job that
+// produced them.
+message MemoryCommit {
+  string user = 1;
+  repeated NewMemory memories = 2;
+  repeated EntityEdge edges = 3;
+  repeated JobSpec enqueue = 4;
+  JobRef complete = 5;
+}
+
+// Command body 22: forget memories (append-only; the records stay for history).
+message MemoryForget {
+  string user = 1;
+  repeated string ids = 2;
+  string reason = 3;
+}
+
+// Stored at m/(user, 'e', type, normalized name).
+message MemoryEntity {
+  string name = 1;
+  string type = 2;
+  uint32 mention_count = 3;
+  uint64 created_at = 4;
+}
+
+// Stored at m/(user, 'g', 'out' | 'in', src, relation, dst).
+message MemoryEdge {
+  float weight = 1;
+  repeated string memories = 2;
+  uint64 created_at = 3;
+}
+
+// Result of a MemoryCommit or MemoryForget.
+message MemoryOutcome {
+  repeated string ids = 1;
+  uint32 count = 2;
+}

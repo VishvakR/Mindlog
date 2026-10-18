@@ -235,3 +235,47 @@ export type {
   RerankRequest,
   RerankResponse,
 } from './gen/mindlog/v1/models_pb.js';
+export {
+  JobCompleteSchema,
+  JobLeaseSchema,
+  JobOutcomeSchema,
+  JobSchema,
+  JobSpecSchema,
+  JobState,
+  JobStateSchema,
+  file_mindlog_v1_jobs,
+} from './gen/mindlog/v1/jobs_pb.js';
+export type { Job, JobComplete, JobLease, JobOutcome, JobSpec } from './gen/mindlog/v1/jobs_pb.js';
+export {
+  EntityEdgeSchema,
+  EntityMentionSchema,
+  JobRefSchema,
+  MemoryCommitSchema,
+  MemoryEdgeSchema,
+  MemoryEntitySchema,
+  MemoryForgetSchema,
+  MemoryLinkSchema,
+  MemoryOutcomeSchema,
+  MemoryRecordSchema,
+  MemorySourceSchema,
+  MemoryVectorSchema,
+  NewMemorySchema,
+  TermCountSchema,
+  file_mindlog_v1_memory,
+} from './gen/mindlog/v1/memory_pb.js';
+export type {
+  EntityEdge,
+  EntityMention,
+  JobRef,
+  MemoryCommit,
+  MemoryEdge,
+  MemoryEntity,
+  MemoryForget,
+  MemoryLink,
+  MemoryOutcome,
+  MemoryRecord,
+  MemorySource,
+  MemoryVector,
+  NewMemory,
+  TermCount,
+} from './gen/mindlog/v1/memory_pb.js';

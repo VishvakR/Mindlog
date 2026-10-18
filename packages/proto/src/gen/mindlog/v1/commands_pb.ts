@@ -6,8 +6,12 @@ import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { ErrorDetail } from "./common_pb.js";
 import { file_mindlog_v1_common } from "./common_pb.js";
+import type { JobComplete, JobLease, JobOutcome } from "./jobs_pb.js";
+import { file_mindlog_v1_jobs } from "./jobs_pb.js";
 import type { Expire, KvBatch, KvReply, KvWrite } from "./kv_pb.js";
 import { file_mindlog_v1_kv } from "./kv_pb.js";
+import type { MemoryCommit, MemoryForget, MemoryOutcome } from "./memory_pb.js";
+import { file_mindlog_v1_memory } from "./memory_pb.js";
 import type { PdAllocIds, PdPutNode, PdPutRange, PdRecordOperator, PdRemoveRange, PdSetTso, PdSetVersion } from "./pd_pb.js";
 import { file_mindlog_v1_pd } from "./pd_pb.js";
 import type { Freeze, Merge, Split } from "./range_pb.js";
@@ -20,7 +24,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/commands.proto.
  */
 export const file_mindlog_v1_commands: GenFile = /*@__PURE__*/
-  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIq4HCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIvCgx0eG5fcHJld3JpdGUYPCABKAsyFy5taW5kbG9nLnYxLlR4blByZXdyaXRlSAASKwoKdHhuX2NvbW1pdBg9IAEoCzIVLm1pbmRsb2cudjEuVHhuQ29tbWl0SAASLwoMdHhuX3JvbGxiYWNrGD4gASgLMhcubWluZGxvZy52MS5UeG5Sb2xsYmFja0gAEikKCXR4bl9jaGVjaxg/IAEoCzIULm1pbmRsb2cudjEuVHhuQ2hlY2tIABIiCgVzcGxpdBhQIAEoCzIRLm1pbmRsb2cudjEuU3BsaXRIABIkCgZmcmVlemUYUSABKAsyEi5taW5kbG9nLnYxLkZyZWV6ZUgAEiIKBW1lcmdlGFIgASgLMhEubWluZGxvZy52MS5NZXJnZUgAEi4KDHBkX2FsbG9jX2lkcxhaIAEoCzIWLm1pbmRsb2cudjEuUGRBbGxvY0lkc0gAEiwKC3BkX3B1dF9ub2RlGFsgASgLMhUubWluZGxvZy52MS5QZFB1dE5vZGVIABIuCgxwZF9wdXRfcmFuZ2UYXCABKAsyFi5taW5kbG9nLnYxLlBkUHV0UmFuZ2VIABI0Cg9wZF9yZW1vdmVfcmFuZ2UYXSABKAsyGS5taW5kbG9nLnYxLlBkUmVtb3ZlUmFuZ2VIABIqCgpwZF9zZXRfdHNvGF4gASgLMhQubWluZGxvZy52MS5QZFNldFRzb0gAEjIKDnBkX3NldF92ZXJzaW9uGF8gASgLMhgubWluZGxvZy52MS5QZFNldFZlcnNpb25IABI6ChJwZF9yZWNvcmRfb3BlcmF0b3IYYCABKAsyHC5taW5kbG9nLnYxLlBkUmVjb3JkT3BlcmF0b3JIAEIGCgRib2R5SgQIDhA8SgQIQBBQSgQIUxBaSgQIYRBkIkwKC0djVGhyZXNob2xkEhcKC2JlbG93X2luZGV4GAEgASgEQgIYARINCgVsaW1pdBgCIAEoDRIVCg1iZWxvd192ZXJzaW9uGAMgASgEIo4BCg1Db21tYW5kUmVzdWx0EiEKAmt2GAEgASgLMhMubWluZGxvZy52MS5LdlJlcGx5SAASKAoFZXJyb3IYAiABKAsyFy5taW5kbG9nLnYxLkVycm9yRGV0YWlsSAASJQoDdHhuGAMgASgLMhYubWluZGxvZy52MS5UeG5PdXRjb21lSABCCQoHb3V0Y29tZWIGcHJvdG8z", [file_mindlog_v1_common, file_mindlog_v1_kv, file_mindlog_v1_pd, file_mindlog_v1_range, file_mindlog_v1_txn]);
+  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIoIJCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIxCg1tZW1vcnlfY29tbWl0GBQgASgLMhgubWluZGxvZy52MS5NZW1vcnlDb21taXRIABIxCg1tZW1vcnlfZm9yZ2V0GBYgASgLMhgubWluZGxvZy52MS5NZW1vcnlGb3JnZXRIABIvCgx0eG5fcHJld3JpdGUYPCABKAsyFy5taW5kbG9nLnYxLlR4blByZXdyaXRlSAASKwoKdHhuX2NvbW1pdBg9IAEoCzIVLm1pbmRsb2cudjEuVHhuQ29tbWl0SAASLwoMdHhuX3JvbGxiYWNrGD4gASgLMhcubWluZGxvZy52MS5UeG5Sb2xsYmFja0gAEikKCXR4bl9jaGVjaxg/IAEoCzIULm1pbmRsb2cudjEuVHhuQ2hlY2tIABIpCglqb2JfbGVhc2UYRyABKAsyFC5taW5kbG9nLnYxLkpvYkxlYXNlSAASLwoMam9iX2NvbXBsZXRlGEggASgLMhcubWluZGxvZy52MS5Kb2JDb21wbGV0ZUgAEiIKBXNwbGl0GFAgASgLMhEubWluZGxvZy52MS5TcGxpdEgAEiQKBmZyZWV6ZRhRIAEoCzISLm1pbmRsb2cudjEuRnJlZXplSAASIgoFbWVyZ2UYUiABKAsyES5taW5kbG9nLnYxLk1lcmdlSAASLgoMcGRfYWxsb2NfaWRzGFogASgLMhYubWluZGxvZy52MS5QZEFsbG9jSWRzSAASLAoLcGRfcHV0X25vZGUYWyABKAsyFS5taW5kbG9nLnYxLlBkUHV0Tm9kZUgAEi4KDHBkX3B1dF9yYW5nZRhcIAEoCzIWLm1pbmRsb2cudjEuUGRQdXRSYW5nZUgAEjQKD3BkX3JlbW92ZV9yYW5nZRhdIAEoCzIZLm1pbmRsb2cudjEuUGRSZW1vdmVSYW5nZUgAEioKCnBkX3NldF90c28YXiABKAsyFC5taW5kbG9nLnYxLlBkU2V0VHNvSAASMgoOcGRfc2V0X3ZlcnNpb24YXyABKAsyGC5taW5kbG9nLnYxLlBkU2V0VmVyc2lvbkgAEjoKEnBkX3JlY29yZF9vcGVyYXRvchhgIAEoCzIcLm1pbmRsb2cudjEuUGRSZWNvcmRPcGVyYXRvckgAQgYKBGJvZHlKBAgOEBRKBAgVEBZKBAgXEDxKBAhAEEdKBAhJEFBKBAhTEFpKBAhhEGQiTAoLR2NUaHJlc2hvbGQSFwoLYmVsb3dfaW5kZXgYASABKARCAhgBEg0KBWxpbWl0GAIgASgNEhUKDWJlbG93X3ZlcnNpb24YAyABKAQi4gEKDUNvbW1hbmRSZXN1bHQSIQoCa3YYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHlIABIoCgVlcnJvchgCIAEoCzIXLm1pbmRsb2cudjEuRXJyb3JEZXRhaWxIABIlCgN0eG4YAyABKAsyFi5taW5kbG9nLnYxLlR4bk91dGNvbWVIABIrCgZtZW1vcnkYBCABKAsyGS5taW5kbG9nLnYxLk1lbW9yeU91dGNvbWVIABIlCgNqb2IYBSABKAsyFi5taW5kbG9nLnYxLkpvYk91dGNvbWVIAEIJCgdvdXRjb21lYgZwcm90bzM", [file_mindlog_v1_common, file_mindlog_v1_jobs, file_mindlog_v1_kv, file_mindlog_v1_memory, file_mindlog_v1_pd, file_mindlog_v1_range, file_mindlog_v1_txn]);
 
 /**
  * Envelope of every replicated command in a range's Raft log (PLAN 6.1,
@@ -99,6 +103,18 @@ export type Command = Message<"mindlog.v1.Command"> & {
     case: "gcThreshold";
   } | {
     /**
+     * @generated from field: mindlog.v1.MemoryCommit memory_commit = 20;
+     */
+    value: MemoryCommit;
+    case: "memoryCommit";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.MemoryForget memory_forget = 22;
+     */
+    value: MemoryForget;
+    case: "memoryForget";
+  } | {
+    /**
      * @generated from field: mindlog.v1.TxnPrewrite txn_prewrite = 60;
      */
     value: TxnPrewrite;
@@ -121,6 +137,18 @@ export type Command = Message<"mindlog.v1.Command"> & {
      */
     value: TxnCheck;
     case: "txnCheck";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.JobLease job_lease = 71;
+     */
+    value: JobLease;
+    case: "jobLease";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.JobComplete job_complete = 72;
+     */
+    value: JobComplete;
+    case: "jobComplete";
   } | {
     /**
      * @generated from field: mindlog.v1.Split split = 80;
@@ -255,6 +283,18 @@ export type CommandResult = Message<"mindlog.v1.CommandResult"> & {
      */
     value: TxnOutcome;
     case: "txn";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.MemoryOutcome memory = 4;
+     */
+    value: MemoryOutcome;
+    case: "memory";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.JobOutcome job = 5;
+     */
+    value: JobOutcome;
+    case: "job";
   } | { case: undefined; value?: undefined };
 };
 

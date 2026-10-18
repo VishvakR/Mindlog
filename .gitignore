@@ -46,3 +46,6 @@ __pycache__/
 
 # Maelstrom results (test/maelstrom/run.sh)
 test/maelstrom/store/
+
+# Model weights (ADR-0020): downloaded only here, never committed
+/python/model_service/models/

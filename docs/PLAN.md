@@ -373,7 +373,7 @@ The `/` in prose such as `k/(key, 'h', field)` is notation for consecutive eleme
 | Family | Tuple | Holds |
 |---|---|---|
 | `k` | (range-local user key) | Redis values (encoded by data type, see 5.2) |
-| `m` | (scope, branch, memoryId) | Memory records |
+| `m` | (user, sub-tag, …) | All memory data of a user scope: records, vectors, postings, entities, edges, jobs (ADR-0031 replaced the separate `v t g e j` memory families so a user never splits across ranges) |
 | `v` | (scope, segmentNo) | HNSW persisted segments |
 | `t` | (scope, term, memoryId) | BM25 postings (value = term frequency + doc length) |
 | `g` | ('out'\|'in', scope, src, relation, dst) | Graph edges |

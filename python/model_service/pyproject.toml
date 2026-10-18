@@ -3,7 +3,18 @@ name = "mindlog-model-service"
 version = "0.0.0"
 description = "Stateless local inference sidecar for Mindlog (embeddings, NER, NLI, rerank, extraction)"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "grpcio>=1.84.0",
+    "mindlog-proto",
+    "numpy>=2.5.4",
+    "onnxruntime>=1.31.0",
+    "tokenizers>=0.23.3",
+]
+
+[project.optional-dependencies]
+llm = [
+    "llama-cpp-python>=0.3.36",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.27,<0.10"]
@@ -11,3 +22,11 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = "model_service"
+
+[tool.uv.sources]
+mindlog-proto = { workspace = true }
+
+[dependency-groups]
+download = [
+    "huggingface-hub>=2.2.0",
+]

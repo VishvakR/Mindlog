@@ -1,0 +1,25 @@
+[
+  {
+    "text": "Hi there! I prefer dark roast coffee. My sister Ana lives in Lisbon.",
+    "facts": [
+      {"text": "I prefer dark roast coffee.", "kind": "semantic"},
+      {"text": "My sister Ana lives in Lisbon.", "kind": "semantic"}
+    ]
+  },
+  {
+    "text": "Always run the tests before pushing. What time is it?\nThanks",
+    "facts": [
+      {"text": "Always run the tests before pushing.", "kind": "procedural"}
+    ]
+  },
+  {
+    "text": "   ",
+    "facts": []
+  },
+  {
+    "text": "the deploy key is in the vault",
+    "facts": [
+      {"text": "the deploy key is in the vault", "kind": "semantic"}
+    ]
+  }
+]

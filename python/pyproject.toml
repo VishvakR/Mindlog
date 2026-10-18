@@ -15,6 +15,7 @@ dev = [
     "pytest>=9.1.1",
     "redis>=8.1.0",
     "ruff>=0.17.0",
+    "types-grpcio>=1.84.0.20260928",
 ]
 
 [tool.uv]
@@ -48,3 +49,13 @@ markers = [
     "integration: needs real models or services; excluded from the fast suite",
     "compat: runs a client library against a built mindlog-server (pnpm build)",
 ]
+
+[[tool.mypy.overrides]]
+# onnxruntime ships no type information.
+module = ["onnxruntime", "onnxruntime.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# grpcio-tools generates untyped service stubs; treat them as Any.
+module = ["mindlog.v1.models_pb2_grpc"]
+follow_imports = "skip"

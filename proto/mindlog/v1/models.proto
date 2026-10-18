@@ -1,0 +1,151 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+// Model service (PLAN 14.3, ADR-0016, ADR-0020): stateless local inference over
+// gRPC on localhost. Every response names the model that produced it as
+// `model_id@version`, so commands record which model computed their contents.
+
+service ModelsService {
+  rpc Embed(EmbedRequest) returns (EmbedResponse);
+  rpc RecognizeEntities(RecognizeEntitiesRequest) returns (RecognizeEntitiesResponse);
+  rpc ClassifyNli(ClassifyNliRequest) returns (ClassifyNliResponse);
+  rpc Rerank(RerankRequest) returns (RerankResponse);
+  rpc ExtractFacts(ExtractFactsRequest) returns (ExtractFactsResponse);
+  // Phase 8 (consolidation); answers UNIMPLEMENTED until then.
+  rpc Summarize(SummarizeRequest) returns (SummarizeResponse);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+enum EmbedKind {
+  EMBED_KIND_UNSPECIFIED = 0;
+  EMBED_KIND_QUERY = 1;
+  EMBED_KIND_PASSAGE = 2;
+}
+
+message EmbedRequest {
+  repeated string texts = 1;
+  EmbedKind kind = 2;
+}
+
+message EmbedResponse {
+  // One L2-normalised vector per text, float32 little-endian.
+  repeated bytes vectors = 1;
+  uint32 dims = 2;
+  string model_id = 3;
+}
+
+message RecognizeEntitiesRequest {
+  repeated string texts = 1;
+  // Zero-shot entity types (person, organization, place, ...).
+  repeated string labels = 2;
+  // Minimum span probability; 0 means the service default (0.5).
+  float threshold = 3;
+}
+
+message EntitySpan {
+  // Character offsets into the text, end exclusive.
+  uint32 start = 1;
+  uint32 end = 2;
+  string text = 3;
+  string label = 4;
+  float score = 5;
+}
+
+message EntitySpans {
+  repeated EntitySpan spans = 1;
+}
+
+message RecognizeEntitiesResponse {
+  // One entry per input text, in order.
+  repeated EntitySpans results = 1;
+  string model_id = 2;
+}
+
+message NliPair {
+  string premise = 1;
+  string hypothesis = 2;
+}
+
+enum NliLabel {
+  NLI_LABEL_UNSPECIFIED = 0;
+  NLI_LABEL_ENTAILMENT = 1;
+  NLI_LABEL_NEUTRAL = 2;
+  NLI_LABEL_CONTRADICTION = 3;
+}
+
+message NliResult {
+  NliLabel label = 1;
+  // Probability of `label`.
+  float score = 2;
+}
+
+message ClassifyNliRequest {
+  repeated NliPair pairs = 1;
+}
+
+message ClassifyNliResponse {
+  repeated NliResult results = 1;
+  string model_id = 2;
+}
+
+message RerankRequest {
+  string query = 1;
+  repeated string documents = 2;
+}
+
+message RerankResponse {
+  // Relevance per document, in input order (higher is better).
+  repeated float scores = 1;
+  string model_id = 2;
+}
+
+message ExtractFactsRequest {
+  string text = 1;
+}
+
+// A subject-relation-object triple stated by a fact, for entity edges.
+message FactRelation {
+  string subject = 1;
+  string relation = 2;
+  string object = 3;
+}
+
+message ExtractedFact {
+  string text = 1;
+  // semantic | procedural | episodic
+  string kind = 2;
+  repeated FactRelation relations = 3;
+}
+
+message ExtractFactsResponse {
+  // Add-only: new facts, never updates or deletes (PLAN 12.3 stage 4).
+  repeated ExtractedFact facts = 1;
+  string model_id = 2;
+}
+
+message SummarizeRequest {
+  repeated string texts = 1;
+  string instruction = 2;
+}
+
+message SummarizeResponse {
+  string summary = 1;
+  string model_id = 2;
+}
+
+message HealthRequest {}
+
+message ModelStatus {
+  // embed | ner | nli | rerank | extract
+  string capability = 1;
+  string model_id = 2;
+  bool ready = 3;
+  uint32 queue_depth = 4;
+}
+
+message HealthResponse {
+  // True once every enabled model has loaded and warmed up.
+  bool ready = 1;
+  repeated ModelStatus models = 2;
+}

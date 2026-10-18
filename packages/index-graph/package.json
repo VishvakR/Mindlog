@@ -1,0 +1,24 @@
+{
+  "name": "@mindlog/index-graph",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Entity-name normalisation and bounded graph walks over an adjacency reader port",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/index-graph/"
+  },
+  "dependencies": {
+    "@mindlog/core": "workspace:*"
+  }
+}

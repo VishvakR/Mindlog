@@ -245,6 +245,24 @@ importers:
         specifier: workspace:*
         version: link:../proto
 
+  packages/index-graph:
+    dependencies:
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/index-text:
+    dependencies:
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/index-vector:
+    dependencies:
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/kv:
     dependencies:
       '@bufbuild/protobuf':

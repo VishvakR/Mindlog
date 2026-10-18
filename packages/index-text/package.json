@@ -1,0 +1,24 @@
+{
+  "name": "@mindlog/index-text",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tokenizer, Porter stemmer and BM25 scoring over a postings reader port",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/index-text/"
+  },
+  "dependencies": {
+    "@mindlog/core": "workspace:*"
+  }
+}

@@ -105,6 +105,24 @@
     },
     {
       "path": "packages/models-client/test"
+    },
+    {
+      "path": "packages/index-vector"
+    },
+    {
+      "path": "packages/index-vector/test"
+    },
+    {
+      "path": "packages/index-text"
+    },
+    {
+      "path": "packages/index-text/test"
+    },
+    {
+      "path": "packages/index-graph"
+    },
+    {
+      "path": "packages/index-graph/test"
     }
   ]
 }

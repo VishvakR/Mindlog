@@ -51,6 +51,15 @@
     },
     {
       "path": "packages/models-client"
+    },
+    {
+      "path": "packages/index-vector"
+    },
+    {
+      "path": "packages/index-text"
+    },
+    {
+      "path": "packages/index-graph"
     }
   ]
 }

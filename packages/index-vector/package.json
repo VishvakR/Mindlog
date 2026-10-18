@@ -1,0 +1,24 @@
+{
+  "name": "@mindlog/index-vector",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vector index port and an exact flat cosine index (ADR-0008)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/index-vector/"
+  },
+  "dependencies": {
+    "@mindlog/core": "workspace:*"
+  }
+}

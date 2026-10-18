@@ -1,5 +1,5 @@
 import type { MindlogError, Result } from '@mindlog/core';
-import type { KvReply } from '@mindlog/proto';
+import type { Command, KvReply, RangeDescriptor } from '@mindlog/proto';
 import type { Proposer } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
 import type { ReadBarrier } from './read-barrier.js';
@@ -11,6 +11,12 @@ export interface RangeTarget {
   readonly readBarrier: ReadBarrier;
   /** Applied state of this range only: reads never see another range's keys. */
   readonly reader: KvReader;
+  /** The node's whole state store, for range-local state such as transaction locks. */
+  readonly state: KvReader;
+  /** The range as this replica knows it now. */
+  descriptor(): RangeDescriptor;
+  /** Whether the replica still holds the key's range: a split may have moved it since placement. */
+  owns(tenant: string, key: Uint8Array): boolean;
 }
 
 /** Where a key lives: its range, and this node's replica of it if it has one. */
@@ -29,6 +35,12 @@ export interface Caller {
   readonly principal: string;
 }
 
+/** The command bodies of a transaction step (ADR-0030). */
+export type TxnBody = Extract<
+  NonNullable<Command['body']>,
+  { case: 'txnPrewrite' | 'txnCommit' | 'txnRollback' | 'txnCheck' }
+>;
+
 /** What to run on a range, whether here or on another node (ADR-0029). */
 export type RangeCall =
   | {
@@ -43,6 +55,10 @@ export type RangeCall =
       readonly writes: ReadonlyArray<readonly Uint8Array[]>;
       readonly watches: ReadonlyArray<{ readonly key: Uint8Array; readonly version: bigint }>;
     }
+  /** A transaction step (prewrite, commit, rollback, check), proposed on the range; the reply is a serialised `TxnOutcome`. */
+  | { readonly kind: 'txn'; readonly body: TxnBody; readonly requestId?: Uint8Array }
+  /** A read as of `ts` that reports a lock instead of guessing; the reply is a serialised `TxnOutcome`. */
+  | { readonly kind: 'snapshot'; readonly ts: bigint; readonly argv: readonly Uint8Array[] }
   /** MVCC versions of the keys' headers, for WATCH. */
   | { readonly kind: 'watch'; readonly keys: readonly Uint8Array[] };
 

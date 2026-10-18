@@ -1,4 +1,12 @@
-import type { Clock, Counter, Histogram, Metrics, Tracer } from '@mindlog/core';
+import type {
+  Clock,
+  Counter,
+  Histogram,
+  Metrics,
+  MindlogError,
+  Result,
+  Tracer,
+} from '@mindlog/core';
 import { MindlogErrorCode } from '@mindlog/core';
 import type { KvCommandRegistry } from '@mindlog/kv';
 import { KvReadExecutor, isWrite, replies, watchVersion } from '@mindlog/kv';
@@ -34,6 +42,8 @@ export interface KvServiceDeps {
    * serves a single range.
    */
   readonly router?: RangeRouter;
+  /** With `router`: lets writes that span ranges run as transactions (`features.crossRangeTxn`, ADR-0030). */
+  readonly tso?: () => Promise<Result<bigint, MindlogError>>;
 }
 
 const DEFAULT_MAX_TRANSACTION_COMMANDS = 10_000;
@@ -72,6 +82,7 @@ export class KvService {
           router: deps.router,
           stamper: deps.stamper,
           clock: deps.clock,
+          ...(deps.tso ? { tso: deps.tso } : {}),
         })
       : undefined;
     this.#latency = deps.metrics.histogram({
@@ -286,6 +297,16 @@ export class KvService {
 
   #caller(session: Session): { tenant: string; principal: string } {
     return { tenant: session.tenant, principal: session.principal };
+  }
+
+  /** Resolves a transaction lock this node found (the lock-resolver job's step). */
+  resolveLock(
+    tenant: string,
+    key: Uint8Array,
+    primary: Uint8Array,
+    startTs: bigint,
+  ): Promise<void> {
+    return this.#routed?.resolveLock(tenant, key, primary, startTs) ?? Promise.resolve();
   }
 
   /** Runs a call that another node forwarded here for a range this node holds (ADR-0029). */

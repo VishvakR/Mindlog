@@ -11,6 +11,7 @@
     { "path": "../kv" },
     { "path": "../proto" },
     { "path": "../statemachine" },
-    { "path": "../storage" }
+    { "path": "../storage" },
+    { "path": "../txn" }
   ]
 }

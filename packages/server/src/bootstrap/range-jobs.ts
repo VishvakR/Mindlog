@@ -2,6 +2,8 @@ import type { Clock, Logger, Metrics } from '@mindlog/core';
 import { ExpiryJob, GcJob } from '@mindlog/kv';
 import type { Store } from '@mindlog/multiraft';
 import type { CommandStamper } from '@mindlog/statemachine';
+import type { HeldLock } from '@mindlog/txn';
+import { LockResolverJob } from '@mindlog/txn';
 import type { KvReader } from '@mindlog/storage';
 
 export interface RangeJobsDeps {
@@ -11,6 +13,8 @@ export interface RangeJobsDeps {
   readonly clock: Clock;
   readonly logger: Logger;
   readonly metrics: Metrics;
+  /** Resolves a stopped transaction's lock; present when cross-range transactions are on. */
+  readonly resolve?: (held: HeldLock) => Promise<unknown>;
   /** How often the set of local ranges is checked (default 1 s). */
   readonly syncMs?: number;
 }
@@ -22,7 +26,7 @@ export interface RangeJobsDeps {
  */
 export class RangeJobs {
   readonly #d: RangeJobsDeps;
-  readonly #jobs = new Map<bigint, { expiry: ExpiryJob; gc: GcJob }>();
+  readonly #jobs = new Map<bigint, { expiry: ExpiryJob; gc: GcJob; locks?: LockResolverJob }>();
   #timer: NodeJS.Timeout | undefined;
 
   constructor(deps: RangeJobsDeps) {
@@ -43,7 +47,11 @@ export class RangeJobs {
     for (const [rangeId, jobs] of this.#jobs) {
       if (live.has(rangeId)) continue;
       this.#jobs.delete(rangeId);
-      void Promise.all([jobs.expiry.stop(), jobs.gc.stop()]);
+      void Promise.all([
+        jobs.expiry.stop(),
+        jobs.gc.stop(),
+        jobs.locks?.stop() ?? Promise.resolve(),
+      ]);
     }
     for (const [rangeId, replica] of live) {
       if (this.#jobs.has(rangeId)) continue;
@@ -57,9 +65,21 @@ export class RangeJobs {
       };
       const expiry = new ExpiryJob({ ...common, store: this.#d.state, rangeId });
       const gc = new GcJob({ ...common, appliedIndex: () => replica.appliedIndex });
+      const resolve = this.#d.resolve;
+      const locks = resolve
+        ? new LockResolverJob({
+            state: this.#d.state,
+            rangeId,
+            active: common.active,
+            clock: this.#d.clock,
+            logger: this.#d.logger,
+            resolve,
+          })
+        : undefined;
       expiry.start();
       gc.start();
-      this.#jobs.set(rangeId, { expiry, gc });
+      locks?.start();
+      this.#jobs.set(rangeId, { expiry, gc, ...(locks ? { locks } : {}) });
     }
   }
 
@@ -67,6 +87,8 @@ export class RangeJobs {
     if (this.#timer) clearInterval(this.#timer);
     const all = [...this.#jobs.values()];
     this.#jobs.clear();
-    await Promise.all(all.flatMap((j) => [j.expiry.stop(), j.gc.stop()]));
+    await Promise.all(
+      all.flatMap((j) => [j.expiry.stop(), j.gc.stop(), j.locks?.stop() ?? Promise.resolve()]),
+    );
   }
 }

@@ -52,6 +52,14 @@ import {
 } from '@mindlog/statemachine';
 import { GroupCommitStore, LevelDbStore } from '@mindlog/storage';
 import { ConnectTransport, KvForwarder, forwardRoutes } from '@mindlog/transport';
+import {
+  lockGuard,
+  txnCheckHandler,
+  txnCommitHandler,
+  txnPrewriteHandler,
+  txnRangeHooks,
+  txnRollbackHandler,
+} from '@mindlog/txn';
 import type { PdRole } from './open-pd.js';
 import { BINARY_VERSION, openPdRole } from './open-pd.js';
 
@@ -180,11 +188,21 @@ export async function openNodeCore(
   const { log: logStore, state: stateStore } = stores.value;
   const registry = createKvRegistry();
   const handlers = new ApplyHandlerRegistry();
+  // Cross-range transactions (ADR-0030) are in the state machine of every node or of none.
+  const txnOn = config.features.crossRangeTxn;
   for (const handler of [
-    kvWriteHandler(registry),
-    kvBatchHandler(registry),
+    kvWriteHandler(registry, txnOn ? lockGuard : undefined),
+    kvBatchHandler(registry, txnOn ? lockGuard : undefined),
     expireHandler,
     gcThresholdHandler,
+    ...(txnOn
+      ? [
+          txnPrewriteHandler(registry),
+          txnCommitHandler(registry),
+          txnRollbackHandler,
+          txnCheckHandler,
+        ]
+      : []),
   ]) {
     handlers.register(handler);
   }
@@ -205,7 +223,7 @@ export async function openNodeCore(
     StateMachine.open({
       store: stateStore,
       handlers,
-      rangeHooks: [kvRangeHooks],
+      rangeHooks: txnOn ? [kvRangeHooks, txnRangeHooks] : [kvRangeHooks],
       events,
       clock,
       logger,
@@ -348,6 +366,7 @@ export async function openNodeCore(
     proposer: replica,
     readBarrier: replica,
     router,
+    ...(txnOn && client ? { tso: () => client.tso(1) } : {}),
     stamper,
     clock,
     authenticator: new StaticAuthenticator(config.auth.password),

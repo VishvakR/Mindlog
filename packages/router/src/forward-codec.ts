@@ -1,8 +1,8 @@
-import { create } from '@bufbuild/protobuf';
+import { create, fromBinary, toBinary } from '@bufbuild/protobuf';
 import type { ClockSync, MindlogError, Result } from '@mindlog/core';
 
 import type { ExecuteRequest, KvReply } from '@mindlog/proto';
-import { ExecuteRequestSchema } from '@mindlog/proto';
+import { CommandSchema, ExecuteRequestSchema } from '@mindlog/proto';
 import type { Caller, RangeCall } from '@mindlog/services';
 import type { KvForwarder } from '@mindlog/transport';
 import type { ForwardCall } from './forward-call.js';
@@ -15,7 +15,7 @@ export function toRequest(
   hlc: bigint,
   fromAddress: string,
 ): ExecuteRequest {
-  const requestId = call.kind === 'watch' ? undefined : call.requestId;
+  const requestId = call.kind === 'watch' || call.kind === 'snapshot' ? undefined : call.requestId;
   const base = {
     ...(requestId ? { requestId } : {}),
     rangeId,
@@ -25,17 +25,24 @@ export function toRequest(
     fromAddress,
   };
   const kind =
-    call.kind === 'command'
-      ? { case: 'command' as const, value: { argv: [...call.argv] } }
-      : call.kind === 'batch'
-        ? {
-            case: 'batch' as const,
-            value: {
-              writes: call.writes.map((argv) => ({ argv: [...argv] })),
-              watches: [...call.watches],
-            },
-          }
-        : { case: 'watch' as const, value: { keys: [...call.keys] } };
+    call.kind === 'txn'
+      ? {
+          case: 'txnCommand' as const,
+          value: toBinary(CommandSchema, create(CommandSchema, { body: call.body })),
+        }
+      : call.kind === 'snapshot'
+        ? { case: 'snapshot' as const, value: { readTs: call.ts, argv: [...call.argv] } }
+        : call.kind === 'command'
+          ? { case: 'command' as const, value: { argv: [...call.argv] } }
+          : call.kind === 'batch'
+            ? {
+                case: 'batch' as const,
+                value: {
+                  writes: call.writes.map((argv) => ({ argv: [...argv] })),
+                  watches: [...call.watches],
+                },
+              }
+            : { case: 'watch' as const, value: { keys: [...call.keys] } };
   return create(ExecuteRequestSchema, { ...base, call: kind });
 }
 
@@ -46,6 +53,23 @@ export function fromRequest(
   const caller = { tenant: request.tenant, principal: request.principal };
   const c = request.call;
   const id = request.requestId.length > 0 ? { requestId: request.requestId } : {};
+  if (c.case === 'txnCommand') {
+    const body = fromBinary(CommandSchema, c.value).body;
+    if (
+      body.case !== 'txnPrewrite' &&
+      body.case !== 'txnCommit' &&
+      body.case !== 'txnRollback' &&
+      body.case !== 'txnCheck'
+    )
+      return undefined;
+    return { rangeId: request.rangeId, caller, call: { kind: 'txn', body, ...id } };
+  }
+  if (c.case === 'snapshot')
+    return {
+      rangeId: request.rangeId,
+      caller,
+      call: { kind: 'snapshot', ts: c.value.readTs, argv: c.value.argv },
+    };
   const call: RangeCall | undefined =
     c.case === 'command'
       ? { kind: 'command', argv: c.value.argv, ...id }

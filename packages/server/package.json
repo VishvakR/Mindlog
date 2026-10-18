@@ -35,6 +35,7 @@
     "@mindlog/proto": "workspace:*",
     "@mindlog/router": "workspace:*",
     "@mindlog/services": "workspace:*",
+    "@mindlog/txn": "workspace:*",
     "@mindlog/statemachine": "workspace:*",
     "@mindlog/storage": "workspace:*",
     "@mindlog/transport": "workspace:*"

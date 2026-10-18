@@ -101,4 +101,22 @@ describe('KvService over two ranges (ADR-0029)', () => {
     expect(ids.length).toBeGreaterThanOrEqual(2);
     expect(ids[0]).toBe(ids[1]);
   });
+
+  test('a read whose range split away after placement is RANGE_MOVED, not "no such key"', async () => {
+    const { run } = await twoRanges({ movedAway: true });
+    expect(await run('GET', 'apple')).toMatchObject({
+      error: expect.stringMatching(/^RANGE_MOVED/) as string,
+    });
+  });
+
+  test('with transactions on, MSET and MULTI/EXEC across ranges commit together', async () => {
+    const { run } = await twoRanges({ txn: true });
+    expect(await run('MSET', 'apple', '1', 'zebra', '2')).toBe('OK');
+    expect(await run('MGET', 'apple', 'zebra')).toEqual(['1', '2']);
+    await run('MULTI');
+    await run('INCR', 'apple');
+    await run('INCRBY', 'zebra', '10');
+    expect(await run('EXEC')).toEqual([2, 12]);
+    expect(await run('MGET', 'apple', 'zebra')).toEqual(['2', '12']);
+  });
 });

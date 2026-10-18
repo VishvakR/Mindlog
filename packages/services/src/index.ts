@@ -7,7 +7,14 @@ export type { PendingTransaction, WatchedKey } from './session/session.js';
 export { Session } from './session/session.js';
 export type { KvServiceDeps } from './kv/kv-service.js';
 export type { ReadBarrier, ReadLevel } from './kv/read-barrier.js';
-export type { Caller, Placement, RangeCall, RangeRouter, RangeTarget } from './kv/range-router.js';
+export type {
+  Caller,
+  Placement,
+  RangeCall,
+  RangeRouter,
+  RangeTarget,
+  TxnBody,
+} from './kv/range-router.js';
 export { KvService, commandName } from './kv/kv-service.js';
 export { KvBrowser } from './kv-browser/kv-browser.js';
 export * from './kv-browser/schemas.js';

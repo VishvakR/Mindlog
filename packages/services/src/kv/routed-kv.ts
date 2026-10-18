@@ -9,9 +9,13 @@ import {
   replies,
   watchVersion,
 } from '@mindlog/kv';
-import type { KvReply } from '@mindlog/proto';
+import { fromBinary, toBinary } from '@bufbuild/protobuf';
+import type { KvReply, TxnOutcome } from '@mindlog/proto';
+import { TxnOutcomeSchema } from '@mindlog/proto';
 import type { CommandStamper } from '@mindlog/statemachine';
 import { MvccReader } from '@mindlog/storage';
+import type { TxnCluster, TxnOp } from '@mindlog/txn';
+import { TxnCoordinator, snapshotRead } from '@mindlog/txn';
 import type { Caller, Placement, RangeCall, RangeRouter, RangeTarget } from './range-router.js';
 
 const CODES = new Set<string>(Object.values(MindlogErrorCode));
@@ -31,6 +35,9 @@ const RETRYABLE = new Set<string>(['NOT_LEADER', 'RANGE_MOVED']);
 const MAX_RETRIES = 6;
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+const moved = (rangeId: bigint): KvReply =>
+  replies.error('RANGE_MOVED', `the key left range ${rangeId} while it was being read`);
+
 const asError = (e: MindlogError): KvReply => replies.error(e.code, e.message);
 
 export interface RoutedKvDeps {
@@ -38,6 +45,8 @@ export interface RoutedKvDeps {
   readonly router: RangeRouter;
   readonly stamper: CommandStamper;
   readonly clock: Clock;
+  /** Cross-range transactions (`features.crossRangeTxn`): the cluster's timestamp source. */
+  readonly tso?: () => Promise<Result<bigint, MindlogError>>;
 }
 
 /**
@@ -49,8 +58,50 @@ export interface RoutedKvDeps {
 export class RoutedKv {
   readonly #d: RoutedKvDeps;
 
+  readonly #txn: TxnCoordinator | undefined;
+
   constructor(deps: RoutedKvDeps) {
     this.#d = deps;
+    const tso = deps.tso;
+    this.#txn = tso
+      ? new TxnCoordinator({
+          cluster: this.txnCluster(tso),
+          keysOf: (argv) => deps.registry.keysOf(argv),
+          sleep: delay,
+        })
+      : undefined;
+  }
+
+  /** Rolls a stopped transaction's lock forward or back; a no-op without transactions. */
+  async resolveLock(
+    tenant: string,
+    key: Uint8Array,
+    primary: Uint8Array,
+    startTs: bigint,
+  ): Promise<void> {
+    await this.#txn?.resolve(tenant, key, primary, startTs);
+  }
+
+  /** The cluster as the transaction coordinator sees it: timestamps, placement and range steps. */
+  txnCluster(tso: () => Promise<Result<bigint, MindlogError>>): TxnCluster {
+    const router = this.#d.router;
+    return {
+      tso,
+      place: async (tenant, keys) => {
+        const placed = await router.place(tenant, keys);
+        return placed.ok ? ok(placed.value.map((p) => p.rangeId)) : placed;
+      },
+      run: async (tenant, probe, op) => {
+        const placed = await router.place(tenant, [probe]);
+        if (!placed.ok) return placed;
+        const reply = await this.#on(
+          placed.value[0] as Placement,
+          { tenant, principal: 'txn' },
+          toCall(op),
+        );
+        return decodeOutcome(reply);
+      },
+    };
   }
 
   /** A single data command (not MULTI/EXEC/WATCH). */
@@ -78,6 +129,7 @@ export class RoutedKv {
       return this.#on(only, caller, { kind: 'command', argv });
     }
     if (FAN_OUT.has(name)) return this.#fanOut(caller, name, argv, keys, placed.value);
+    if (name === 'MSET' && this.#txn) return this.#transaction(caller, msetAsSets(argv), 'MSET');
     return replies.error('CROSS_RANGE', "Keys in request don't hash to the same slot");
   }
 
@@ -99,9 +151,29 @@ export class RoutedKv {
     }
     const placed = await this.#d.router.place(caller.tenant, keys);
     if (!placed.ok) return asError(placed.error);
-    if (new Set(placed.value.map((p) => p.rangeId)).size > 1)
+    if (new Set(placed.value.map((p) => p.rangeId)).size > 1) {
+      // Watched keys cannot be checked across ranges, and each queued command must stay in one range.
+      if (this.#txn && watches.length === 0) return this.#transaction(caller, writes, 'EXEC');
       return replies.error('CROSS_RANGE', "Keys in request don't hash to the same slot");
+    }
     return this.#on(placed.value[0] as Placement, caller, { kind: 'batch', writes, watches });
+  }
+
+  /** Runs the writes as one Percolator transaction (ADR-0030): all of them commit, or none. */
+  async #transaction(
+    caller: Caller,
+    writes: ReadonlyArray<readonly Uint8Array[]>,
+    shape: 'MSET' | 'EXEC',
+  ): Promise<KvReply> {
+    const txn = this.#txn;
+    if (!txn) return replies.error('CROSS_RANGE', "Keys in request don't hash to the same slot");
+    const done = await txn.run(caller.tenant, (t) => {
+      for (const w of writes) t.write(w);
+      return Promise.resolve(ok(undefined));
+    });
+    if (!done.ok) return asError(done.error);
+    if (shape === 'MSET') return replies.simple('OK');
+    return replies.array(done.value.replies.map((r) => r ?? replies.nil()));
   }
 
   /** The MVCC versions WATCH records, one per key, read behind a linearizable barrier. */
@@ -136,12 +208,29 @@ export class RoutedKv {
     if (call.kind === 'watch') {
       const ready = await target.readBarrier.read('linearizable');
       if (!ready.ok) return asError(ready.error);
+      if (call.keys.some((k) => !target.owns(caller.tenant, k))) return moved(target.rangeId);
       const reader = new MvccReader(target.reader);
       const versions = await Promise.all(
         call.keys.map((key) => watchVersion(reader, caller.tenant, key)),
       );
       return replies.array(versions.map((v) => replies.integer(v)));
     }
+    if (call.kind === 'snapshot') {
+      const ready = await target.readBarrier.read('linearizable');
+      if (!ready.ok) return asError(ready.error);
+      const read = await snapshotRead(
+        {
+          registry: this.#d.registry,
+          state: target.state,
+          descriptor: target.descriptor(),
+          tenant: caller.tenant,
+        },
+        call.argv,
+        call.ts,
+      );
+      return read.ok ? replies.bulk(toBinary(TxnOutcomeSchema, read.value)) : asError(read.error);
+    }
+    if (call.kind === 'txn') return this.#propose(target, caller, call, call.body);
     if (call.kind === 'batch')
       return this.#propose(target, caller, call, {
         case: 'kvBatch',
@@ -156,6 +245,8 @@ export class RoutedKv {
     if (!isWrite(command)) {
       const ready = await target.readBarrier.read('lease');
       if (!ready.ok) return asError(ready.error);
+      if (this.#d.registry.keysOf(call.argv).some((k) => !target.owns(caller.tenant, k)))
+        return moved(target.rangeId);
       return reads.execute(caller.tenant, call.argv, this.#d.clock.now());
     }
     return this.#propose(target, caller, call, {
@@ -168,7 +259,7 @@ export class RoutedKv {
     let at = placement;
     // A retried call keeps its request id, so a write that did commit is not applied twice.
     const sent =
-      call.kind === 'watch' || call.requestId
+      call.kind === 'watch' || call.kind === 'snapshot' || call.requestId
         ? call
         : {
             ...call,
@@ -206,12 +297,13 @@ export class RoutedKv {
       caller.tenant,
       caller.principal,
       body,
-      call.kind === 'watch' ? undefined : call.requestId,
+      call.kind === 'watch' || call.kind === 'snapshot' ? undefined : call.requestId,
     );
     const proposal = await target.proposer.propose(command);
     if (!proposal.ok) return asError(proposal.error);
     const outcome = proposal.value.result.outcome;
     if (outcome.case === 'kv') return outcome.value;
+    if (outcome.case === 'txn') return replies.bulk(toBinary(TxnOutcomeSchema, outcome.value));
     if (outcome.case === 'error')
       return replies.error(knownCode(outcome.value.code), outcome.value.message);
     return replies.error('INTERNAL', 'empty command result');
@@ -334,4 +426,38 @@ export class RoutedKv {
   #page(cursor: string, found: KvReply[]): KvReply {
     return replies.array([replies.bulk(new TextEncoder().encode(cursor)), replies.array(found)]);
   }
+}
+
+const toCall = (op: TxnOp): RangeCall =>
+  op.kind === 'read'
+    ? { kind: 'snapshot', ts: op.ts, argv: op.argv }
+    : {
+        kind: 'txn',
+        body: { case: BODY[op.kind], value: op.body } as Extract<
+          RangeCall,
+          { kind: 'txn' }
+        >['body'],
+      };
+
+const BODY = {
+  prewrite: 'txnPrewrite',
+  commit: 'txnCommit',
+  rollback: 'txnRollback',
+  check: 'txnCheck',
+} as const;
+
+function decodeOutcome(reply: KvReply): Result<TxnOutcome, MindlogError> {
+  if (reply.kind.case === 'bulk') return ok(fromBinary(TxnOutcomeSchema, reply.kind.value));
+  if (reply.kind.case === 'error')
+    return err(mindlogError(knownCode(reply.kind.value.code), reply.kind.value.message));
+  return err(mindlogError('INTERNAL', 'a transaction step returned something else'));
+}
+
+/** MSET k1 v1 k2 v2 as SET commands, so each stays inside one range. */
+function msetAsSets(argv: readonly Uint8Array[]): Uint8Array[][] {
+  const set = new TextEncoder().encode('SET');
+  const out: Uint8Array[][] = [];
+  for (let i = 1; i + 1 < argv.length; i += 2)
+    out.push([set, argv[i] as Uint8Array, argv[i + 1] as Uint8Array]);
+  return out;
 }

@@ -25,6 +25,7 @@
     "@mindlog/proto": "workspace:*",
     "@mindlog/statemachine": "workspace:*",
     "@mindlog/storage": "workspace:*",
+    "@mindlog/txn": "workspace:*",
     "zod": "^4.6.6"
   },
   "devDependencies": {

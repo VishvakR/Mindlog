@@ -124,6 +124,9 @@ export class StoreRouter implements RangeRouter {
       proposer: replica,
       readBarrier: replica,
       reader: new SpanReader(this.#d.state, replica.descriptor),
+      state: this.#d.state,
+      descriptor: () => replica.descriptor,
+      owns: (tenant, key) => inSpan(replica.descriptor, headerKey(tenant, key)),
     };
   }
 

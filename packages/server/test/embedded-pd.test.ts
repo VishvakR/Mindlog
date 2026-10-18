@@ -100,4 +100,38 @@ describe('a single node with its embedded placement driver', () => {
       await core.close();
     }
   });
+
+  test('with features.crossRangeTxn, MSET across ranges commits atomically', async () => {
+    const core = await open(await tempDir(), {
+      ranges: { maxBytes: 3000 },
+      features: { crossRangeTxn: true },
+      pd: { storeHeartbeatMs: 50, rangeHeartbeatMs: 50, schedulerIntervalMs: 50 },
+    });
+    try {
+      const session = core.service.openSession('t');
+      const enc = new TextEncoder();
+      const run = (...argv: string[]) =>
+        core.service.execute(
+          session,
+          argv.map((a) => enc.encode(a)),
+        );
+      for (let i = 0; i < 60; i++)
+        await run('SET', ['apple', 'melon', 'zebra', 'yak'][i % 4] as string, 'x'.repeat(100));
+      const deadline = Date.now() + 20_000;
+      while (core.store.replicas().length < 2 && Date.now() < deadline)
+        await new Promise((r) => setTimeout(r, 100));
+      expect(core.store.replicas().length).toBeGreaterThanOrEqual(2);
+      expect((await run('MSET', 'apple', '1', 'zebra', '2')).kind).toMatchObject({
+        case: 'simple',
+        value: 'OK',
+      });
+      const got = await run('MGET', 'apple', 'zebra');
+      expect(got.kind.case === 'array' && got.kind.value.items.map((i) => i.kind.case)).toEqual([
+        'bulk',
+        'bulk',
+      ]);
+    } finally {
+      await core.close();
+    }
+  });
 });

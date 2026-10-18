@@ -26,10 +26,19 @@ import { RangeDescriptorSchema } from '@mindlog/proto';
 import type { Placement, RangeCall, RangeRouter, RangeTarget } from '@mindlog/services';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
 import {
+  lockGuard,
+  txnRangeHooks,
+  txnCheckHandler,
+  txnCommitHandler,
+  txnPrewriteHandler,
+  txnRollbackHandler,
+} from '@mindlog/txn';
+import {
   ApplyHandlerRegistry,
   CommandStamper,
   RaftLogStore,
   SpanReader,
+  inSpan,
   StateMachine,
 } from '@mindlog/statemachine';
 import { MemoryStore, compareBytes } from '@mindlog/storage';
@@ -47,19 +56,36 @@ export interface Forwarded {
  * Raft group. Range 2 can be marked remote: then this "node" holds no
  * replica of it and `forward` answers from a stand-in node that does.
  */
+let ticks = 0n;
+const START_MS = 1_760_000_000_000;
+
 export async function twoRanges(
-  options: { remoteRange2?: boolean; refuseFirstForward?: boolean } = {},
+  options: {
+    remoteRange2?: boolean;
+    refuseFirstForward?: boolean;
+    movedAway?: boolean;
+    txn?: boolean;
+  } = {},
 ) {
   const clock = new ManualClock(1_760_000_000_000n);
   const logger = new MemoryLogger();
   const metrics = new MemoryMetrics();
   const registry = createKvRegistry();
   const handlers = new ApplyHandlerRegistry();
+  const guard = options.txn ? lockGuard : undefined;
   for (const h of [
-    kvWriteHandler(registry),
-    kvBatchHandler(registry),
+    kvWriteHandler(registry, guard),
+    kvBatchHandler(registry, guard),
     expireHandler,
     gcThresholdHandler,
+    ...(options.txn
+      ? [
+          txnPrewriteHandler(registry),
+          txnCommitHandler(registry),
+          txnRollbackHandler,
+          txnCheckHandler,
+        ]
+      : []),
   ])
     handlers.register(h);
   const store = new MemoryStore();
@@ -74,7 +100,7 @@ export async function twoRanges(
     const machine = await StateMachine.open({
       store,
       handlers,
-      rangeHooks: [kvRangeHooks],
+      rangeHooks: [kvRangeHooks, txnRangeHooks],
       events,
       clock,
       logger,
@@ -95,6 +121,9 @@ export async function twoRanges(
       proposer: replica,
       readBarrier: replica,
       reader: new SpanReader(store, span),
+      state: store,
+      descriptor: () => span,
+      owns: (tenant, key) => options.movedAway !== true && inSpan(span, headerKey(tenant, key)),
     });
   }
   const forwarded: Forwarded[] = [];
@@ -138,6 +167,14 @@ export async function twoRanges(
     authenticator: new StaticAuthenticator(undefined),
     metrics,
     tracer: new OtelTracer(),
+    ...(options.txn
+      ? {
+          tso: () => {
+            ticks++;
+            return Promise.resolve(ok((BigInt(START_MS) + ticks) << 16n));
+          },
+        }
+      : {}),
   };
   const service = new KvService({ ...deps, router: options.remoteRange2 ? holder : router });
   ref.service = service;

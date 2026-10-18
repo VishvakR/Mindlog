@@ -508,7 +508,11 @@ export class PdService {
     const outcome = proposed.value.result.outcome;
     if (outcome.case === 'error')
       return err(mindlogError('INVALID_ARGUMENT', outcome.value.message));
-    return ok(outcome.value?.kind.case === 'integer' ? outcome.value.kind.value : 0n);
+    return ok(
+      outcome.case === 'kv' && outcome.value.kind.case === 'integer'
+        ? outcome.value.kind.value
+        : 0n,
+    );
   }
 
   #leaderCheck(): Result<never, MindlogError> | undefined {

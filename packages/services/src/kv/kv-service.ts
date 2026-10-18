@@ -8,6 +8,8 @@ import type { KvReader } from '@mindlog/storage';
 import { MvccReader } from '@mindlog/storage';
 import type { StaticAuthenticator } from '../auth/static-authenticator.js';
 import type { ReadBarrier } from './read-barrier.js';
+import type { Caller, RangeCall, RangeRouter } from './range-router.js';
+import { RoutedKv } from './routed-kv.js';
 import { Session } from '../session/session.js';
 
 export interface KvServiceDeps {
@@ -26,6 +28,12 @@ export interface KvServiceDeps {
   readonly defaultTenant?: string;
   /** Commands one MULTI may queue (`limits.maxTransactionCommands`). */
   readonly maxTransactionCommands?: number;
+  /**
+   * With a router, commands go to the range that holds their keys and `proposer`,
+   * `readBarrier` and `store` are not used (ADR-0029); without one this service
+   * serves a single range.
+   */
+  readonly router?: RangeRouter;
 }
 
 const DEFAULT_MAX_TRANSACTION_COMMANDS = 10_000;
@@ -51,12 +59,21 @@ const OPEN_COMMANDS = new Set(['AUTH']);
 export class KvService {
   protected readonly deps: KvServiceDeps;
   protected readonly reads: KvReadExecutor;
+  readonly #routed: RoutedKv | undefined;
   readonly #latency: Histogram;
   readonly #errors: Counter;
 
   constructor(deps: KvServiceDeps) {
     this.deps = deps;
     this.reads = new KvReadExecutor(deps.registry, deps.store);
+    this.#routed = deps.router
+      ? new RoutedKv({
+          registry: deps.registry,
+          router: deps.router,
+          stamper: deps.stamper,
+          clock: deps.clock,
+        })
+      : undefined;
     this.#latency = deps.metrics.histogram({
       name: 'mindlog_kv_command_latency_seconds',
       help: 'KV command latency as seen by the service, by command',
@@ -193,6 +210,7 @@ export class KvService {
     if (transaction.failed) {
       return replies.error('EXEC_ABORTED', 'Transaction discarded because of previous errors.');
     }
+    if (this.#routed) return this.#routed.batch(this.#caller(session), transaction.queued, watches);
     return this.propose(session, {
       case: 'kvBatch',
       value: { writes: transaction.queued.map((a) => ({ argv: a })), watches },
@@ -210,6 +228,17 @@ export class KvService {
     if (argv.length < 2) return replies.errors.arity('watch');
     if (session.transaction)
       return replies.error('INVALID_ARGUMENT', 'WATCH inside MULTI is not allowed');
+    if (this.#routed) {
+      const keys = argv.slice(1);
+      const versions = await this.#routed.versions(this.#caller(session), keys);
+      if (!versions.ok) return replies.error(versions.error.code, versions.error.message);
+      keys.forEach((key, i) => {
+        const id = Buffer.from(key).toString('hex');
+        if (!session.watches.has(id))
+          session.watches.set(id, { key: key.slice(), version: versions.value[i] ?? 0n });
+      });
+      return replies.ok();
+    }
     // WATCH versions must be current: EXEC compares them at commit (PLAN 9.3).
     const ready = await this.deps.readBarrier.read('linearizable');
     if (!ready.ok) return replies.error(ready.error.code, ready.error.message);
@@ -230,6 +259,7 @@ export class KvService {
   protected async run(session: Session, argv: readonly Uint8Array[]): Promise<KvReply> {
     const command = argv[0] ? this.deps.registry.get(argv[0]) : undefined;
     if (!command) return this.reads.execute(session.tenant, argv, this.deps.clock.now());
+    if (this.#routed) return this.#routed.command(this.#caller(session), argv);
     if (!isWrite(command)) {
       const ready = await this.deps.readBarrier.read('lease');
       if (!ready.ok) return replies.error(ready.error.code, ready.error.message);
@@ -252,6 +282,17 @@ export class KvService {
     if (outcome.case === 'error')
       return replies.error(knownCode(outcome.value.code), outcome.value.message);
     return replies.error('INTERNAL', 'empty command result');
+  }
+
+  #caller(session: Session): { tenant: string; principal: string } {
+    return { tenant: session.tenant, principal: session.principal };
+  }
+
+  /** Runs a call that another node forwarded here for a range this node holds (ADR-0029). */
+  forwarded(rangeId: bigint, caller: Caller, call: RangeCall): Promise<KvReply> {
+    if (!this.#routed)
+      return Promise.resolve(replies.error('UNAVAILABLE', 'this service has no router'));
+    return this.#routed.forwarded(rangeId, caller, call);
   }
 
   #auth(session: Session, argv: readonly Uint8Array[]): KvReply {

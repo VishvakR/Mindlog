@@ -5,7 +5,7 @@
     "outDir": "../dist-test/root",
     "tsBuildInfoFile": "../dist-test/root/.tsbuildinfo"
   },
-  "include": ["architecture", "compat", "integration", "sim", "support"],
+  "include": ["architecture", "bench", "compat", "integration", "sim", "support"],
   "references": [
     {
       "path": "../packages/core"

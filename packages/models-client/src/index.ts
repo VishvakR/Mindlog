@@ -26,3 +26,5 @@ export { GrpcModels } from './grpc-models.js';
 export type { GuardedModelsOptions } from './guarded-models.js';
 export { GuardedModels } from './guarded-models.js';
 export { NoModels } from './no-models.js';
+export type { ServedModels } from './serve-models.js';
+export { serveModels } from './serve-models.js';

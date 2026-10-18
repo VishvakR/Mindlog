@@ -1,4 +1,11 @@
 /** Typed client for the Mindlog HTTP API (packages/adapter-http). */
+import type {
+  GraphResult,
+  HistoryEntry,
+  MemoryScope,
+  MemoryView,
+  RecallResult,
+} from '@/lib/memory';
 
 export type KeyType = 'string' | 'hash' | 'list' | 'set' | 'zset' | 'json';
 export type Encoding = 'utf8' | 'base64';
@@ -188,4 +195,32 @@ export const api = {
   remove: (key: string, encoding?: Encoding) => request<void>('DELETE', keyPath(key, encoding)),
   setTtl: (key: string, ttlMs: number | null) =>
     request<void>('PUT', `/kv/keys/${encodeURIComponent(key)}/ttl`, { ttlMs }),
+  memoryScopes: (tenant: string) =>
+    request<{ users: string[] }>('POST', '/memory/scopes', { tenant }),
+  memoryList: (tenant: string, scope: MemoryScope, after?: string, kind?: string) =>
+    request<{ memories: MemoryView[]; next?: string }>('POST', '/memory/list', {
+      tenant,
+      scope,
+      limit: 50,
+      ...(after ? { after } : {}),
+      ...(kind ? { kind } : {}),
+      includeForgotten: true,
+    }),
+  memoryHistory: (tenant: string, scope: MemoryScope, id: string) =>
+    request<HistoryEntry[]>('POST', '/memory/history', { tenant, scope, id }),
+  memoryForget: (tenant: string, scope: MemoryScope, id: string) =>
+    request<{ count: number }>('POST', '/memory/forget', {
+      tenant,
+      scope,
+      ids: [id],
+      reason: 'forgotten from the dashboard',
+    }),
+  memoryRecall: (
+    tenant: string,
+    scope: MemoryScope,
+    query: string,
+    options: { k: number; tokenBudget: number; inherit: boolean },
+  ) => request<RecallResult>('POST', '/memory/recall', { tenant, scope, query, ...options }),
+  memoryGraph: (tenant: string, scope: MemoryScope, entity: string, depth: number) =>
+    request<GraphResult>('POST', '/memory/graph', { tenant, scope, entity, depth }),
 };

@@ -34,6 +34,9 @@ export const configSchema = z.strictObject({
       // Placement driver endpoints (`host:port`, the `pd.listen` addresses). Empty: this node
       // runs its own PD (single-node) or has none and keeps its static layout.
       pdEndpoints: z.array(z.string().min(1)).default([]),
+      // The `host:port` other nodes reach this node's `listen.internal` at, for a node that is not
+      // in `peers` (one that joins later). Members use their entry in `peers`.
+      advertise: z.string().min(1).optional(),
     })
     .prefault({}),
   // Placement driver role (ADR-0010): this process serves a PD replica from its own data directory.

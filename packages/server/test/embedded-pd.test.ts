@@ -1,16 +1,27 @@
 import { describe, expect, test } from 'vitest';
-import { MemoryLogger, MemoryMetrics, SystemClock, resolveConfig } from '@mindlog/core';
+import type { Metrics } from '@mindlog/core';
+import {
+  MemoryLogger,
+  MemoryMetrics,
+  PromMetrics,
+  SystemClock,
+  resolveConfig,
+} from '@mindlog/core';
 import type { NodeCore } from '@mindlog/server';
 import { openNodeCore } from '@mindlog/server';
 import { NodeState } from '@mindlog/proto';
 import { tempDir } from './support/temp-dir.js';
 
-async function open(dataDir: string, extra: Record<string, unknown> = {}): Promise<NodeCore> {
+async function open(
+  dataDir: string,
+  extra: Record<string, unknown> = {},
+  metrics: Metrics = new MemoryMetrics(),
+): Promise<NodeCore> {
   const config = resolveConfig({ flags: { node: { dataDir }, ...extra } });
   if (!config.ok) throw new Error(config.error.message);
   const core = await openNodeCore(config.value, {
     logger: new MemoryLogger(),
-    metrics: new MemoryMetrics(),
+    metrics,
     clock: new SystemClock(),
     tracer: { withSpan: (_n, _a, fn) => fn({ setAttribute: () => {} }) },
   });
@@ -130,6 +141,19 @@ describe('a single node with its embedded placement driver', () => {
         'bulk',
         'bulk',
       ]);
+    } finally {
+      await core.close();
+    }
+  });
+
+  test('publishes how many replicas and leaders the node holds', async () => {
+    const metrics = new PromMetrics();
+    const core = await open(await tempDir(), {}, metrics);
+    try {
+      await core.agent?.reportStore();
+      const text = await metrics.render();
+      expect(text).toMatch(/^mindlog_store_replicas_count 1$/m);
+      expect(text).toMatch(/^mindlog_store_leaders_count 1$/m);
     } finally {
       await core.close();
     }

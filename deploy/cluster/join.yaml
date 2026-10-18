@@ -1,0 +1,7 @@
+# The fourth node of the `cluster-join` profile: it starts empty and PD moves replicas onto it.
+node:
+  dataDir: /data
+cluster:
+  join: true
+  advertise: 'cluster-4:7000'
+  pdEndpoints: ['cluster-1:7100', 'cluster-2:7100', 'cluster-3:7100']

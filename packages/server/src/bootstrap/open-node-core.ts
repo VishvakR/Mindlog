@@ -254,7 +254,7 @@ export async function openNodeCore(
       ? [{ id: raftId, address: '' }]
       : config.cluster.peers.map((p) => ({ id: BigInt(p.id), address: p.address }));
     if (!single) {
-      const advertise = peers.find((p) => p.id === raftId)?.address;
+      const advertise = peers.find((p) => p.id === raftId)?.address ?? config.cluster.advertise;
       transport = await ConnectTransport.start({
         host: config.listen.internal.host,
         port: config.listen.internal.port,
@@ -339,6 +339,7 @@ export async function openNodeCore(
         storeHeartbeatMs: config.pd.storeHeartbeatMs,
         rangeHeartbeatMs: config.pd.rangeHeartbeatMs,
         logger,
+        metrics,
       });
       agent.start();
     }

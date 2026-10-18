@@ -1,0 +1,23 @@
+# Three nodes for the `cluster` compose profile (PLAN 24 phase 4). Each is a data node and a member
+# of the placement driver group; the container sets node.raftId through MINDLOG_NODE__RAFT_ID.
+node:
+  dataDir: /data
+cluster:
+  peers:
+    - { id: 1, address: 'cluster-1:7000' }
+    - { id: 2, address: 'cluster-2:7000' }
+    - { id: 3, address: 'cluster-3:7000' }
+  pdEndpoints: ['cluster-1:7100', 'cluster-2:7100', 'cluster-3:7100']
+pd:
+  enabled: true
+  peers:
+    - { id: 1, address: 'cluster-1:7100' }
+    - { id: 2, address: 'cluster-2:7100' }
+    - { id: 3, address: 'cluster-3:7100' }
+  storeHeartbeatMs: 2000
+  rangeHeartbeatMs: 1000
+  schedulerIntervalMs: 1000
+# 8 MiB ranges instead of 64 MiB, so a 1 GB load makes over a hundred ranges (docs/phases/phase-4.md).
+ranges:
+  maxBytes: 8388608
+  mergeBelowBytes: 2097152

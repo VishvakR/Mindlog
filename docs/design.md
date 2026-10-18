@@ -603,7 +603,7 @@ Every new failure path gets a simulator scenario.
 | Compatibility, fuzzing, chaos, load | Redis client suites, parser fuzzers, Docker + `tc`/iptables, redis-benchmark/memtier | Nightly / weekly / per release |
 | AI evaluation | LongMemEval, LoCoMo, ablations, conflict F1, cache hit/false-hit | Per change to the memory engine |
 
-### 18.2 What exists today (phase 3)
+### 18.2 What exists today (phase 4)
 
 | Area | Status |
 |---|---|
@@ -614,19 +614,22 @@ Every new failure path gets a simulator scenario.
 | `@mindlog/storage` | `KvStore` port, `LevelDbStore` and `MemoryStore` (one contract suite), MVCC versions, tombstones, scans at a version, version GC |
 | `@mindlog/statemachine` | `Proposer` port, `StateMachine` with an apply-handler registry, idempotency table, applied `{index, term}` and `ConfState`, snapshots (read and atomic install), `RaftLogStore` (CRC-32C entries, hard and truncated state, format v2 markers, ADR-0026) |
 | `@mindlog/raft` | Pure Raft core (ADR-0006, 0007): PreVote, CheckQuorum, fast backtracking, flow control, ReadIndex, tick-echo leases, snapshots, learners, single-server changes, leadership transfer, `bootstrapEntries` |
-| `@mindlog/multiraft` | `Replica` (Ready loop, proposals, read barrier, membership, compaction, boot reconciliation), `startSingleNode`, `RaftTransport` and `Scheduler` ports |
-| `@mindlog/transport` | `ConnectTransport`: Raft messages and snapshot chunks over Connect gRPC on HTTP/2 (ADR-0025) |
+| `@mindlog/multiraft` | `Replica` (Ready loop, proposals, read barrier, membership, compaction, boot reconciliation), `Store` (many replicas per node: one tick timer, one fsync per turn, quiescence, split and merge, replica ids and tombstones), `PdAgent` (heartbeats and operator steps), `startSingleNode`, `RaftTransport`, `Scheduler` and `PdClient` ports |
+| `@mindlog/pd` | Placement driver as a Raft group of range 0 (ADR-0010): range directory, id allocation, TSO window, node lifecycle, cluster version, schedulers (balance, repair, drain, hot split, cold merge) with explanations, operators, `PdService` RPC |
+| `@mindlog/router` | `StoreRouter` (ADR-0029): finds a key's range from the live replicas or PD's directory, serves it locally or forwards it to the leader's node |
+| `@mindlog/txn` | Percolator transactions (ADR-0030): prewrite, commit, rollback and check in apply, locks that move with their keys on split and merge, snapshot reads, the coordinator and the lock-resolver job; behind `features.crossRangeTxn` |
+| `@mindlog/transport` | `ConnectTransport`: Raft messages and snapshot chunks over Connect gRPC on HTTP/2 (ADR-0025); `KvForwarder` and `KvForwardService` for calls forwarded to a range's leader |
 | `@mindlog/kv` | 100 Redis commands over generations (strings, keys, expiry, hashes, lists, sets, sorted sets, JSON subset), `SET … IFEQ`, SCAN cursors, replicated expiry and GC jobs (leader only) |
-| `@mindlog/services` | `KvService`: sessions, static AUTH, reads behind the `ReadBarrier`, writes through the Proposer, MULTI/EXEC/WATCH, spans and metrics. `ClusterService`: `CLUSTER.*` admin commands. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
+| `@mindlog/services` | `KvService`: sessions, static AUTH, reads behind the `ReadBarrier`, writes through the Proposer or, with a router, `RoutedKv` (fan-out, scatter, cross-range transactions); MULTI/EXEC/WATCH, spans and metrics. `ClusterDirectory`: PD's cluster view and operator actions for the dashboard. `ClusterService`: `CLUSTER.*` admin commands. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
 | `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server, `resp.command` spans, preauthenticated connections for the console |
 | `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
-| `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, data browser with typed editors, console, settings |
+| `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, cluster (nodes, ranges, placement decisions), data browser with typed editors, console, settings |
 | `@mindlog/server` | Composition root: `mindlog-server` as a one-voter range (`--single-node`) or a cluster member (`cluster.peers`), `superuser upsert`, graceful shutdown, `mindlog-maelstrom` node binary |
 | Python | `model_service` placeholder process; redis-py compatibility suite |
-| Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger; `chaos`: 3-node cluster), `scripts/chaos/` (kill the leader, partition a node), Grafana dashboard in `deploy/grafana/` |
-| Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts` |
+| Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger; `chaos`: 3-node cluster; `cluster` and `cluster-join`: 3 nodes that also run the placement driver, plus a fourth), `scripts/chaos/`, `scripts/load-and-rebalance.sh` (kill the leader, partition a node), Grafana dashboard in `deploy/grafana/` |
+| Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`; faults: splits, merges, leader transfers, membership, clock skew; `SIM_PD=1` placement driver, `SIM_BANK=1` bank transfers across ranges), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts` |
 | CI | Lint, typecheck, tests (TS, web, Python), protobuf drift and breaking checks, Conventional Commits, gate job (redis-py, kill -9 durability, redis-benchmark, 3-node failover), 1,000 simulator seeds; nightly Maelstrom and 100,000 seeds |
-| Gates | Phases 0 to 3 (`docs/phases/phase-N.md`) |
+| Gates | Phases 0 to 4 (`docs/phases/phase-N.md`) |
 
 Everything else in this document is designed but not built yet; it arrives phase by phase (PLAN 24).
 

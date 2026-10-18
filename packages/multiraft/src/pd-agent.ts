@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import type { Logger } from '@mindlog/core';
+import type { Gauge, Logger, Metrics } from '@mindlog/core';
 import type { NodeInfo, Operator } from '@mindlog/proto';
 import {
   ConfChangeSchema,
@@ -30,6 +30,8 @@ export interface PdAgentOptions {
   /** How often replicas without a leader are checked against PD's directory (default 30 s). */
   readonly gcIntervalMs?: number;
   readonly logger: Logger;
+  /** Where the node's replica and leader counts are published (`mindlog_store_*`). */
+  readonly metrics?: Metrics;
 }
 
 /**
@@ -51,12 +53,24 @@ export class PdAgent {
   readonly #stops: Array<() => void> = [];
   readonly #running = new Set<Promise<void>>();
   #clusterVersion = 0;
+  readonly #gauges: { replicas: Gauge; leaders: Gauge } | undefined;
 
   constructor(store: Store, pd: PdClient, scheduler: Scheduler, options: PdAgentOptions) {
     this.#store = store;
     this.#pd = pd;
     this.#scheduler = scheduler;
     this.#o = options;
+    const m = options.metrics;
+    this.#gauges = m && {
+      replicas: m.gauge({
+        name: 'mindlog_store_replicas_count',
+        help: 'Range replicas hosted on this node',
+      }),
+      leaders: m.gauge({
+        name: 'mindlog_store_leaders_count',
+        help: 'Ranges this node leads',
+      }),
+    };
   }
 
   start(): void {
@@ -104,6 +118,8 @@ export class PdAgent {
       rangeCount: replicas.length,
       leaderCount: replicas.filter((r) => r.isLeader()).length,
     });
+    this.#gauges?.replicas.set(replicas.length);
+    this.#gauges?.leaders.set(stats.leaderCount);
     const reply = await this.#pd.storeHeartbeat(stats);
     if (!reply.ok) return;
     this.#clusterVersion = reply.value.clusterVersion;

@@ -1,5 +1,7 @@
 # Profiles (PLAN 3, design.md): `dev` = one node + model service + Prometheus, Grafana, Jaeger;
-# `chaos` = a 3-node Raft cluster (RESP 6381-6383) for scripts/chaos/*.sh.
+# `chaos` = a 3-node Raft cluster (RESP 6381-6383) for scripts/chaos/*.sh; `cluster` = 3 nodes that
+# also form the placement driver (RESP 6391-6393), `cluster-join` adds node 4 (RESP 6394) for
+# scripts/load-and-rebalance.sh.
 #   docker compose --profile dev run --rm mindlog superuser upsert you@example.com 'a long password' --data-dir /data
 #   docker compose --profile dev up --build
 # Dashboard http://localhost:8090/_/ · RESP localhost:6379 · Grafana http://localhost:3000 · Jaeger http://localhost:16686
@@ -14,7 +16,37 @@ x-chaos-node: &chaos-node
     - ./deploy/chaos/cluster.yaml:/etc/mindlog/cluster.yaml:ro
   networks: [chaos]
 
+x-cluster-node: &cluster-node
+  profiles: [cluster]
+  build: .
+  image: mindlog:dev
+  command: ['-c', '/etc/mindlog/cluster.yaml']
+  volumes:
+    - ./deploy/cluster/cluster.yaml:/etc/mindlog/cluster.yaml:ro
+  networks: [cluster]
+
 services:
+  cluster-1:
+    <<: *cluster-node
+    environment: { MINDLOG_NODE__RAFT_ID: '1', MINDLOG_NODE__ID: cluster-1 }
+    ports: ['6391:6379', '8101:8090']
+  cluster-2:
+    <<: *cluster-node
+    environment: { MINDLOG_NODE__RAFT_ID: '2', MINDLOG_NODE__ID: cluster-2 }
+    ports: ['6392:6379', '8102:8090']
+  cluster-3:
+    <<: *cluster-node
+    environment: { MINDLOG_NODE__RAFT_ID: '3', MINDLOG_NODE__ID: cluster-3 }
+    ports: ['6393:6379', '8103:8090']
+  cluster-4:
+    <<: *cluster-node
+    profiles: [cluster-join]
+    command: ['-c', '/etc/mindlog/join.yaml']
+    volumes:
+      - ./deploy/cluster/join.yaml:/etc/mindlog/join.yaml:ro
+    environment: { MINDLOG_NODE__RAFT_ID: '4', MINDLOG_NODE__ID: cluster-4 }
+    ports: ['6394:6379', '8104:8090']
+
   mindlog-1:
     <<: *chaos-node
     environment: { MINDLOG_NODE__RAFT_ID: '1', MINDLOG_NODE__ID: mindlog-1 }
@@ -86,3 +118,4 @@ volumes:
 
 networks:
   chaos: {}
+  cluster: {}

@@ -32,7 +32,10 @@ const FAN_OUT = new Set(['MGET', 'EXISTS', 'TOUCH', 'DEL', 'UNLINK']);
 const SCATTER = new Set(['DBSIZE', 'KEYS', 'SCAN']);
 
 const RETRYABLE = new Set<string>(['NOT_LEADER', 'RANGE_MOVED']);
-const MAX_RETRIES = 6;
+// About three seconds of backoff: a freshly split range needs an election and a PD heartbeat.
+const MAX_RETRIES = 10;
+/** Placement can fail while PD and a new range catch up with a split; nothing was sent yet. */
+const PLACE_RETRYABLE = new Set<string>(['NOT_FOUND', 'NOT_LEADER', 'RANGE_MOVED', 'UNAVAILABLE']);
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const moved = (rangeId: bigint): KvReply =>
@@ -82,17 +85,28 @@ export class RoutedKv {
     await this.#txn?.resolve(tenant, key, primary, startTs);
   }
 
+  async #place(
+    tenant: string,
+    keys: readonly Uint8Array[],
+  ): Promise<Result<Placement[], MindlogError>> {
+    for (let attempt = 0; ; attempt++) {
+      const placed = await this.#d.router.place(tenant, keys);
+      if (placed.ok || !PLACE_RETRYABLE.has(placed.error.code) || attempt >= MAX_RETRIES)
+        return placed;
+      await delay(Math.min(25 * 2 ** attempt, 400) * (0.5 + Math.random()));
+    }
+  }
+
   /** The cluster as the transaction coordinator sees it: timestamps, placement and range steps. */
   txnCluster(tso: () => Promise<Result<bigint, MindlogError>>): TxnCluster {
-    const router = this.#d.router;
     return {
       tso,
       place: async (tenant, keys) => {
-        const placed = await router.place(tenant, keys);
+        const placed = await this.#place(tenant, keys);
         return placed.ok ? ok(placed.value.map((p) => p.rangeId)) : placed;
       },
       run: async (tenant, probe, op) => {
-        const placed = await router.place(tenant, [probe]);
+        const placed = await this.#place(tenant, [probe]);
         if (!placed.ok) return placed;
         const reply = await this.#on(
           placed.value[0] as Placement,
@@ -121,7 +135,7 @@ export class RoutedKv {
         ? this.runLocal(target, caller, { kind: 'command', argv })
         : replies.error('UNAVAILABLE', 'this node holds no range yet');
     }
-    const placed = await this.#d.router.place(caller.tenant, keys);
+    const placed = await this.#place(caller.tenant, keys);
     if (!placed.ok) return asError(placed.error);
     const ranges = new Set(placed.value.map((p) => p.rangeId));
     if (ranges.size === 1) {
@@ -149,7 +163,7 @@ export class RoutedKv {
         ? this.runLocal(target, caller, { kind: 'batch', writes, watches })
         : replies.error('UNAVAILABLE', 'this node holds no range yet');
     }
-    const placed = await this.#d.router.place(caller.tenant, keys);
+    const placed = await this.#place(caller.tenant, keys);
     if (!placed.ok) return asError(placed.error);
     if (new Set(placed.value.map((p) => p.rangeId)).size > 1) {
       // Watched keys cannot be checked across ranges, and each queued command must stay in one range.
@@ -181,7 +195,7 @@ export class RoutedKv {
     caller: Caller,
     keys: readonly Uint8Array[],
   ): Promise<Result<bigint[], MindlogError>> {
-    const placed = await this.#d.router.place(caller.tenant, keys);
+    const placed = await this.#place(caller.tenant, keys);
     if (!placed.ok) return placed;
     const out: bigint[] = [];
     for (const [i, placement] of placed.value.entries()) {
@@ -391,7 +405,7 @@ export class RoutedKv {
     if (after === undefined) return replies.error('INVALID_ARGUMENT', 'invalid cursor');
     let first = 0;
     if (after !== null) {
-      const where = await this.#d.router.place(caller.tenant, [after]);
+      const where = await this.#place(caller.tenant, [after]);
       if (!where.ok) return asError(where.error);
       first = Math.max(
         0,

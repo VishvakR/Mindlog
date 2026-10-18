@@ -38,7 +38,13 @@ import { MemoryStore } from '@mindlog/storage';
  * node holds no replica: calls are forwarded to a stand-in node that does.
  */
 export async function memoryRange(
-  options: { remote?: boolean; refuseFirst?: boolean; clusterVersion?: number } = {},
+  options: {
+    remote?: boolean;
+    refuseFirst?: boolean;
+    clusterVersion?: number;
+    /** Like StoreRouter: `ranges()` names the ranges without their local targets. */
+    bareRanges?: boolean;
+  } = {},
 ) {
   const clock = new ManualClock(1_760_000_000_000n);
   const logger = new MemoryLogger();
@@ -112,7 +118,8 @@ export async function memoryRange(
       const reply = await holder.service?.forwarded(p.rangeId, caller, call);
       return reply ? ok(reply) : err(mindlogError('UNAVAILABLE', 'no holder'));
     },
-    ranges: () => Promise.resolve(ok([{ rangeId: 1n, local: target }])),
+    ranges: () =>
+      Promise.resolve(ok([options.bareRanges ? { rangeId: 1n } : { rangeId: 1n, local: target }])),
     local: () => (local ? target : undefined),
     any: () => target,
   };

@@ -195,9 +195,9 @@ export class MemoryService {
   }
 
   /**
-   * User scopes of the tenant that hold memory, from the ranges this node leads.
+   * User scopes of the tenant that hold memory, from the ranges this node holds a replica of.
    *
-   * shortcut: only ranges led here, so a cluster lists part of its scopes; fan out over PD's ranges when dashboards run on clusters.
+   * shortcut: only ranges with a replica here, so a cluster lists part of its scopes; forward to each range when dashboards run on clusters.
    */
   async scopes(
     caller: Caller,
@@ -211,12 +211,14 @@ export class MemoryService {
     if (!family.ok) return family;
     const users = new Set<string>();
     for (const p of ranges.value) {
-      if (!p.local) continue;
+      // The router names ranges; this node reads only those it holds a replica of.
+      const local = p.local ?? this.#d.router.local(p.rangeId);
+      if (!local) continue;
       let start = family.value;
       const end = prefixRange(family.value).end;
       for (;;) {
         let next: Uint8Array | undefined;
-        for await (const [key] of p.local.reader.iterate({ start, end }, { limit: 1 })) {
+        for await (const [key] of local.reader.iterate({ start, end }, { limit: 1 })) {
           const decoded = decodeKey(key);
           const user = decoded.ok ? decoded.value.tuple[0] : undefined;
           if (typeof user !== 'string') break;

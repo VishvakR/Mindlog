@@ -62,17 +62,20 @@ describe('MemoryService', () => {
     expect(read.ok).toBe(true);
   });
 
-  test('lists the scopes that hold memory', async () => {
-    const m = await memoryRange();
-    for (const user of ['bob', 'alice', ''])
-      await m.service.remember(m.caller, {
-        scope: { user },
-        content: 'some fact here',
-        kind: 'semantic',
-      });
-    const scopes = await m.service.scopes(m.caller, {});
-    expect(scopes.ok && scopes.value.users).toEqual(['', 'alice', 'bob']);
-  });
+  test.each([false, true])(
+    'lists the scopes that hold memory (bare ranges: %s)',
+    async (bareRanges) => {
+      const m = await memoryRange({ bareRanges });
+      for (const user of ['bob', 'alice', ''])
+        await m.service.remember(m.caller, {
+          scope: { user },
+          content: 'some fact here',
+          kind: 'semantic',
+        });
+      const scopes = await m.service.scopes(m.caller, {});
+      expect(scopes.ok && scopes.value.users).toEqual(['', 'alice', 'bob']);
+    },
+  );
 
   test('forget and graph run through the same route', async () => {
     const m = await memoryRange({ remote: true });

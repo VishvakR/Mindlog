@@ -171,6 +171,25 @@ describe('range commands (ADR-0009)', () => {
     expect(text(await new MvccReader(store).get(counterKey('x')))).toBe('2');
   });
 
+  test('a merge does not fold in what the frozen range refused, so replicas agree', async () => {
+    // SIM_MEM seed 197: replicas that had and had not applied the refusals of a frozen range
+    // merged different idempotency tables, and a retry applied on some replicas only.
+    const store = new MemoryStore();
+    const left = await bootstrapped(store);
+    await left.apply(6n, 5n, split(counterKey('m'), 2n));
+    const right = await open(store, 2n);
+    await right.apply(6n, 5n, freeze(1n));
+    const retried = writeCommand(['INCR', 'y'], 'refused-then-retried');
+    expect(errorCode(await right.apply(7n, 5n, retried))).toBe('RANGE_MOVED');
+    expect(errorCode(await left.apply(7n, 5n, merge(right.descriptor, 6n)))).toBe('ok');
+    let leftover = 0;
+    for await (const _ of store.iterate(prefixRange(rangeLocalPrefix(2n)))) leftover++;
+    expect(leftover).toBe(0);
+    // After the merge the retry is applied: no replica remembers the refusal.
+    expect(errorCode(await left.apply(8n, 5n, retried))).toBe('ok');
+    expect(text(await new MvccReader(store).get(counterKey('y')))).toBe('1');
+  });
+
   test('a merge is refused unless the right range is frozen into this one with the same members', async () => {
     const store = new MemoryStore();
     const left = await bootstrapped(store);

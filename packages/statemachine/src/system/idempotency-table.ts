@@ -3,7 +3,12 @@ import { decodeKey } from '@mindlog/core';
 import type { CommandResult } from '@mindlog/proto';
 import { CommandResultSchema } from '@mindlog/proto';
 import type { KvReader, WriteBatch } from '@mindlog/storage';
-import { idempotencyAgeKey, idempotencyAgePrefix, idempotencyKey } from './system-keys.js';
+import {
+  idempotencyAgeKey,
+  idempotencyAgePrefix,
+  idempotencyKey,
+  refusalKey,
+} from './system-keys.js';
 
 /**
  * Results of applied requests by request id (PLAN 6.2), so a client retry
@@ -23,8 +28,20 @@ export class IdempotencyTable {
 
   async lookup(requestId: Uint8Array): Promise<CommandResult | undefined> {
     if (requestId.length === 0) return undefined;
-    const stored = await this.#reader.get(idempotencyKey(this.#rangeId, requestId));
+    const stored =
+      (await this.#reader.get(idempotencyKey(this.#rangeId, requestId))) ??
+      (await this.#reader.get(refusalKey(this.#rangeId, requestId)));
     return stored ? fromBinary(CommandResultSchema, stored) : undefined;
+  }
+
+  /**
+   * Records a frozen range's refusal, so a re-proposed copy gets the same answer after an
+   * unfreeze. Split and merge do not carry refusals (they copy `idem` only); a merge drops them
+   * with the right range's local state, so every replica folds in the same table.
+   */
+  recordRefusal(batch: WriteBatch, requestId: Uint8Array, result: CommandResult): void {
+    if (requestId.length === 0) return;
+    batch.put(refusalKey(this.#rangeId, requestId), toBinary(CommandResultSchema, result));
   }
 
   record(batch: WriteBatch, requestId: Uint8Array, result: CommandResult, version: bigint): void {

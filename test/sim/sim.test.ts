@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { scenario } from './cluster.js';
-import { REGRESSION_SEEDS } from './regressions.js';
+import { MEMORY_REGRESSION_SEEDS, REGRESSION_SEEDS } from './regressions.js';
 
 /**
  * Deterministic simulation of whole clusters (PLAN 22.2). `pnpm test` runs a
@@ -102,6 +102,16 @@ describe('simulator', () => {
 
   test('regression seeds', { timeout: 600_000 }, async () => {
     await check(REGRESSION_SEEDS);
+  });
+
+  test('memory regression seeds', { timeout: 600_000 }, async () => {
+    for (const seed of MEMORY_REGRESSION_SEEDS) {
+      const result = await scenario(seed)
+        .nodes(seed % 2n === 0n ? 5 : 3)
+        .memory(4)
+        .run();
+      expect(result.violations).toEqual([]);
+    }
   });
 
   test(ONE ? `seed ${ONE}` : `seeds ${FROM}..${FROM + COUNT - 1n}`, { timeout: 0 }, async () => {

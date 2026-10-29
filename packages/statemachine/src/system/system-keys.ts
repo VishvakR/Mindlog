@@ -55,6 +55,13 @@ export const lastVersionKey = (rangeId: bigint): Uint8Array =>
 export const idempotencyKey = (rangeId: bigint, requestId: Uint8Array): Uint8Array =>
   rangeLocalKey(rangeId, 'idem', requestId);
 
+/**
+ * A request a frozen range refused (ADR-0009). Kept apart from `idem`: a merge folds `idem` in,
+ * and replicas reach the merge having seen different numbers of refusals.
+ */
+export const refusalKey = (rangeId: bigint, requestId: Uint8Array): Uint8Array =>
+  rangeLocalKey(rangeId, 'refused', requestId);
+
 /** Version-ordered index of idempotency records, for retention GC. */
 export const idempotencyAgeKey = (
   rangeId: bigint,

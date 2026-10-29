@@ -7,3 +7,10 @@ export const REGRESSION_SEEDS: readonly bigint[] = [
   7115n,
   9139n,
 ];
+
+/** Seeds that once failed with the memory workload (`SIM_MEM=1`). */
+export const MEMORY_REGRESSION_SEEDS: readonly bigint[] = [
+  // A frozen range's refusals were folded in by a merge on some replicas only (idempotency split).
+  84n,
+  197n,
+];

@@ -283,9 +283,10 @@ export class StateMachine {
     const frozen = result ? undefined : this.#frozenResult(command);
     if (frozen) {
       // The refusal is recorded, so a re-proposed copy of the same request gets the same answer
-      // after an unfreeze instead of being applied. It takes no version, so the data a merge folds
-      // in does not depend on how many refused commands a replica has seen (ADR-0009).
-      this.#idempotency.record(batch, command.requestId, frozen, this.#lastVersion);
+      // after an unfreeze instead of being applied. It takes no version and is kept apart from the
+      // idempotency records a merge folds in, so the merged state does not depend on how many
+      // refused commands a replica has seen (ADR-0009; SIM_MEM seed 197).
+      this.#idempotency.recordRefusal(batch, command.requestId, frozen);
       await this.#commit(batch, { index, term });
       return frozen;
     }

@@ -26,7 +26,7 @@ export interface GraphReader {
 }
 
 export interface WalkOptions {
-  /** Hops from the seeds; at most 2 (PPR comes in phase 6). */
+  /** Hops from the seeds; at most 2 (PPR builds its sub-graph with this walk). */
   readonly depth: number;
   /** Most nodes to return, seeds included. */
   readonly limit: number;

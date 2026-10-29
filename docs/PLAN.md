@@ -942,7 +942,7 @@ Specified in 8.5. Additional requirement: recall over a semantically split scope
 - `CACHE.SET scope prompt answer USING id1 id2 … [TTL s]` and MCP `cache_store`. Stores prompt embedding, answer, dependency set (memory ids and record keys), model hint, created HLC.
 - `CACHE.GET scope prompt [THRESHOLD 0.92]`: two stages, as in GPTCache's `data_manager` → `similarity_evaluation` split: (1) ANN search over cache-entry embeddings in scope for candidates; (2) a pluggable `SimilarityEvaluator` (cosine threshold by default, local cross-encoder optional) confirms the match. Hit only if confirmed **and** no dependency changed since the entry's HLC.
 - Two levels (GPTCache's `next_cache` idea): L1 per-node in-process LRU on exact normalised prompt hash, L2 replicated semantic cache.
-- Invalidation: the `CacheInvalidator` subscribes to `MemoryCommitted`/`RecordChanged`; a reverse index `q/dep/(memoryId) → cacheIds` lets it propose `CacheInvalidate` for affected entries.
+- Invalidation (ADR-0012): memory dependencies are dropped inside the apply of the command that changes the memory, through a reverse index `m/(user,'q',memoryId,cacheId)` in the same range; record-key dependencies are checked against their MVCC version at read time.
 - Metrics: hit rate, false-positive rate (sampled human/LLM judgment in evals), tokens saved.
 
 ### 13.10 Embedded replicas (SDK)
@@ -1745,8 +1745,8 @@ References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly]
 | 008 | HNSW determinism trade-off and filtering approach |
 | 009 | Range size, split and merge policy |
 | 010 | Placement driver as its own Raft group with a TSO |
-| 011 | Retrieval fusion (RRF) and scoring formula |
-| 012 | Semantic cache dependency-tracking invalidation |
+| 011 | Retrieval fusion (weighted RRF), query routing, scoring formula and recall recipes |
+| 012 | Semantic cache dependency-tracking invalidation, done inside apply in the dependency's range (changes 13.9's event-driven invalidator) |
 | 013 | Branches as overlays at a fork index, not copies |
 | 014 | Encryption at rest: values encrypted, keys in plaintext |
 | 015 | Conflict policy defaults (quarantine new) |

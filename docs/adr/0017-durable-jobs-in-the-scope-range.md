@@ -16,7 +16,7 @@ Enrichment after a fast or degraded `remember` must survive crashes and leader c
 - `JobLease {user, id, leaseMs}` is proposed only by the range leader's `JobRunner`; apply accepts it when the job is queued and due, or leased past its lease end, and increments `attempts`. The attempt number is the lease epoch.
 - `JobComplete {user, id, attempt, done | error}` is applied only if `attempt` matches, so a stale holder after a leader change cannot finish a job it lost. An error requeues with backoff `2^attempt s` until 5 attempts, then `dead` (kept for the dashboard).
 - A `MemoryCommit` can enqueue jobs and complete one in the same batch, so enrichment output and job completion are atomic.
-- Backpressure: the range keeps a per-tenant depth counter; `remember(async)` returns `BUSY` above `jobs.maxDepth`.
+- Backpressure: `remember(async)` returns `BUSY` when the user scope already holds `maxQueuedJobs` (default 1,000) queued or leased jobs, counted from its `m/(user, 'j')` records in the same range; dead jobs do not count. A synchronous remember needs no job and is not refused.
 
 ## Alternatives considered
 

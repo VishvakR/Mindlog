@@ -10,6 +10,10 @@ import type {
 import { ERROR_CODES, err, mindlogError, ok } from '@mindlog/core';
 import { normalizeName, walk } from '@mindlog/index-graph';
 import type { LeasedJob, Worker } from '@mindlog/jobs';
+import { jobPrefix } from '@mindlog/jobs';
+import { MvccReader } from '@mindlog/storage';
+import { fromBinary } from '@bufbuild/protobuf';
+import { JobSchema, JobState } from '@mindlog/proto';
 import type { Capability, Models } from '@mindlog/models-client';
 import type { Command, CommandResult, JobSpec } from '@mindlog/proto';
 import type { CommandStamper } from '@mindlog/statemachine';
@@ -40,6 +44,8 @@ import { hlcMs, toView } from './view.js';
 export interface MemoryConfig extends IngestConfig, RecallConfig {
   /** Default token budget of recall's packed context. */
   readonly tokenBudget: number;
+  /** Jobs a user scope may hold before async remember answers BUSY (PLAN 12.7, ADR-0017). */
+  readonly maxQueuedJobs: number;
 }
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
@@ -59,6 +65,7 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   retrieveK: 50,
   modelTimeoutMs: 2000,
   tokenBudget: 1000,
+  maxQueuedJobs: 1000,
 };
 
 export interface MemoryEngineDeps {
@@ -167,6 +174,18 @@ export class MemoryEngine {
     return ok(views);
   }
 
+  /** Queued and leased jobs of a user scope, counted up to the limit (dead ones stay for the dashboard). */
+  async #queuedJobs(range: MemoryRange, scope: MemoryScope): Promise<number> {
+    let n = 0;
+    for await (const { value } of new MvccReader(range.reader).scan(
+      jobPrefix(scope.tenant, scope.user),
+    )) {
+      if (fromBinary(JobSchema, value).state !== JobState.DEAD) n++;
+      if (n >= this.#config.maxQueuedJobs) break;
+    }
+    return n;
+  }
+
   /** PLAN 12.3: remember synchronously, asynchronously, or degraded when models are down. */
   remember(
     range: MemoryRange,
@@ -182,6 +201,13 @@ export class MemoryEngine {
         if (!run.ok) return run;
         const { draft, degraded } = run.value;
         const enrich = input.async === true || MODEL_STAGES.some((s) => degraded.has(s));
+        if (
+          input.async &&
+          (await this.#queuedJobs(range, input.scope)) >= this.#config.maxQueuedJobs
+        )
+          return err(
+            mindlogError('BUSY', 'too many enrichment jobs are queued for this scope; retry later'),
+          );
         const jobId = enrich ? this.#d.ids.next() : undefined;
         const ids = draft.facts.map(() => this.#d.ids.next());
         const views = await this.#commit(

@@ -20,7 +20,7 @@ The agent memory engine (PLAN 12; ADR-0008, 0016, 0017, 0031, 0032).
 - When extraction or embedding falls back, the raw passages are stored as `episodic` with a `memory.enrich` job, and the answer is `degraded: true`.
 - Recall without an embedder uses the keyword and entity retrievers only.
 - Once the models are back, the enrich job commits the derived facts. They carry `derived_from` links, and the commit completes the job atomically.
-- `async: true` takes the same path on purpose: it acknowledges fast and enriches later.
+- `async: true` takes the same path on purpose: it acknowledges fast and enriches later. It answers `BUSY` when the scope already holds `maxQueuedJobs` queued or leased jobs (ADR-0017).
 
 ## Invariants
 

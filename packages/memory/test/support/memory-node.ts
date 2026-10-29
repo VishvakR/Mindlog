@@ -12,7 +12,7 @@ import {
 } from '@mindlog/core';
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import { jobCompleteHandler, jobLeaseHandler, jobRangeHooks } from '@mindlog/jobs';
-import type { MemoryRange } from '@mindlog/memory';
+import type { MemoryConfig, MemoryRange } from '@mindlog/memory';
 import {
   MemoryEngine,
   VectorCache,
@@ -35,7 +35,9 @@ export const START = 1_760_000_000_000n;
 export const TENANT = 'acme';
 
 /** A one-voter range with the memory and job handlers, and an engine over FakeModels. */
-export async function memoryNode(options: { seed?: bigint } = {}) {
+export async function memoryNode(
+  options: { seed?: bigint; config?: Partial<MemoryConfig> } = {},
+) {
   const clock = new ManualClock(START);
   const logger = new MemoryLogger();
   const metrics = new MemoryMetrics();
@@ -85,6 +87,7 @@ export async function memoryNode(options: { seed?: bigint } = {}) {
     tracer: new OtelTracer(),
     vectors,
     ranges: (id) => (id === 1n ? range : undefined),
+    ...(options.config ? { config: options.config } : {}),
   });
   const propose = async (command: Command) => {
     const proposed = await replica.propose(command);

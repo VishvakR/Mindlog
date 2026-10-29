@@ -289,3 +289,19 @@ describe('entities and edges without an LLM', () => {
     expect(out.memories[0]?.entities).toEqual(['person:ana']);
   });
 });
+
+describe('job backpressure', () => {
+  test('async remember is BUSY once the scope has too many queued jobs', async () => {
+    const n = await memoryNode({ config: { maxQueuedJobs: 2 } });
+    await remember(n, 'first note here', { async: true });
+    await remember(n, 'second note here', { async: true });
+    const third = await n.engine.remember(
+      n.range,
+      { scope: scope(), content: 'third note here', async: true },
+      ctx,
+    );
+    expect(!third.ok && third.error.code).toBe('BUSY');
+    // A synchronous remember needs no job, so it still works.
+    expect((await remember(n, 'fourth note here', { kind: 'semantic' })).ids).toHaveLength(1);
+  });
+});

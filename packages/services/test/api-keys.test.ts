@@ -50,6 +50,8 @@ describe('ApiKeyService', () => {
     const { keys } = await setup();
     const r = await keys.create({ tenant: '', name: 'x' });
     expect(!r.ok && r.error.code).toBe('INVALID_ARGUMENT');
+    const reserved = await keys.create({ tenant: '$system', name: 'x' });
+    expect(!reserved.ok && reserved.error.code).toBe('INVALID_ARGUMENT');
   });
 });
 

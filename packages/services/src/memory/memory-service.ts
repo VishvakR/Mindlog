@@ -1,6 +1,7 @@
 import type { MindlogError, MindlogErrorCode, Result } from '@mindlog/core';
 import {
   ERROR_CODES,
+  isUserTenant,
   KeyFamily,
   decodeKey,
   err,
@@ -238,6 +239,10 @@ export class MemoryService {
     raw: unknown,
   ): Promise<Result<OutputOf<N>, MindlogError>> {
     const spec = OPS[name] as unknown as Op<z.ZodType, OutputOf<N>>;
+    if (!isUserTenant(caller.tenant))
+      return err(
+        mindlogError('INVALID_ARGUMENT', `memory is not available in tenant ${caller.tenant}`),
+      );
     const parsed = spec.schema.safeParse(raw);
     if (!parsed.success) return err(invalid(parsed.error.issues));
     const input = parsed.data as { scope: { user: string } };

@@ -92,3 +92,16 @@ describe('MemoryService', () => {
     expect(history.ok && history.value).toHaveLength(2);
   });
 });
+
+describe('MemoryService tenants', () => {
+  test('reserved tenants are refused', async () => {
+    const m = await memoryRange();
+    for (const tenant of ['$system', '$node', '']) {
+      const r = await m.service.recall(
+        { tenant, principal: 'p' },
+        { scope: { user: 'u' }, query: 'x' },
+      );
+      expect(!r.ok && r.error.code).toBe('INVALID_ARGUMENT');
+    }
+  });
+});

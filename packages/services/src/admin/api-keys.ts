@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Clock, MindlogError, Result } from '@mindlog/core';
-import { SYSTEM_TENANT, err, mindlogError, ok } from '@mindlog/core';
+import { SYSTEM_TENANT, err, isUserTenant, mindlogError, ok } from '@mindlog/core';
 import type { KvReply } from '@mindlog/proto';
 import { z } from 'zod';
 import type { KvService } from '../kv/kv-service.js';
@@ -8,7 +8,7 @@ import { Session } from '../session/session.js';
 import { strings, toRecord } from './kv-strings.js';
 
 export const apiKeyInputSchema = z.strictObject({
-  tenant: z.string().min(1).max(128),
+  tenant: z.string().min(1).max(128).refine(isUserTenant, 'reserved tenant'),
   /** Pins the key to one user scope; absent means every user of the tenant. */
   user: z.string().min(1).max(128).optional(),
   name: z.string().min(1).max(128),

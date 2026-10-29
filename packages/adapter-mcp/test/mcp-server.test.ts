@@ -50,6 +50,12 @@ function stubMemory() {
       ],
       context: '- I prefer dark roast coffee.',
       tokens: 8,
+      budget: 1000,
+      groups: [{ name: 'Facts', ids: ['m1'] }],
+      dropped: [],
+      compressed: [],
+      recipe: 'full',
+      route: 'specific',
       degraded: false,
     }),
     get: (caller, input) => {

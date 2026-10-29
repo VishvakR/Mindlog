@@ -29,6 +29,9 @@ import {
 
 const NEWEST = (1n << 64n) - 1n;
 
+/** Prefix of memory nodes in the memory graph; entity ids never start with it. */
+export const MEMORY_NODE = '@';
+
 /** The last tuple element of a stored key (an id), or undefined. */
 function lastElement(key: Uint8Array): unknown {
   const decoded = decodeKey(key);
@@ -115,6 +118,39 @@ export class MemoryReads {
           const id = lastElement(key);
           if (typeof id === 'string') yield { id, ...decodePosting(value) };
         }
+      },
+    };
+  }
+
+  /**
+   * The memory graph PPR walks (PLAN 11.3): entity nodes (`type:name`) and
+   * memory nodes (`@` + id). Entities link to each other by their edges and to
+   * up to `mentionLimit` memories mentioning them (weight 1); memories link to
+   * their entities and their `related` notes. Forgotten memories have no edges.
+   */
+  memoryGraph(mentionLimit: number): GraphReader {
+    const entities = this.graph();
+    const mentions = (entity: string) => this.mentions(entity, mentionLimit);
+    const record = (id: string) => this.record(id);
+    return {
+      async *neighbors(node): AsyncGenerator<Adjacency> {
+        if (!node.startsWith(MEMORY_NODE)) {
+          yield* entities.neighbors(node);
+          for (const id of await mentions(node))
+            yield { relation: 'mentions', node: MEMORY_NODE + id, direction: 'in', weight: 1 };
+          return;
+        }
+        const r = await record(node.slice(MEMORY_NODE.length));
+        if (!r || r.expiredAt !== 0n) return;
+        for (const e of r.entities)
+          yield { relation: 'mentions', node: e, direction: 'out', weight: 1 };
+        for (const l of r.links)
+          yield {
+            relation: l.relation,
+            node: MEMORY_NODE + l.to,
+            direction: 'out',
+            weight: l.weight,
+          };
       },
     };
   }

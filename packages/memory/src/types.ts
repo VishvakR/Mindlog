@@ -1,5 +1,8 @@
 import type { KvReader } from '@mindlog/storage';
 import type { Proposer } from '@mindlog/statemachine';
+import type { PackGroup } from './recall/pack.js';
+import type { RecipeName } from './recall/recipes.js';
+import type { QueryRoute } from './recall/route.js';
 
 export const MEMORY_KINDS = [
   'episodic',
@@ -105,12 +108,20 @@ export interface RecallInput {
   readonly inherit?: boolean;
   readonly kinds?: readonly MemoryKind[];
   readonly includeQuarantined?: boolean;
+  /** Named recall configuration (ADR-0011); default `full`. */
+  readonly recipe?: RecipeName;
+  /** Also return each retriever's ranked ids and the route (PLAN 12.4 stage 11). */
+  readonly explain?: boolean;
 }
 
+/** Raw retriever scores (each on its own scale) and the normalised signals of the final score. */
 export interface RecallSignals {
   readonly vector?: number;
   readonly keyword?: number;
   readonly entity?: number;
+  readonly ppr?: number;
+  readonly theme?: number;
+  readonly rerank?: number;
   readonly fused: number;
   readonly recency: number;
   readonly importance: number;
@@ -124,12 +135,31 @@ export interface RecallItem {
   readonly signals: RecallSignals;
 }
 
+/** A community of memories found for a broad query, named by its central entities. */
+export interface RecallTheme {
+  readonly label: string;
+  readonly ids: readonly string[];
+}
+
 export interface RecallOutput {
   readonly items: readonly RecallItem[];
-  /** The packed context to put in a prompt. */
+  /** The packed context to put in a prompt, grouped by kind (PLAN 13.6). */
   readonly context: string;
   readonly tokens: number;
+  readonly budget: number;
+  readonly groups: readonly PackGroup[];
+  /** Candidates that did not fit the budget, best first. */
+  readonly dropped: readonly string[];
+  /** Candidates packed in a shortened form. */
+  readonly compressed: readonly string[];
+  readonly recipe: RecipeName;
+  readonly route: QueryRoute;
   readonly degraded: boolean;
+  /** With `explain`: ranked ids per retriever and the themes found. */
+  readonly explain?: {
+    readonly lists: Readonly<Record<string, readonly string[]>>;
+    readonly themes: readonly RecallTheme[];
+  };
 }
 
 export interface GraphView {

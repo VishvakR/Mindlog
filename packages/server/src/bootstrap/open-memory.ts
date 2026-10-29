@@ -9,6 +9,7 @@ import type { RangeRouter } from '@mindlog/services';
 import { MemoryService } from '@mindlog/services';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
+import { openPprPool } from './ppr-pool.js';
 
 export interface MemoryParts {
   readonly service: MemoryService;
@@ -16,10 +17,15 @@ export interface MemoryParts {
   /** Job workers the range jobs run (the `memory.enrich` worker). */
   readonly workers: WorkerRegistry;
   readonly models: Models;
+  /** Stops the PPR worker pool. */
+  close(): Promise<void>;
 }
 
 /** Scopes whose vector index stays in memory (ADR-0008). */
 const VECTOR_CACHE_SCOPES = 256;
+/** PPR worker threads and the tasks that may wait for one (CLAUDE.md 5). */
+const PPR_THREADS = 2;
+const PPR_QUEUE = 64;
 
 /**
  * The memory engine and its service (PLAN 12): the model client (or none, so
@@ -65,6 +71,7 @@ export function openMemory(deps: {
     logger,
   });
   vectors.attach(deps.events);
+  const ppr = openPprPool({ threads: PPR_THREADS, maxQueue: PPR_QUEUE, metrics, logger });
   const engine = new MemoryEngine({
     models,
     available,
@@ -75,6 +82,7 @@ export function openMemory(deps: {
     logger,
     tracer,
     vectors,
+    ppr: ppr.run,
     config: { modelTimeoutMs: timeoutMs },
     ranges: (rangeId) => {
       const target = router.local(rangeId);
@@ -89,5 +97,5 @@ export function openMemory(deps: {
     stamper: deps.stamper,
     ...(deps.clusterVersion ? { clusterVersion: deps.clusterVersion } : {}),
   });
-  return { service, engine, workers, models };
+  return { service, engine, workers, models, close: ppr.close };
 }

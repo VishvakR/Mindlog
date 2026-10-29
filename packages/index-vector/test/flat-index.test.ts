@@ -36,7 +36,9 @@ function describeVectorIndexContract(name: string, make: (dims: number) => Vecto
       index.upsert('y', unit([0, 1]), 'a');
       index.upsert('x', unit([0, 1]), 'b');
       expect(index.size).toBe(2);
+      expect([...(index.get('x') ?? [])]).toEqual([...unit([0, 1])]);
       expect(index.remove('y')).toBe(true);
+      expect(index.get('y')).toBeUndefined();
       expect(index.remove('y')).toBe(false);
       expect(index.size).toBe(1);
       const hits = index.search(unit([0, 1]), 5);

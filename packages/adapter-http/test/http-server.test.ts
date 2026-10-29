@@ -246,6 +246,7 @@ describe('admin and OpenAPI', () => {
       '/api/memory/graph',
       '/api/memory/history',
       '/api/memory/list',
+      '/api/memory/pack',
       '/api/memory/recall',
       '/api/memory/remember',
       '/api/memory/scopes',

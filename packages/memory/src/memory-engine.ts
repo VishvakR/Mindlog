@@ -24,7 +24,11 @@ import { ingestStages } from './ingest/ingest-stages.js';
 import { runStages } from './pipeline/stage.js';
 import { MemoryReads } from './read/memory-reads.js';
 import { pack } from './recall/pack.js';
-import type { RecallConfig, RecallDraft } from './recall/recall-stages.js';
+import type { PprRunner } from './recall/ppr.js';
+import { inlinePpr } from './recall/ppr.js';
+import { emptyDraft } from './recall/recall-draft.js';
+import { DEFAULT_RECIPE, RECIPES } from './recall/recipes.js';
+import type { RecallConfig } from './recall/recall-stages.js';
 import { recallStages } from './recall/recall-stages.js';
 import type {
   CallContext,
@@ -63,6 +67,17 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   linkThreshold: 0.75,
   linkTopK: 5,
   retrieveK: 50,
+  rerankK: 50,
+  // PPR (PLAN 11.3, ADR-0011): HippoRAG's damping, linking_top_k and passage_node_weight.
+  damping: 0.5,
+  maxIterations: 30,
+  tolerance: 1e-6,
+  pprMaxNodes: 5000,
+  pprMentionLimit: 50,
+  pprEntitySeeds: 5,
+  pprMemorySeedWeight: 0.05,
+  themeMaxNodes: 2000,
+  themeCount: 2,
   modelTimeoutMs: 2000,
   tokenBudget: 1000,
   maxQueuedJobs: 1000,
@@ -79,6 +94,8 @@ export interface MemoryEngineDeps {
   readonly logger: Logger;
   readonly tracer: Tracer;
   readonly vectors: VectorCache;
+  /** Where PPR iterations run; inline by default, a worker pool in the server. */
+  readonly ppr?: PprRunner;
   /** This node's replica of a range, for jobs (the enrich worker). */
   readonly ranges: (rangeId: bigint) => MemoryRange | undefined;
   readonly config?: Partial<MemoryConfig>;
@@ -249,7 +266,7 @@ export class MemoryEngine {
     );
   }
 
-  /** PLAN 12.4: retrieve, fuse, filter, score and pack. */
+  /** PLAN 12.4: parse, route, retrieve, fuse, filter, rerank, score, diversify and pack (ADR-0011). */
   recall(
     range: MemoryRange,
     input: RecallInput,
@@ -260,35 +277,43 @@ export class MemoryEngine {
       { 'mindlog.tenant': input.scope.tenant },
       async () => {
         const { tenant, user } = input.scope;
-        const reads = new MemoryReads(range.reader, tenant, user);
-        const draft: RecallDraft = {
-          input,
-          queryEntities: [],
-          lists: new Map(),
-          signals: new Map(),
-          records: [],
-          fused: new Map(),
-          items: [],
+        const recipe = input.recipe ?? DEFAULT_RECIPE;
+        const draft = emptyDraft(input, RECIPES[recipe]);
+        const ports = {
+          models: this.#d.models,
+          vectors: this.#d.vectors,
+          reads: new MemoryReads(range.reader, tenant, user),
+          clock: this.#d.clock,
+          ppr: this.#d.ppr ?? inlinePpr,
         };
-        const stages = recallStages(
-          this.#d.models,
-          this.#d.vectors,
-          reads,
-          this.#d.clock,
-          this.#config,
+        const run = await runStages(
+          recallStages(ports, this.#config, draft),
+          draft,
+          this.#context('recall'),
         );
-        const run = await runStages(stages, draft, this.#context('recall'));
         if (!run.ok) return run;
-        const { items } = run.value.draft;
+        const { ranked, route, lists, themes } = run.value.draft;
         const packed = pack(
-          items.map((it) => ({ id: it.memory.id, text: it.memory.text })),
+          ranked.map((it) => ({
+            id: it.memory.id,
+            text: it.memory.text,
+            kind: it.memory.kind,
+            score: it.score,
+          })),
           input.tokenBudget ?? this.#config.tokenBudget,
         );
         return ok({
-          items,
+          items: ranked.slice(0, input.k ?? 10),
           context: packed.context,
           tokens: packed.tokens,
+          budget: packed.budget,
+          groups: packed.groups,
+          dropped: packed.dropped,
+          compressed: packed.compressed,
+          recipe,
+          route,
           degraded: run.value.degraded.size > 0,
+          ...(input.explain ? { explain: { lists: Object.fromEntries(lists), themes } } : {}),
         });
       },
     );

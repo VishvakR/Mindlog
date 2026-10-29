@@ -157,7 +157,9 @@ describe('startNode MCP', () => {
       name: 'recall',
       arguments: { query: 'dark roast coffee' },
     });
-    expect(recalled.structuredContent).toMatchObject({ context: '- I prefer dark roast coffee.' });
+    expect(recalled.structuredContent).toMatchObject({
+      context: '## Recent episodes\n- I prefer dark roast coffee.',
+    });
     await client.close();
     await node.close();
   }, 20_000);

@@ -1,4 +1,4 @@
-import { MEMORY_KINDS, SOURCE_TYPES } from '@mindlog/memory';
+import { MEMORY_KINDS, RECIPE_NAMES, SOURCE_TYPES } from '@mindlog/memory';
 import { z } from 'zod';
 
 // Memory request schemas (PLAN 15), shared by RESP, REST, MCP and node-to-node forwarding.
@@ -37,6 +37,10 @@ export const recallSchema = z.strictObject({
   inherit: z.boolean().optional(),
   kinds: z.array(kind).max(MEMORY_KINDS.length).optional(),
   includeQuarantined: z.boolean().optional(),
+  /** Named recall configuration (ADR-0011). */
+  recipe: z.enum(RECIPE_NAMES).optional(),
+  /** Also return each retriever's ranked ids and the themes found. */
+  explain: z.boolean().optional(),
 });
 
 const memoryId = z.string().min(1).max(64);

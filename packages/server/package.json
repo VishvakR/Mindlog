@@ -30,6 +30,7 @@
     "@mindlog/adapter-resp": "workspace:*",
     "@mindlog/core": "workspace:*",
     "@mindlog/eventbus": "workspace:*",
+    "@mindlog/index-graph": "workspace:*",
     "@mindlog/jobs": "workspace:*",
     "@mindlog/kv": "workspace:*",
     "@mindlog/memory": "workspace:*",
@@ -42,7 +43,8 @@
     "@mindlog/statemachine": "workspace:*",
     "@mindlog/storage": "workspace:*",
     "@mindlog/transport": "workspace:*",
-    "@mindlog/txn": "workspace:*"
+    "@mindlog/txn": "workspace:*",
+    "piscina": "^5.3.2"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.3.0"

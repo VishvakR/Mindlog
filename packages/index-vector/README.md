@@ -4,7 +4,7 @@ The vector index port and an exact flat index (PLAN 11.1, ADR-0008).
 
 ## Public API
 
-- `VectorIndex<M>`: `upsert(id, vector, meta)`, `remove(id)`, `search(query, k, filter?)` and `size`. Vectors are L2-normalised, so the score is cosine similarity.
+- `VectorIndex<M>`: `upsert(id, vector, meta)`, `get(id)` (a copy, for MMR), `remove(id)`, `search(query, k, filter?)` and `size`. Vectors are L2-normalised, so the score is cosine similarity.
 - `FlatIndex<M>`: scans every vector, keeping them in one growing `Float32Array`.
 
 ## Invariants

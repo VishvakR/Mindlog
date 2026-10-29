@@ -6,175 +6,243 @@ import type { Models } from '@mindlog/models-client';
 import type { MemoryRecord } from '@mindlog/proto';
 import type { Stage } from '../pipeline/stage.js';
 import type { MemoryReads } from '../read/memory-reads.js';
-import type { RecallInput, RecallItem, RecallSignals } from '../types.js';
+import type { RecallItem, RecallSignals } from '../types.js';
 import type { VectorCache } from '../vector-cache.js';
 import { toView } from '../view.js';
+import { mmr, similarity } from './mmr.js';
+import type { PprConfig, PprRunner } from './ppr.js';
+import { minMax, pprStage } from './ppr.js';
+import type { RecallDraft } from './recall-draft.js';
+import { withList, withSignal } from './recall-draft.js';
+import { rerankStage } from './rerank.js';
+import { classifyQuery, routeWeights } from './route.js';
 import { matchesScope } from './scope-filter.js';
 import { finalScore, recency, retention, rrf } from './score.js';
+import type { ThemeConfig } from './theme.js';
+import { themeStage } from './theme.js';
 
-type Signals = { vector?: number; keyword?: number; entity?: number };
-
-/** What the recall stages fill in, in order (PLAN 12.4). */
-export interface RecallDraft {
-  readonly input: RecallInput;
-  /** Candidate entity ids of the query's entities. */
-  readonly queryEntities: readonly string[];
-  /** Ranked ids per retriever. */
-  readonly lists: ReadonlyMap<string, readonly string[]>;
-  readonly signals: ReadonlyMap<string, Signals>;
-  readonly records: readonly MemoryRecord[];
-  readonly fused: ReadonlyMap<string, number>;
-  readonly items: readonly RecallItem[];
-}
-
-export interface RecallConfig {
+export interface RecallConfig extends PprConfig, ThemeConfig {
   readonly entityLabels: readonly string[];
   /** Results per retriever (PLAN 12.4: 50). */
   readonly retrieveK: number;
+  /** Candidates the cross-encoder scores (PLAN 12.4: 50). */
+  readonly rerankK: number;
   readonly modelTimeoutMs: number;
+}
+
+export interface RecallPorts {
+  readonly models: Models;
+  readonly vectors: VectorCache;
+  readonly reads: MemoryReads;
+  readonly clock: Clock;
+  readonly ppr: PprRunner;
 }
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 
-function withSignal(
-  signals: ReadonlyMap<string, Signals>,
-  hits: ReadonlyArray<{ id: string; score: number }>,
-  signal: keyof Signals,
-): Map<string, Signals> {
-  const out = new Map(signals);
-  for (const h of hits) out.set(h.id, { ...out.get(h.id), [signal]: h.score });
-  return out;
+const byScore = (a: RecallItem, b: RecallItem) =>
+  b.score - a.score || (a.memory.id < b.memory.id ? -1 : 1);
+
+function parseStage(models: Models, config: RecallConfig): Stage<RecallDraft> {
+  const timeoutMs = config.modelTimeoutMs;
+  return {
+    name: 'parse',
+    needs: 'ner',
+    timeoutMs,
+    async run(d) {
+      const r = await models.recognize([d.input.query], config.entityLabels, { timeoutMs });
+      if (!r.ok) return err({ kind: 'skippable', error: r.error });
+      const names = [...new Set((r.value.spans[0] ?? []).map((s) => normalizeName(s.text)))];
+      // Any type with that name: the query's label may differ from the one stored.
+      const ids = names.flatMap((n) => [...config.entityLabels, 'concept'].map((t) => `${t}:${n}`));
+      return ok({ ...d, queryEntities: [...new Set(ids)], entityNames: names.length });
+    },
+    fallback: (d) => d,
+  };
 }
 
-function withList(d: RecallDraft, name: string, ids: string[]): Map<string, readonly string[]> {
-  return new Map([...d.lists, [name, ids]]);
-}
-
-/** Recall stages 1, 3 (vector, keyword, entity), 4, 5, 7 (PLAN 12.4); packing is the engine's. */
-export function recallStages(
+function vectorStage(
   models: Models,
   vectors: VectorCache,
-  reads: MemoryReads,
-  clock: Clock,
   config: RecallConfig,
-): Stage<RecallDraft>[] {
+): Stage<RecallDraft> {
   const timeoutMs = config.modelTimeoutMs;
+  return {
+    name: 'vector',
+    needs: 'embed',
+    timeoutMs,
+    async run(d) {
+      const { scope, inherit = false, kinds, includeQuarantined = false } = d.input;
+      const index = await vectors.index(scope.tenant, scope.user);
+      if (!index || index.size === 0) return ok({ ...d, lists: withList(d, 'vector', []) });
+      const r = await models.embed([d.input.query], 'query', { timeoutMs });
+      if (!r.ok) return err({ kind: 'skippable', error: r.error });
+      const q = r.value.vectors[0];
+      if (!q || q.length !== index.dims) return ok({ ...d, lists: withList(d, 'vector', []) });
+      const hits = index.search(
+        q,
+        config.retrieveK,
+        (m) =>
+          matchesScope(m, scope, inherit) &&
+          (!kinds || kinds.includes(m.kind as never)) &&
+          (includeQuarantined || m.trust !== 'quarantined'),
+      );
+      return ok({
+        ...d,
+        lists: withList(
+          d,
+          'vector',
+          hits.map((h) => h.id),
+        ),
+        signals: withSignal(d.signals, hits, 'vector'),
+      });
+    },
+    fallback: (d) => d,
+  };
+}
+
+function lexicalStage(reads: MemoryReads, k: number): Stage<RecallDraft> {
+  return {
+    name: 'retrieve',
+    async run(d) {
+      const uses = d.recipe.retrievers;
+      const [keyword, entity] = await Promise.all([
+        uses.includes('keyword') ? searchBm25(reads.postings(), tokenize(d.input.query), k) : [],
+        (async () => {
+          if (!uses.includes('entity')) return [];
+          const counts = new Map<string, number>();
+          for (const e of d.queryEntities)
+            for (const id of await reads.mentions(e, k)) counts.set(id, (counts.get(id) ?? 0) + 1);
+          return [...counts]
+            .map(([id, score]) => ({ id, score }))
+            .sort((a, b) => b.score - a.score || (a.id < b.id ? -1 : 1))
+            .slice(0, k);
+        })(),
+      ]);
+      const lists = new Map(d.lists);
+      if (uses.includes('keyword'))
+        lists.set(
+          'keyword',
+          keyword.map((h) => h.id),
+        );
+      if (uses.includes('entity'))
+        lists.set(
+          'entity',
+          entity.map((h) => h.id),
+        );
+      const signals = withSignal(withSignal(d.signals, keyword, 'keyword'), entity, 'entity');
+      return ok({ ...d, lists, signals });
+    },
+  };
+}
+
+function filterStage(reads: MemoryReads, k: number): Stage<RecallDraft> {
+  return {
+    name: 'filter',
+    async run(d) {
+      const { scope, inherit = false, kinds, includeQuarantined = false } = d.input;
+      const ranked = [...d.fused]
+        .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+        .slice(0, 2 * k);
+      const records: MemoryRecord[] = [];
+      for (const [id] of ranked) {
+        const r = await reads.record(id);
+        if (!r || r.expiredAt !== 0n) continue;
+        if (!includeQuarantined && r.trust === 'quarantined') continue;
+        if (kinds && !kinds.includes(r.kind as never)) continue;
+        if (!matchesScope(r, scope, inherit)) continue;
+        records.push(r);
+      }
+      return ok({ ...d, records });
+    },
+  };
+}
+
+function scoreStage(clock: Clock): Stage<RecallDraft> {
+  return {
+    name: 'score',
+    run(d) {
+      const max = Math.max(1e-12, ...d.records.map((r) => d.fused.get(r.id) ?? 0));
+      const reranked = new Map<string, number>();
+      for (const r of d.records) {
+        const s = d.signals.get(r.id)?.rerank;
+        if (s !== undefined) reranked.set(r.id, s);
+      }
+      const rerank = reranked.size > 0 ? minMax(reranked) : undefined;
+      const now = Number(clock.now());
+      const ranked = d.records.map((r): RecallItem => {
+        const last = Number((r.lastRecalledAt || r.createdAt) >> 16n);
+        const fused = (d.fused.get(r.id) ?? 0) / max;
+        const signals: RecallSignals = {
+          ...d.signals.get(r.id),
+          fused,
+          recency: recency((now - last) / HOUR_MS),
+          importance: r.importance,
+          retention: retention((now - last) / DAY_MS, r.strength || 1),
+        };
+        const relevance = rerank?.get(r.id) ?? fused;
+        const score = d.recipe.relevanceOnly
+          ? relevance
+          : finalScore({ ...signals, relevance, trust: r.trust });
+        return { memory: toView(r), score, signals };
+      });
+      return Promise.resolve(ok({ ...d, ranked: ranked.sort(byScore) }));
+    },
+  };
+}
+
+function diversifyStage(vectors: VectorCache): Stage<RecallDraft> {
+  return {
+    name: 'diversify',
+    async run(d) {
+      const { tenant, user } = d.input.scope;
+      const index = await vectors.index(tenant, user);
+      const candidates = d.ranked.map((item) => ({
+        id: item.memory.id,
+        text: item.memory.text,
+        score: item.score,
+        item,
+      }));
+      const sim = similarity((id) => index?.get(id));
+      return ok({ ...d, ranked: mmr(candidates, sim).map((c) => c.item) });
+    },
+  };
+}
+
+/**
+ * The recall stages of a recipe (PLAN 12.4 stages 1, 3–8, ADR-0011): parse,
+ * route, the recipe's retrievers, weighted RRF, filter, optional rerank,
+ * score and optional MMR. Packing is the engine's.
+ */
+export function recallStages(
+  ports: RecallPorts,
+  config: RecallConfig,
+  d: RecallDraft,
+): Stage<RecallDraft>[] {
+  const { models, vectors, reads, clock } = ports;
+  const uses = new Set(d.recipe.retrievers);
   const k = config.retrieveK;
-  return [
+  const stages: Stage<RecallDraft>[] = [];
+  if (uses.has('entity') || uses.has('ppr') || uses.has('theme'))
+    stages.push(parseStage(models, config));
+  stages.push({
+    name: 'route',
+    run: (x) => Promise.resolve(ok({ ...x, route: classifyQuery(x.input.query, x.entityNames) })),
+  });
+  if (uses.has('vector')) stages.push(vectorStage(models, vectors, config));
+  if (uses.has('keyword') || uses.has('entity')) stages.push(lexicalStage(reads, k));
+  if (uses.has('ppr')) stages.push(pprStage(reads, ports.ppr, config));
+  if (uses.has('theme')) stages.push(themeStage(reads, config));
+  stages.push(
     {
-      name: 'parse',
-      needs: 'ner',
-      timeoutMs,
-      async run(d) {
-        const r = await models.recognize([d.input.query], config.entityLabels, { timeoutMs });
-        if (!r.ok) return err({ kind: 'skippable', error: r.error });
-        const names = (r.value.spans[0] ?? []).map((s) => normalizeName(s.text));
-        // Any type with that name: the query's label may differ from the one stored.
-        const ids = names.flatMap((n) =>
-          [...config.entityLabels, 'concept'].map((t) => `${t}:${n}`),
-        );
-        return ok({ ...d, queryEntities: [...new Set(ids)] });
-      },
-      fallback: (d) => d,
+      name: 'fuse',
+      run: (x) => Promise.resolve(ok({ ...x, fused: rrf(x.lists, routeWeights(x.route)) })),
     },
-    {
-      name: 'vector',
-      needs: 'embed',
-      timeoutMs,
-      async run(d) {
-        const { scope, inherit = false, kinds, includeQuarantined = false } = d.input;
-        const index = await vectors.index(scope.tenant, scope.user);
-        if (!index || index.size === 0) return ok({ ...d, lists: withList(d, 'vector', []) });
-        const r = await models.embed([d.input.query], 'query', { timeoutMs });
-        if (!r.ok) return err({ kind: 'skippable', error: r.error });
-        const q = r.value.vectors[0];
-        if (!q || q.length !== index.dims) return ok({ ...d, lists: withList(d, 'vector', []) });
-        const hits = index.search(
-          q,
-          k,
-          (m) =>
-            matchesScope(m, scope, inherit) &&
-            (!kinds || kinds.includes(m.kind as never)) &&
-            (includeQuarantined || m.trust !== 'quarantined'),
-        );
-        return ok({
-          ...d,
-          lists: withList(
-            d,
-            'vector',
-            hits.map((h) => h.id),
-          ),
-          signals: withSignal(d.signals, hits, 'vector'),
-        });
-      },
-      fallback: (d) => d,
-    },
-    {
-      name: 'retrieve',
-      async run(d) {
-        const [keyword, entity] = await Promise.all([
-          searchBm25(reads.postings(), tokenize(d.input.query), k),
-          (async () => {
-            const counts = new Map<string, number>();
-            for (const e of d.queryEntities)
-              for (const id of await reads.mentions(e, k))
-                counts.set(id, (counts.get(id) ?? 0) + 1);
-            return [...counts]
-              .map(([id, score]) => ({ id, score }))
-              .sort((a, b) => b.score - a.score || (a.id < b.id ? -1 : 1))
-              .slice(0, k);
-          })(),
-        ]);
-        const lists = new Map([
-          ...d.lists,
-          ['keyword', keyword.map((h) => h.id)],
-          ['entity', entity.map((h) => h.id)],
-        ]);
-        const signals = withSignal(withSignal(d.signals, keyword, 'keyword'), entity, 'entity');
-        return ok({ ...d, lists, signals });
-      },
-    },
-    { name: 'fuse', run: (d) => Promise.resolve(ok({ ...d, fused: rrf(d.lists, {}) })) },
-    {
-      name: 'filter',
-      async run(d) {
-        const { scope, inherit = false, kinds, includeQuarantined = false } = d.input;
-        const ranked = [...d.fused]
-          .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
-          .slice(0, 2 * k);
-        const records: MemoryRecord[] = [];
-        for (const [id] of ranked) {
-          const r = await reads.record(id);
-          if (!r || r.expiredAt !== 0n) continue;
-          if (!includeQuarantined && r.trust === 'quarantined') continue;
-          if (kinds && !kinds.includes(r.kind as never)) continue;
-          if (!matchesScope(r, scope, inherit)) continue;
-          records.push(r);
-        }
-        return ok({ ...d, records });
-      },
-    },
-    {
-      name: 'score',
-      run(d) {
-        const max = Math.max(1e-12, ...d.records.map((r) => d.fused.get(r.id) ?? 0));
-        const now = Number(clock.now());
-        const items = d.records.map((r): RecallItem => {
-          const last = Number((r.lastRecalledAt || r.createdAt) >> 16n);
-          const signals: RecallSignals = {
-            ...d.signals.get(r.id),
-            fused: (d.fused.get(r.id) ?? 0) / max,
-            recency: recency((now - last) / HOUR_MS),
-            importance: r.importance,
-            retention: retention((now - last) / DAY_MS, r.strength || 1),
-          };
-          const score = finalScore({ relevance: signals.fused, ...signals, trust: r.trust });
-          return { memory: toView(r), score, signals };
-        });
-        items.sort((a, b) => b.score - a.score || (a.memory.id < b.memory.id ? -1 : 1));
-        return Promise.resolve(ok({ ...d, items: items.slice(0, d.input.k ?? 10) }));
-      },
-    },
-  ];
+    filterStage(reads, k),
+  );
+  if (d.recipe.rerank) stages.push(rerankStage(models, config));
+  stages.push(scoreStage(clock));
+  if (d.recipe.mmr) stages.push(diversifyStage(vectors));
+  return stages;
 }

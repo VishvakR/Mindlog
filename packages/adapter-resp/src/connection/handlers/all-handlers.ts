@@ -16,6 +16,7 @@ import {
   memForgetCommand,
   memGetCommand,
   memHistoryCommand,
+  memPackCommand,
   memSearchCommand,
 } from './memory.js';
 import { quitCommand, resetCommand, selectCommand } from './session-commands.js';
@@ -37,6 +38,7 @@ export function createConnectionCommands(): ConnectionCommandRegistry {
     clusterRemoveCommand,
     clusterTransferCommand,
     memAddCommand,
+    memPackCommand,
     memSearchCommand,
     memGetCommand,
     memForgetCommand,

@@ -20,7 +20,8 @@ import { defineRoute } from '../route.js';
 const anyObject = z.record(z.string(), z.unknown());
 const tenant = { tenant: z.string().min(1).max(128).default('default') };
 
-type Method = 'remember' | 'recall' | 'get' | 'list' | 'forget' | 'history' | 'graph' | 'scopes';
+type Method =
+  'remember' | 'recall' | 'pack' | 'get' | 'list' | 'forget' | 'history' | 'graph' | 'scopes';
 
 type Caller = Parameters<MemoryService['get']>[0];
 // Each operation's input was validated by its route schema; the service validates it again.
@@ -30,6 +31,8 @@ const CALLS: Record<
 > = {
   remember: (m, c, i) => m.remember(c, i),
   recall: (m, c, i) => m.recall(c, i),
+  // The packed context is part of every recall; `pack` names that use (MEM.PACK).
+  pack: (m, c, i) => m.recall(c, i),
   get: (m, c, i) => m.get(c, i),
   list: (m, c, i) => m.list(c, i),
   forget: (m, c, i) => m.forget(c, i),
@@ -47,6 +50,11 @@ const ROUTES: ReadonlyArray<{ op: Method; summary: string; schema: z.ZodObject }
   {
     op: 'recall',
     summary: 'Recall the memories most relevant to a query, with scores',
+    schema: recallSchema,
+  },
+  {
+    op: 'pack',
+    summary: 'Recall and pack the best context within a token budget, grouped by kind',
     schema: recallSchema,
   },
   { op: 'get', summary: 'One memory of a scope', schema: getMemorySchema },

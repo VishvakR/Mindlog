@@ -438,6 +438,7 @@ export async function openNodeCore(
       await transport?.close();
       await machine.flush();
       await Promise.all([logStore.close(), stateStore.close()]);
+      await memory.close();
     },
   });
 }

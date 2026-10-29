@@ -48,6 +48,13 @@ export class FlatIndex<M> implements VectorIndex<M> {
     this.#data.set(vector, slot * this.dims);
   }
 
+  get(id: string): Float32Array | undefined {
+    const slot = this.#slots.get(id);
+    return slot === undefined
+      ? undefined
+      : this.#data.slice(slot * this.dims, (slot + 1) * this.dims);
+  }
+
   remove(id: string): boolean {
     const slot = this.#slots.get(id);
     if (slot === undefined) return false;

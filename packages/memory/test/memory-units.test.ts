@@ -2,7 +2,18 @@ import { describe, expect, test } from 'vitest';
 import fc from 'fast-check';
 import { ManualClock, MemoryMetrics, OtelTracer, err, mindlogError, ok } from '@mindlog/core';
 import type { Stage } from '@mindlog/memory';
-import { finalScore, pack, recency, retention, rrf, runStages } from '@mindlog/memory';
+import type { PackItem } from '@mindlog/memory';
+import {
+  classifyQuery,
+  estimateTokens,
+  finalScore,
+  mmr,
+  pack,
+  recency,
+  retention,
+  rrf,
+  runStages,
+} from '@mindlog/memory';
 import { ctx, memoryNode, scope } from './support/memory-node.js';
 
 interface Draft {
@@ -142,23 +153,111 @@ describe('scoring', () => {
 });
 
 describe('pack', () => {
-  test('takes items in order until the token budget is spent', () => {
-    const items = ['a'.repeat(40), 'b'.repeat(40), 'c'.repeat(40)].map((text, i) => ({
-      id: String(i),
-      text,
-    }));
-    const p = pack(items, 25);
-    expect(p.ids).toEqual(['0', '1']);
-    expect(p.tokens).toBeLessThanOrEqual(25);
-    expect(p.context.split('\n')).toHaveLength(2);
+  const item = (id: string, text: string, score = 1, kind = 'semantic'): PackItem => ({
+    id,
+    text,
+    kind,
+    score,
   });
 
-  test('an item larger than the whole budget is skipped, not cut', () => {
-    expect(pack([{ id: 'x', text: 'z'.repeat(400) }], 10)).toEqual({
-      ids: [],
-      context: '',
-      tokens: 0,
-    });
+  test('takes the most valuable items per token, groups them and stays within the budget', () => {
+    const items = ['a'.repeat(40), 'b'.repeat(40), 'c'.repeat(40)].map((t, i) =>
+      item(String(i), t, 1 - i / 10),
+    );
+    const p = pack(items, 30);
+    expect(p.ids).toEqual(['0', '1']);
+    expect(p.dropped).toEqual(['2']);
+    expect(p.tokens).toBeLessThanOrEqual(30);
+    expect(p.context.split('\n')).toEqual([
+      '## Facts',
+      `- ${'a'.repeat(40)}`,
+      `- ${'b'.repeat(40)}`,
+    ]);
+    expect(p.groups).toEqual([{ name: 'Facts', ids: ['0', '1'] }]);
+  });
+
+  test('groups by kind in a fixed order', () => {
+    const p = pack(
+      [
+        item('e', 'went hiking', 0.9, 'episodic'),
+        item('f', 'likes tea', 0.5),
+        item('p', 'run tests first', 0.4, 'procedural'),
+      ],
+      100,
+    );
+    expect(p.groups.map((g) => g.name)).toEqual(['Facts', 'Procedures', 'Recent episodes']);
+    expect(p.context).toBe(
+      '## Facts\n- likes tea\n\n## Procedures\n- run tests first\n\n## Recent episodes\n- went hiking',
+    );
+  });
+
+  test('a long item that no longer fits is shortened to its leading sentences', () => {
+    const long = 'First point. Second point is longer. ' + 'Filler sentence here. '.repeat(20);
+    const p = pack([item('x', long)], 15);
+    expect(p.compressed).toEqual(['x']);
+    expect(p.context).toContain('- First point.');
+    expect(p.context).toContain('…');
+    expect(p.tokens).toBeLessThanOrEqual(15);
+  });
+
+  test('an item whose first sentence is over the budget is dropped, not cut', () => {
+    const p = pack([item('x', 'z'.repeat(400))], 10);
+    expect(p).toMatchObject({ ids: [], context: '', tokens: 0, dropped: ['x'] });
+  });
+
+  test('the swap pass replaces a cheap low-value item with a valuable one', () => {
+    // Greedy by density takes the tiny item first; the valuable one then fits only by swapping.
+    const p = pack([item('cheap', 'ok', 0.2), item('big', 'w'.repeat(60), 1)], 19);
+    expect(p.ids).toEqual(['big']);
+  });
+
+  test('never exceeds the budget and is deterministic', () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            text: fc.string({ minLength: 1, maxLength: 300 }),
+            score: fc.double({ min: 0, max: 1, noNaN: true }),
+            kind: fc.constantFrom('semantic', 'episodic', 'procedural', 'theme'),
+          }),
+          { maxLength: 30 },
+        ),
+        fc.integer({ min: 1, max: 400 }),
+        (raw, budget) => {
+          const items = raw.map((r, i) => item(String(i), r.text, r.score, r.kind));
+          const p = pack(items, budget);
+          expect(p.tokens).toBeLessThanOrEqual(budget);
+          expect(estimateTokens(p.context)).toBe(p.tokens);
+          expect(pack(items, budget)).toEqual(p);
+          expect(new Set([...p.ids, ...p.dropped]).size).toBe(items.length);
+        },
+      ),
+    );
+  });
+});
+
+describe('routing and diversity', () => {
+  test('two entities are multi-hop, broad cues without entities are broad', () => {
+    expect(classifyQuery('how is Ana related to Acme', 2)).toBe('multihop');
+    expect(classifyQuery('summarize what you know about my habits', 0)).toBe('broad');
+    expect(classifyQuery('what coffee do I like', 0)).toBe('specific');
+    expect(classifyQuery('summarize Ana', 1)).toBe('specific');
+  });
+
+  test('mmr keeps the best first and pushes a near-duplicate down', () => {
+    const c = [
+      { id: 'a', text: 'dark roast coffee every morning', score: 1 },
+      { id: 'b', text: 'dark roast coffee every morning please', score: 0.95 },
+      { id: 'c', text: 'flies to lisbon in may', score: 0.8 },
+    ];
+    const sim = (x: { text: string }, y: { text: string }) => {
+      const a = new Set(x.text.split(' '));
+      const b = new Set(y.text.split(' '));
+      const shared = [...a].filter((w) => b.has(w)).length;
+      return shared / (a.size + b.size - shared);
+    };
+    expect(mmr(c, sim).map((x) => x.id)).toEqual(['a', 'c', 'b']);
+    expect(mmr(c, sim, 1).map((x) => x.id)).toEqual(['a', 'b', 'c']);
   });
 });
 

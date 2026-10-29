@@ -76,6 +76,26 @@ describe('ioredis: MEM.*', () => {
     expect(inherited).toHaveLength(2);
   });
 
+  test('MEM.PACK packs within the budget and MEM.SEARCH takes a recipe', async () => {
+    await redis.call('MEM.ADD', 'dave', 'Dave plays the cello on Sundays', 'KIND', 'semantic');
+    await redis.call('MEM.ADD', 'dave', 'Dave walked to the cello lesson', 'KIND', 'episodic');
+    const packed = asMap(await redis.call('MEM.PACK', 'dave', 'cello', 'BUDGET', '200'));
+    expect(packed.context).toBe(
+      '## Facts\n- Dave plays the cello on Sundays\n\n## Recent episodes\n- Dave walked to the cello lesson',
+    );
+    expect(packed.budget).toBe(200);
+    expect(Number(packed.tokens)).toBeLessThanOrEqual(200);
+    expect(packed.dropped).toEqual([]);
+    const tight = asMap(await redis.call('MEM.PACK', 'dave', 'cello', 'BUDGET', '12'));
+    expect(tight.ids as string[]).toHaveLength(1);
+    expect(tight.dropped as string[]).toHaveLength(1);
+    const rag = (await redis.call('MEM.SEARCH', 'dave', 'cello', 'RECIPE', 'rag')) as Flat[];
+    expect(rag).toEqual([]); // degraded: rag has only the vector retriever
+    await expect(redis.call('MEM.SEARCH', 'dave', 'x', 'RECIPE', 'magic')).rejects.toThrow(
+      /recipe/,
+    );
+  });
+
   test('bad arguments are errors', async () => {
     await expect(redis.call('MEM.ADD', 'alice', 'x', 'KIND', 'gossip')).rejects.toThrow(/kind/i);
     await expect(redis.call('MEM.SEARCH', 'alice', 'x', 'K', 'many')).rejects.toThrow(/integer/);

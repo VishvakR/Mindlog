@@ -105,25 +105,34 @@ export const memAddCommand: ConnectionCommand = {
     }),
 };
 
-/** `MEM.SEARCH <scope> <query> [K n] [BUDGET tokens] [INHERIT]`. */
+/** The recall options of MEM.SEARCH and MEM.PACK. */
+function recallRequest(
+  argv: readonly Uint8Array[],
+): Parameters<MemoryService['recall']>[1] | KvReply {
+  const o = options(argv, 3, ['K', 'BUDGET', 'RECIPE'], ['INHERIT']);
+  if (isReply(o)) return o;
+  const k = integerOption(o.K);
+  const budget = integerOption(o.BUDGET);
+  if (isReply(k)) return k;
+  if (isReply(budget)) return budget;
+  return {
+    scope: scopeOf(argv[1]),
+    query: decoder.decode(argv[2]),
+    ...(k !== undefined ? { k } : {}),
+    ...(budget !== undefined ? { tokenBudget: budget } : {}),
+    ...(o.INHERIT ? { inherit: true } : {}),
+    ...(typeof o.RECIPE === 'string' ? { recipe: o.RECIPE.toLowerCase() as never } : {}),
+  };
+}
+
+/** `MEM.SEARCH <scope> <query> [K n] [BUDGET tokens] [INHERIT] [RECIPE name]`. */
 export const memSearchCommand: ConnectionCommand = {
   name: 'MEM.SEARCH',
   execute: (ctx, argv) =>
     withMemory(ctx, async (memory) => {
-      const o = options(argv, 3, ['K', 'BUDGET'], ['INHERIT']);
-      if (isReply(o)) return o;
-      const k = integerOption(o.K);
-      const budget = integerOption(o.BUDGET);
-      if (isReply(k)) return k;
-      if (isReply(budget)) return budget;
-      const result = await memory.recall(caller(ctx), {
-        scope: scopeOf(argv[1]),
-        query: decoder.decode(argv[2]),
-        ...(k !== undefined ? { k } : {}),
-        ...(budget !== undefined ? { tokenBudget: budget } : {}),
-        ...(o.INHERIT ? { inherit: true } : {}),
-      });
-      return answer(result, (r) =>
+      const request = recallRequest(argv);
+      if (isReply(request)) return request;
+      return answer(await memory.recall(caller(ctx), request), (r) =>
         replies.array(
           r.items.map((item) =>
             replies.map([
@@ -134,6 +143,27 @@ export const memSearchCommand: ConnectionCommand = {
             ]),
           ),
         ),
+      );
+    }),
+};
+
+/** `MEM.PACK <scope> <query> [BUDGET tokens] [INHERIT] [RECIPE name]`: the packed context and its accounting. */
+export const memPackCommand: ConnectionCommand = {
+  name: 'MEM.PACK',
+  execute: (ctx, argv) =>
+    withMemory(ctx, async (memory) => {
+      const request = recallRequest(argv);
+      if (isReply(request)) return request;
+      return answer(await memory.recall(caller(ctx), request), (r) =>
+        replies.map([
+          [text('context'), text(r.context)],
+          [text('tokens'), replies.integer(r.tokens)],
+          [text('budget'), replies.integer(r.budget)],
+          [text('ids'), replies.array(r.groups.flatMap((g) => g.ids).map(text))],
+          [text('dropped'), replies.array(r.dropped.map(text))],
+          [text('compressed'), replies.array(r.compressed.map(text))],
+          [text('degraded'), flag(r.degraded)],
+        ]),
       );
     }),
 };

@@ -13,6 +13,8 @@ export interface VectorIndex<M> {
   readonly dims: number;
   readonly size: number;
   upsert(id: string, vector: Float32Array, meta: M): void;
+  /** A copy of the stored vector of `id`. */
+  get(id: string): Float32Array | undefined;
   /** Whether `id` was present. */
   remove(id: string): boolean;
   /** The `k` nearest vectors, nearest first; equal scores ordered by id. */

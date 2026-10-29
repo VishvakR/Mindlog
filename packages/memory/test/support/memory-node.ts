@@ -35,9 +35,7 @@ export const START = 1_760_000_000_000n;
 export const TENANT = 'acme';
 
 /** A one-voter range with the memory and job handlers, and an engine over FakeModels. */
-export async function memoryNode(
-  options: { seed?: bigint; config?: Partial<MemoryConfig> } = {},
-) {
+export async function memoryNode(options: { seed?: bigint; config?: Partial<MemoryConfig> } = {}) {
   const clock = new ManualClock(START);
   const logger = new MemoryLogger();
   const metrics = new MemoryMetrics();

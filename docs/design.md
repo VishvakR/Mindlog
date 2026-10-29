@@ -220,14 +220,9 @@ double 0x21 (IEEE sign-flip) │ false 0x26 │ true 0x27 │ version marker 0x4
 | Family | Tuple | Holds |
 |---|---|---|
 | `k` | (user key, …) | Redis values: strings, hashes (`'h'`, field), lists (`'l'`, seq), sets, sorted sets (`'z'` member → score and `'Z'` score, member), streams, JSON |
-| `m` | (scope, branch, memoryId) | Memory records |
-| `v` | (scope, segment) | Persisted HNSW segments |
-| `t` | (scope, term, memoryId) | BM25 postings |
-| `g` | (`out`\|`in`, scope, src, relation, dst) | Graph edges |
-| `e` | (scope, entityId) | Entities |
+| `m` | (user, sub-tag, …) | All memory of a user scope (ADR-0031): records `r`, vectors `v`, BM25 postings `t` / df `d` / stats `b`, entities `e`, mentions `x`, edges `g`, jobs `j`, generation `s`. One prefix per user, so a split never separates a user's memory |
 | `c` / `x` / `u` | collection records / secondary indexes / unique constraints | Full-stack mode |
 | `q` | (scope, promptHash) | Semantic cache entries |
-| `j` | (queue, state, jobId) | Durable jobs (they live in the scope's range and move with it) |
 | `s` | (subsystem, …) | System data: schemas, branches, conflicts, idempotency table, range descriptors, users, audit |
 
 ### 5.3 Memory record
@@ -425,9 +420,9 @@ All indexes are updated inside apply, so they never disagree with committed data
 
 | Index | Structure | Details |
 |---|---|---|
-| Vector | HNSW per (scope, main) via hnswlib-node | M 16, efConstruction 200, efSearch 64, cosine, 384-d. Filters are pushed into search where the binding allows, otherwise over-fetch ×4. Rebuilt in a worker when > 20% deleted. Replicas may build slightly different graphs over identical records (ADR-008) |
-| Keyword | BM25 postings `t/(scope, term, id)` | `Intl.Segmenter` tokenizer, stop words, light stemming; k1 = 1.2, b = 0.75; per-scope N, avgdl and df updated in apply |
-| Graph | Edges in both directions (`g/out`, `g/in`) | Entity resolution: exact name → alias → embedding ≥ 0.88. Personalized PageRank over entity + memory nodes (HippoRAG settings: damping 0.5, entity seeds normalised by mention count, memory seeds × 0.05), in a worker with a 5,000-node cap |
+| Vector | Exact flat index per user scope (`@mindlog/index-vector`, ADR-0008) | Cosine on normalised 384-d vectors, filter during the scan, ties by id, so every replica answers the same. Rows `m/(user,'v',id)` are the truth; nodes cache a `FlatIndex` per scope, kept current after apply and rebuilt when the scope's generation changes. HNSW comes past ~100K vectors per scope |
+| Keyword | BM25 postings `m/(user,'t',term,id)` (`@mindlog/index-text`) | `Intl.Segmenter` tokenizer, stop words, Porter stemming; k1 = 1.2, b = 0.75; per-scope N, total length and df updated in apply. Terms are computed by the leader and carried in the command |
+| Graph | Edges in both directions `m/(user,'g','out'\|'in',…)` (`@mindlog/index-graph`) | Entity id = `type:normalized name`, so writers converge in apply. Edges from extracted relations, or `mentioned_with` between entities of one memory. 1–2 hop walks today; Personalized PageRank (HippoRAG settings) arrives in phase 6 |
 | Secondary / unique | `x/(index, value, pk)`, `u/(collection, field, value)` | Unique checks happen in the same command (one range) or via 2PC |
 
 ---
@@ -447,6 +442,8 @@ flowchart LR
 
 - Stages declare `needsModel`, `optional`, `timeoutMs` and `batchSize`, and return `Result<O, StageError>`. A **retryable** error is retried, a **skippable** one falls back to the stage's declared output, and a **fatal** one aborts.
 - All outputs (facts, vectors, entities, links, conflicts) go into **one `MemoryCommit` command**, so followers never re-run models.
+- Phase 5 builds stages 1, 3–9 and 11–13 (Redact and DetectConflicts come later). Recall builds ParseQuery, vector/keyword/entity retrieval, RRF, Filter, Score and simple packing. Without the model service (or with `async: true`) the raw passages are stored as `episodic` with a `memory.enrich` job, and the reply says `degraded`.
+- A node that does not lead a user's range forwards the whole memory request to the leader, which runs the models before proposing (ADR-0016).
 - Long work runs as **durable jobs** (`queued → leased → done | failed → dead`). Jobs live in the scope's range, leases are replicated commands held by the range leader with an epoch that fences stale workers, there are at most 5 retries, then the dead-letter queue, and queue depth limits return `BUSY`.
 
 ### 11.2 Recall
@@ -603,7 +600,7 @@ Every new failure path gets a simulator scenario.
 | Compatibility, fuzzing, chaos, load | Redis client suites, parser fuzzers, Docker + `tc`/iptables, redis-benchmark/memtier | Nightly / weekly / per release |
 | AI evaluation | LongMemEval, LoCoMo, ablations, conflict F1, cache hit/false-hit | Per change to the memory engine |
 
-### 18.2 What exists today (phase 4)
+### 18.2 What exists today (phase 5)
 
 | Area | Status |
 |---|---|
@@ -618,18 +615,23 @@ Every new failure path gets a simulator scenario.
 | `@mindlog/pd` | Placement driver as a Raft group of range 0 (ADR-0010): range directory, id allocation, TSO window, node lifecycle, cluster version, schedulers (balance, repair, drain, hot split, cold merge) with explanations, operators, `PdService` RPC |
 | `@mindlog/router` | `StoreRouter` (ADR-0029): finds a key's range from the live replicas or PD's directory, serves it locally or forwards it to the leader's node |
 | `@mindlog/txn` | Percolator transactions (ADR-0030): prewrite, commit, rollback and check in apply, locks that move with their keys on split and merge, snapshot reads, the coordinator and the lock-resolver job; behind `features.crossRangeTxn` |
+| `@mindlog/models-client` | Model ports (embed, NER, NLI, rerank, extract, health), the gRPC adapter to the model service, a circuit breaker per capability, `NoModels` (degraded), `FakeModels` and `serveModels` |
+| `@mindlog/index-vector`, `index-text`, `index-graph` | Exact flat vector index; tokenizer, Porter stemmer and BM25; entity ids and bounded graph walks |
+| `@mindlog/jobs` | Durable jobs in the scope's range (ADR-0017): replicated leases fenced by attempt, backoff, dead letters, the leader-only runner |
+| `@mindlog/memory` | Memory engine: `MemoryCommit`/`MemoryForget` apply with indexes, ingestion and recall pipelines, vector cache, degraded mode, the enrich worker |
+| `@mindlog/adapter-mcp` | MCP over Streamable HTTP on :8765 (API keys, Host checks) and a stdio relay: `remember`, `recall`, `forget`, `history`, `graph_query`, resources, `recall-context` |
 | `@mindlog/transport` | `ConnectTransport`: Raft messages and snapshot chunks over Connect gRPC on HTTP/2 (ADR-0025); `KvForwarder` and `KvForwardService` for calls forwarded to a range's leader |
 | `@mindlog/kv` | 100 Redis commands over generations (strings, keys, expiry, hashes, lists, sets, sorted sets, JSON subset), `SET … IFEQ`, SCAN cursors, replicated expiry and GC jobs (leader only) |
-| `@mindlog/services` | `KvService`: sessions, static AUTH, reads behind the `ReadBarrier`, writes through the Proposer or, with a router, `RoutedKv` (fan-out, scatter, cross-range transactions); MULTI/EXEC/WATCH, spans and metrics. `ClusterDirectory`: PD's cluster view and operator actions for the dashboard. `ClusterService`: `CLUSTER.*` admin commands. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
-| `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server, `resp.command` spans, preauthenticated connections for the console |
-| `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
-| `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, cluster (nodes, ranges, placement decisions), data browser with typed editors, console, settings |
-| `@mindlog/server` | Composition root: `mindlog-server` as a one-voter range (`--single-node`) or a cluster member (`cluster.peers`), `superuser upsert`, graceful shutdown, `mindlog-maelstrom` node binary |
-| Python | `model_service` placeholder process; redis-py compatibility suite |
-| Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger; `chaos`: 3-node cluster; `cluster` and `cluster-join`: 3 nodes that also run the placement driver, plus a fourth), `scripts/chaos/`, `scripts/load-and-rebalance.sh` (kill the leader, partition a node), Grafana dashboard in `deploy/grafana/` |
-| Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`; faults: splits, merges, leader transfers, membership, clock skew; `SIM_PD=1` placement driver, `SIM_BANK=1` bank transfers across ranges), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts` |
+| `@mindlog/services` | `KvService`: sessions, static AUTH, reads behind the `ReadBarrier`, writes through the Proposer or, with a router, `RoutedKv` (fan-out, scatter, cross-range transactions); MULTI/EXEC/WATCH, spans and metrics. `ClusterDirectory`: PD's cluster view and operator actions for the dashboard. `ClusterService`: `CLUSTER.*` admin commands. `MemoryService`: memory requests routed to each user scope's leader, shared Zod schemas. `ApiKeyService`: hashed API keys for agents. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
+| `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server, `resp.command` spans, `MEM.ADD`/`SEARCH`/`GET`/`FORGET`/`HISTORY`, preauthenticated connections for the console |
+| `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, `/api/memory/*`, `/api/admin/api-keys`, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
+| `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, cluster (nodes, ranges, placement decisions), memory explorer, recall playground, knowledge graph, data browser with typed editors, console, settings |
+| `@mindlog/server` | Composition root: `mindlog-server` as a one-voter range (`--single-node`) or a cluster member (`cluster.peers`), `superuser upsert`, `apikey create|list|revoke`, `mcp` (stdio relay), graceful shutdown, `mindlog-maelstrom` node binary |
+| Python | `model_service`: gRPC `ModelsService` on ONNX Runtime (MiniLM embeddings and reranker, DeBERTa NLI, GLiNER), micro-batching, admission control, models only from `models/` (ADR-0020); `demo_agents` (two-session MCP demo); redis-py compatibility suite |
+| Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger; `chaos`: 3-node cluster; `cluster` and `cluster-join`: 3 nodes that also run the placement driver, plus a fourth; `offline`: node, model service and demo agent on a network with no route out), `scripts/chaos/`, `scripts/load-and-rebalance.sh` (kill the leader, partition a node), Grafana dashboard in `deploy/grafana/` |
+| Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`; faults: splits, merges, leader transfers, membership, clock skew; `SIM_PD=1` placement driver, `SIM_BANK=1` bank transfers across ranges, `SIM_MEM=1` memory workload), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts`, `test/integration/degraded.test.ts`, `test/bench/recall.test.ts` |
 | CI | Lint, typecheck, tests (TS, web, Python), protobuf drift and breaking checks, Conventional Commits, gate job (redis-py, kill -9 durability, redis-benchmark, 3-node failover), 1,000 simulator seeds; nightly Maelstrom and 100,000 seeds |
-| Gates | Phases 0 to 4 (`docs/phases/phase-N.md`) |
+| Gates | Phases 0 to 5 (`docs/phases/phase-N.md`) |
 
 Everything else in this document is designed but not built yet; it arrives phase by phase (PLAN 24).
 
@@ -646,7 +648,8 @@ Everything else in this document is designed but not built yet; it arrives phase
 | FDB tuple encoding with variable-length integers | Compact, proven order-preserving keys | Strict decoder needed to keep one encoding per key | PLAN 5.1 |
 | Two LevelDB instances, state without fsync | Log fsyncs don't contend with compaction | Strict compaction-after-flush rule | ADR-005 |
 | Models only on the leader, outputs in the command | Replicas never diverge from model nondeterminism | Leader does all inference | ADR-016 |
-| HNSW graphs may differ across replicas | Use the stock binding in v1 | Tiny recall differences between replicas | ADR-008 |
+| Exact flat vector index first | Deterministic on every replica, no native addon; a few ms at 10K × 384 | O(n) search; HNSW needed past ~100K vectors per scope | ADR-0008 |
+| All of a user's memory under one prefix | A split never separates records from their indexes; recall is single-range | One very large user cannot split until semantic split | ADR-0031 |
 | Offline-first, tracing off by default | Runs with no network | Operators must opt in to export | ADR-020 |
 | Dashboard in React + shadcn/ui, served at `/_/` | Rich component ecosystem for later pages | Larger bundle than SvelteKit | ADR-0023 |
 | Superusers as argv-written hashes in `$system`, HMAC bearer tokens | No new command type or format; no CSRF surface | Login rate limiting and MFA come later | ADR-0024 |

@@ -5,6 +5,7 @@
 # SIM_PD=1 scripts/sim.sh ... runs the placement-driver scenario (5 nodes, 2 empty) instead.
 # SIM_BANK=1 scripts/sim.sh ... adds the bank-transfer workload (cross-range transactions) to every seed.
 # SIM_MEM=1 scripts/sim.sh ... adds the memory workload (remember, forget and cache, phases 5–6) to every seed.
+# SIM_BRANCH=1 scripts/sim.sh ... adds memory branches (create, write, merge, drop; phase 7) to the memory workload.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SEEDS=${1:-10000}

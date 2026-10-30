@@ -65,6 +65,7 @@ import { compareBytes } from '@mindlog/storage';
 import type { RegisterOp } from './linearizability.js';
 import { checkRegister } from './linearizability.js';
 import { Bank } from './bank.js';
+import { BranchLoad } from './branch-load.js';
 import { MemoryLoad } from './memory-load.js';
 import { SimDisk } from './sim-disk.js';
 import { SimNetwork } from './sim-network.js';
@@ -112,6 +113,8 @@ export interface ScenarioOptions {
   readonly bank: number;
   /** User scopes of the memory workload (phase 5); 0 turns it off. */
   readonly memory: number;
+  /** Adds the branch workload to the memory workload (phase 7). */
+  readonly branches: boolean;
 }
 
 export interface SimResult {
@@ -407,6 +410,8 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       tracer: new OtelTracer(),
       vectors,
       ranges: () => undefined,
+      // FakeModels scores contradictions 0.9, so branch merges raise conflicts (phase 7).
+      config: { conflictThreshold: 0.8 },
     });
     const cache = new SemanticCache({
       models: new FakeModels(),
@@ -734,6 +739,8 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
           violate,
         })
       : undefined;
+  const branches =
+    memory && o.branches ? new BranchLoad({ world, memory, say, violate }) : undefined;
   if (memory) {
     const every = (lo: number, hi: number, work: () => Promise<void>): void => {
       const tick = (): void => {
@@ -747,6 +754,11 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     for (let w = 0; w < 2; w++) every(50, 250, () => memory.remember());
     every(400, 1200, () => memory.forget());
     every(300, 900, () => memory.cacheStore());
+    if (branches) {
+      every(500, 1500, () => branches.create());
+      every(100, 400, () => branches.write());
+      every(800, 2000, () => branches.close());
+    }
   }
 
   // ---- run ----
@@ -901,6 +913,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     if (bank) await bankChecks(bank);
     if (memory) {
       await memory.check();
+      await branches?.check();
       stats.memory = { remembered: memory.committed, forgotten: memory.forgotten.size };
     }
   }
@@ -1012,6 +1025,7 @@ export function scenario(seed: bigint) {
     spare: 0,
     bank: 0,
     memory: 0,
+    branches: false,
   };
   const dsl = {
     pd: (spare = 0) => {
@@ -1023,6 +1037,7 @@ export function scenario(seed: bigint) {
     },
     bank: (accounts = 8) => ((o.bank = accounts), dsl),
     memory: (users = 4) => ((o.memory = users), dsl),
+    branches: () => ((o.branches = true), dsl),
     nodes: (n: number) => ((o.nodes = n), dsl),
     clients: (n: number) => ((o.clients = n), dsl),
     keys: (n: number) => ((o.keys = n), dsl),

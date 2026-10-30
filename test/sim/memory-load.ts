@@ -61,7 +61,8 @@ export class MemoryLoad {
     });
   }
 
-  #leader(user: string): { n: MemoryNode; range: MemoryRange } | undefined {
+  /** The node leading a user's range and that range, if any. */
+  leader(user: string): { n: MemoryNode; range: MemoryRange } | undefined {
     const key = scopeKey(TENANT, user);
     for (const n of this.#d.nodes())
       for (const r of n.store.replicas())
@@ -78,7 +79,7 @@ export class MemoryLoad {
   }
 
   /** Runs `op` on the user's leader, retrying with the same request id until it answers. */
-  async #run<T>(
+  async run<T>(
     user: string,
     op: (n: MemoryNode, range: MemoryRange) => Promise<Result<T, MindlogError>>,
   ): Promise<Result<T, MindlogError>> {
@@ -86,7 +87,7 @@ export class MemoryLoad {
     this.inFlight++;
     try {
       for (let tries = 0; tries < 12; tries++) {
-        const at = this.#leader(user);
+        const at = this.leader(user);
         if (at) {
           // A crashed node drops its pending proposals without an answer.
           const done = await Promise.race([
@@ -115,7 +116,7 @@ export class MemoryLoad {
     const topic = world.pick(TOPICS);
     const content = `Fact ${String(seq)} says Ana likes ${topic}. Remember the ${topic} plan.`;
     const requestId = enc.encode(`sim-mem-${String(seq)}`);
-    const done = await this.#run(user, ({ engine }, range) =>
+    const done = await this.run(user, ({ engine }, range) =>
       engine.remember(
         range,
         { scope: { tenant: TENANT, user }, content },
@@ -138,7 +139,7 @@ export class MemoryLoad {
     if (live.length === 0) return;
     const id = world.pick(live);
     const requestId = enc.encode(`sim-forget-${String(this.#seq++)}`);
-    const done = await this.#run(user, ({ engine }, range) =>
+    const done = await this.run(user, ({ engine }, range) =>
       engine.forget(
         range,
         { scope: { tenant: TENANT, user }, ids: [id], reason: 'sim' },
@@ -158,7 +159,7 @@ export class MemoryLoad {
     const memory = world.pick(live);
     const seq = this.#seq++;
     const requestId = enc.encode(`sim-cache-${String(seq)}`);
-    const done = await this.#run(user, ({ cache }, range) =>
+    const done = await this.run(user, ({ cache }, range) =>
       cache.store(
         range,
         { tenant: TENANT, user },
@@ -190,7 +191,7 @@ export class MemoryLoad {
   /** After healing: each user's records, postings, stats and vectors agree, on its leader. */
   async check(): Promise<void> {
     for (const user of this.remembered.keys()) {
-      const at = this.#leader(user);
+      const at = this.leader(user);
       if (!at) {
         this.#d.violate(`memory: no leader for ${user} after healing`);
         continue;

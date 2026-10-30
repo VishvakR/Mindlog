@@ -74,11 +74,14 @@ class MicroBatcher[T, R]:
                 results = await loop.run_in_executor(self._executor, self._run, flat)
             except Exception as error:
                 for p in batch:
-                    p.future.set_exception(error)
+                    if not p.future.done():
+                        p.future.set_exception(error)
             else:
                 offset = 0
                 for p in batch:
-                    p.future.set_result(results[offset : offset + len(p.items)])
+                    # A caller whose deadline passed has cancelled its future; skip it.
+                    if not p.future.done():
+                        p.future.set_result(results[offset : offset + len(p.items)])
                     offset += len(p.items)
             finally:
                 self._depth -= size

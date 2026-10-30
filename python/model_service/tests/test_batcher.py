@@ -95,3 +95,24 @@ def test_a_failing_forward_pass_fails_only_its_batch() -> None:
         await batcher.close()
 
     asyncio.run(go())
+
+
+def test_a_cancelled_request_does_not_strand_the_rest_of_its_batch() -> None:
+    release = threading.Event()
+
+    def run(items: list[int]) -> list[int]:
+        release.wait(5)
+        return items
+
+    async def go() -> None:
+        batcher = MicroBatcher(run, max_batch=4, max_wait_ms=1)
+        gone = asyncio.ensure_future(batcher.submit([1]))
+        kept = asyncio.ensure_future(batcher.submit([2]))
+        await asyncio.sleep(0.05)  # both are in the running batch
+        gone.cancel()
+        release.set()
+        assert await asyncio.wait_for(kept, 5) == [2]
+        assert await batcher.submit([3]) == [3]
+        await batcher.close()
+
+    asyncio.run(go())

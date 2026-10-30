@@ -31,8 +31,15 @@ export {
   describeKey,
 } from './cluster/cluster-directory.js';
 export type { MemoryServiceDeps } from './memory/memory-service.js';
-export { MEMORY_CLUSTER_VERSION, MemoryService } from './memory/memory-service.js';
+export {
+  CACHE_CLUSTER_VERSION,
+  MEMORY_CLUSTER_VERSION,
+  MemoryService,
+} from './memory/memory-service.js';
 export type {
+  CacheDeleteRequest,
+  CacheLookupRequest,
+  CacheStoreRequest,
   ForgetRequest,
   GetMemoryRequest,
   GraphRequest,
@@ -43,6 +50,9 @@ export type {
   ScopesRequest,
 } from './memory/schemas.js';
 export {
+  cacheDeleteSchema,
+  cacheLookupSchema,
+  cacheStoreSchema,
   forgetSchema,
   getMemorySchema,
   graphSchema,

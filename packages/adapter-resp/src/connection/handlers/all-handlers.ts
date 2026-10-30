@@ -12,6 +12,9 @@ import { configCommand } from './config.js';
 import { helloCommand } from './hello.js';
 import { infoCommand } from './info.js';
 import {
+  cacheDelCommand,
+  cacheGetCommand,
+  cacheSetCommand,
   memAddCommand,
   memForgetCommand,
   memGetCommand,
@@ -43,5 +46,8 @@ export function createConnectionCommands(): ConnectionCommandRegistry {
     memGetCommand,
     memForgetCommand,
     memHistoryCommand,
+    cacheSetCommand,
+    cacheGetCommand,
+    cacheDelCommand,
   ]);
 }

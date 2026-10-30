@@ -13,6 +13,7 @@ import {
 } from '@mindlog/memory';
 import type { NewMemory } from '@mindlog/proto';
 import { MemoryEntitySchema, MemoryRecordSchema, NewMemorySchema } from '@mindlog/proto';
+import { entryKey } from '@mindlog/cache';
 import { MvccReader } from '@mindlog/storage';
 import { TENANT, memoryNode } from './support/memory-node.js';
 
@@ -203,5 +204,56 @@ describe('memory apply', () => {
     const [da, db] = [await a.dump(), await b.dump()];
     expect(da).toEqual(db);
     expect(da.length).toBeGreaterThan(5);
+  });
+
+  test('forgetting a memory drops the cache entries that depend on it, in the same command', async () => {
+    const n = await memoryNode();
+    await n.propose(
+      n.stamper.stamp(TENANT, 'p', {
+        case: 'memoryCommit',
+        value: {
+          user: 'u1',
+          memories: [
+            memory('m1', 'Ana likes tea', { ana: 1, tea: 1 }),
+            memory('m2', 'Bob likes jazz', { bob: 1, jazz: 1 }),
+          ],
+          edges: [],
+          enqueue: [],
+        },
+      }),
+    );
+    const set = (id: string, deps: string[]) =>
+      n.stamper.stamp(TENANT, 'p', {
+        case: 'cacheSet',
+        value: {
+          user: 'u1',
+          entry: { id, prompt: `prompt ${id}`, answer: 'a', memoryDeps: deps },
+          maxEntries: 10,
+        },
+      });
+    await n.propose(set('c1', ['m1']));
+    await n.propose(set('c2', ['m1', 'm2']));
+    await n.propose(set('c3', ['m2']));
+    const mvcc = new MvccReader(n.store);
+    const present = async () => {
+      const out: string[] = [];
+      for (const id of ['c1', 'c2', 'c3'])
+        if (await mvcc.get(entryKey(TENANT, 'u1', id))) out.push(id);
+      return out;
+    };
+    expect(await present()).toEqual(['c1', 'c2', 'c3']);
+    const forgot = await n.propose(
+      n.stamper.stamp(TENANT, 'p', {
+        case: 'memoryForget',
+        value: { user: 'u1', ids: ['m1'], reason: 'r' },
+      }),
+    );
+    expect(forgot.outcome.case === 'memory' && forgot.outcome.value.ids).toEqual(['m1']);
+    expect(await present()).toEqual(['c3']);
+    // An entry naming a forgotten or unknown memory is refused, whatever the order in the log.
+    for (const deps of [['m1'], ['nope']]) {
+      const late = await n.propose(set(`late-${deps[0] ?? ''}`, deps));
+      expect(late.outcome.case === 'error' && late.outcome.value.code).toBe('NOT_FOUND');
+    }
   });
 });

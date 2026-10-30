@@ -72,6 +72,25 @@ function stubMemory() {
       asked.push({ op: 'graph', caller, input });
       return Promise.resolve(err(mindlogError('NOT_FOUND', 'no entity Zed')));
     },
+    cacheLookup: (caller, input) => {
+      asked.push({ op: 'cacheLookup', caller, input: input });
+      const prompt = (input as { prompt: string }).prompt;
+      return Promise.resolve(
+        ok({
+          hit: prompt.includes('coffee')
+            ? {
+                id: 'c1',
+                answer: 'Dark roast.',
+                similarity: 0.97,
+                level: 'l2' as const,
+                dependsOn: ['m1'],
+              }
+            : null,
+          degraded: false,
+        }),
+      );
+    },
+    cacheStore: record('cacheStore', { id: 'c1', degraded: false }),
   };
   return { memory, asked };
 }
@@ -120,6 +139,8 @@ describe('MCP over Streamable HTTP', () => {
     const client = await connect('mlk_alice');
     const tools = await client.listTools();
     expect(tools.tools.map((t) => t.name).sort()).toEqual([
+      'cache_lookup',
+      'cache_store',
       'forget',
       'graph_query',
       'history',
@@ -156,6 +177,52 @@ describe('MCP over Streamable HTTP', () => {
     expect(asked.map((a) => [a.op, a.caller, a.input.scope])).toEqual([
       ['remember', { tenant: 'acme', principal: 'apikey:k-alice' }, { user: 'alice' }],
       ['recall', { tenant: 'acme', principal: 'apikey:k-alice' }, { user: 'alice' }],
+    ]);
+    await client.close();
+  });
+
+  test('cache_store and cache_lookup run as the key', async () => {
+    const { connect, asked } = await start();
+    const client = await connect('mlk_alice');
+    const stored = await client.callTool({
+      name: 'cache_store',
+      arguments: {
+        prompt: 'what coffee?',
+        answer: 'Dark roast.',
+        depends_on: ['m1'],
+        ttl_seconds: 60,
+      },
+    });
+    expect(stored.structuredContent).toEqual({ id: 'c1' });
+    const hit = await client.callTool({
+      name: 'cache_lookup',
+      arguments: { prompt: 'which coffee?' },
+    });
+    expect(hit.structuredContent).toEqual({
+      hit: true,
+      answer: 'Dark roast.',
+      id: 'c1',
+      similarity: 0.97,
+      using: ['m1'],
+    });
+    const miss = await client.callTool({
+      name: 'cache_lookup',
+      arguments: { prompt: 'what tea?' },
+    });
+    expect(miss.structuredContent).toEqual({ hit: false });
+    expect(asked.map((a) => [a.op, a.input])).toEqual([
+      [
+        'cacheStore',
+        {
+          scope: { user: 'alice' },
+          prompt: 'what coffee?',
+          answer: 'Dark roast.',
+          dependsOn: ['m1'],
+          ttlSeconds: 60,
+        },
+      ],
+      ['cacheLookup', { scope: { user: 'alice' }, prompt: 'which coffee?' }],
+      ['cacheLookup', { scope: { user: 'alice' }, prompt: 'what tea?' }],
     ]);
     await client.close();
   });

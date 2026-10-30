@@ -1,6 +1,7 @@
 import type { Clock, Logger, Metrics, MindlogConfig, Tracer } from '@mindlog/core';
 import { SystemRandom, UlidGenerator } from '@mindlog/core';
 import type { EventBus } from '@mindlog/eventbus';
+import { SemanticCache } from '@mindlog/cache';
 import { WorkerRegistry } from '@mindlog/jobs';
 import { MemoryEngine, VectorCache } from '@mindlog/memory';
 import type { Capability, Models } from '@mindlog/models-client';
@@ -91,8 +92,18 @@ export function openMemory(deps: {
   });
   const workers = new WorkerRegistry();
   workers.register(engine.enrichWorker());
+  const cache = new SemanticCache({
+    models,
+    stamper: deps.stamper,
+    ids: new UlidGenerator(clock, new SystemRandom()),
+    clock,
+    metrics,
+    tracer,
+    config: { modelTimeoutMs: timeoutMs },
+  });
   const service = new MemoryService({
     engine,
+    cache,
     router,
     stamper: deps.stamper,
     ...(deps.clusterVersion ? { clusterVersion: deps.clusterVersion } : {}),

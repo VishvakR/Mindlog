@@ -1,3 +1,6 @@
+import { fromBinary } from '@bufbuild/protobuf';
+import type { SemanticCache } from '@mindlog/cache';
+import { entryPrefix } from '@mindlog/cache';
 import { err, mindlogError } from '@mindlog/core';
 import type { MindlogError, Result } from '@mindlog/core';
 import { searchBm25 } from '@mindlog/index-text';
@@ -5,7 +8,9 @@ import type { MemoryEngine, MemoryRange } from '@mindlog/memory';
 import { MemoryReads, scopeKey } from '@mindlog/memory';
 import type { Store } from '@mindlog/multiraft';
 import { SpanReader, inSpan } from '@mindlog/statemachine';
+import { CacheEntrySchema } from '@mindlog/proto';
 import type { KvStore } from '@mindlog/storage';
+import { MvccReader } from '@mindlog/storage';
 import type { World } from './world.js';
 
 const TENANT = 'default';
@@ -17,6 +22,7 @@ export interface MemoryNode {
   readonly store: Store;
   readonly stateStore: KvStore;
   readonly engine: MemoryEngine;
+  readonly cache: SemanticCache;
 }
 
 export interface MemoryLoadDeps {
@@ -28,9 +34,10 @@ export interface MemoryLoadDeps {
 }
 
 /**
- * The memory workload (phase 5): remember and forget through the real engine
- * (FakeModels) on the leader of each user's range, under the run's faults.
- * After healing, every user's indexes must match its records.
+ * The memory workload (phases 5–6): remember, forget and cache answers through
+ * the real engine and cache (FakeModels) on the leader of each user's range,
+ * under the run's faults. After healing, every user's indexes must match its
+ * records, and no cache entry may depend on a forgotten memory (ADR-0012).
  */
 export class MemoryLoad {
   readonly #d: MemoryLoadDeps;
@@ -39,6 +46,8 @@ export class MemoryLoad {
   readonly remembered = new Map<string, Set<string>>();
   /** Memories whose forget was acknowledged. */
   readonly forgotten = new Set<string>();
+  /** Cache entries whose store was acknowledged: id → user and dependency. */
+  readonly cached = new Map<string, { user: string; memory: string }>();
   committed = 0;
   inFlight = 0;
 
@@ -71,7 +80,7 @@ export class MemoryLoad {
   /** Runs `op` on the user's leader, retrying with the same request id until it answers. */
   async #run<T>(
     user: string,
-    op: (engine: MemoryEngine, range: MemoryRange) => Promise<Result<T, MindlogError>>,
+    op: (n: MemoryNode, range: MemoryRange) => Promise<Result<T, MindlogError>>,
   ): Promise<Result<T, MindlogError>> {
     let last: MindlogError = mindlogError('NOT_LEADER', 'no leader');
     this.inFlight++;
@@ -81,7 +90,7 @@ export class MemoryLoad {
         if (at) {
           // A crashed node drops its pending proposals without an answer.
           const done = await Promise.race([
-            op(at.n.engine, at.range),
+            op(at.n, at.range),
             this.#sleep(5000).then(() => err(mindlogError('DEADLINE_EXCEEDED', 'no answer'))),
           ]);
           if (done.ok) return done;
@@ -106,7 +115,7 @@ export class MemoryLoad {
     const topic = world.pick(TOPICS);
     const content = `Fact ${String(seq)} says Ana likes ${topic}. Remember the ${topic} plan.`;
     const requestId = enc.encode(`sim-mem-${String(seq)}`);
-    const done = await this.#run(user, (engine, range) =>
+    const done = await this.#run(user, ({ engine }, range) =>
       engine.remember(
         range,
         { scope: { tenant: TENANT, user }, content },
@@ -129,7 +138,7 @@ export class MemoryLoad {
     if (live.length === 0) return;
     const id = world.pick(live);
     const requestId = enc.encode(`sim-forget-${String(this.#seq++)}`);
-    const done = await this.#run(user, (engine, range) =>
+    const done = await this.#run(user, ({ engine }, range) =>
       engine.forget(
         range,
         { scope: { tenant: TENANT, user }, ids: [id], reason: 'sim' },
@@ -137,6 +146,45 @@ export class MemoryLoad {
       ),
     );
     if (done.ok) this.forgotten.add(id);
+  }
+
+  async cacheStore(): Promise<void> {
+    const world = this.#d.world;
+    const users = [...this.remembered.keys()];
+    if (users.length === 0) return;
+    const user = world.pick(users);
+    const live = [...(this.remembered.get(user) ?? [])].filter((id) => !this.forgotten.has(id));
+    if (live.length === 0) return;
+    const memory = world.pick(live);
+    const seq = this.#seq++;
+    const requestId = enc.encode(`sim-cache-${String(seq)}`);
+    const done = await this.#run(user, ({ cache }, range) =>
+      cache.store(
+        range,
+        { tenant: TENANT, user },
+        {
+          prompt: `question ${String(seq)} about ${memory}`,
+          answer: 'an answer',
+          dependsOn: [memory],
+        },
+        { principal: 'sim', requestId },
+      ),
+    );
+    if (done.ok) this.cached.set(done.value.id, { user, memory });
+  }
+
+  /** Cache entries of a user on its leader: none uses a forgotten memory; acknowledged live ones exist. */
+  async #checkCache(user: string, range: MemoryRange, live: ReadonlySet<string>): Promise<void> {
+    const present = new Set<string>();
+    for await (const { value } of new MvccReader(range.reader).scan(entryPrefix(TENANT, user))) {
+      const entry = fromBinary(CacheEntrySchema, value);
+      present.add(entry.id);
+      for (const m of entry.memoryDeps)
+        if (!live.has(m)) this.#d.violate(`cache: ${user}/${entry.id} uses forgotten ${m}`);
+    }
+    for (const [id, c] of this.cached)
+      if (c.user === user && live.has(c.memory) && !present.has(id))
+        this.#d.violate(`cache: acknowledged ${user}/${id} is missing`);
   }
 
   /** After healing: each user's records, postings, stats and vectors agree, on its leader. */
@@ -180,7 +228,10 @@ export class MemoryLoad {
       const hits = await searchBm25(postings, [...df.keys(), ...TOPICS], 1000);
       for (const h of hits)
         if (expired.has(h.id)) this.#d.violate(`memory: search returned forgotten ${user}/${h.id}`);
+      await this.#checkCache(user, at.range, new Set(live.map((r) => r.id)));
     }
-    this.#d.say(`memory: ${this.committed} remembered, ${this.forgotten.size} forgotten`);
+    this.#d.say(
+      `memory: ${this.committed} remembered, ${this.forgotten.size} forgotten, ${this.cached.size} cached`,
+    );
   }
 }

@@ -2,7 +2,7 @@
  * @mindlog/memory — the agent memory engine (PLAN 12): apply handlers with their
  * indexes, the ingestion and recall pipelines, degraded mode and the enrich worker.
  */
-export { memoryCommitHandler, memoryForgetHandler } from './apply/memory-handlers.js';
+export { liveMemory, memoryCommitHandler, memoryForgetHandler } from './apply/memory-handlers.js';
 export {
   dfKey,
   edgeKey,

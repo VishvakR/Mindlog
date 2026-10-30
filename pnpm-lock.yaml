@@ -32,6 +32,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.12.0(jiti@2.7.0))
+      '@mindlog/cache':
+        specifier: workspace:*
+        version: link:packages/cache
       '@mindlog/core':
         specifier: workspace:*
         version: link:packages/core
@@ -251,6 +254,34 @@ importers:
         specifier: workspace:*
         version: link:../storage
 
+  packages/cache:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/models-client':
+        specifier: workspace:*
+        version: link:../models-client
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
+      '@mindlog/statemachine':
+        specifier: workspace:*
+        version: link:../statemachine
+      '@mindlog/storage':
+        specifier: workspace:*
+        version: link:../storage
+    devDependencies:
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
+      '@mindlog/multiraft':
+        specifier: workspace:*
+        version: link:../multiraft
+
   packages/core:
     dependencies:
       '@opentelemetry/api':
@@ -363,6 +394,9 @@ importers:
       '@bufbuild/protobuf':
         specifier: ^2.16.0
         version: 2.16.0
+      '@mindlog/cache':
+        specifier: workspace:*
+        version: link:../cache
       '@mindlog/core':
         specifier: workspace:*
         version: link:../core
@@ -540,6 +574,9 @@ importers:
       '@mindlog/adapter-resp':
         specifier: workspace:*
         version: link:../adapter-resp
+      '@mindlog/cache':
+        specifier: workspace:*
+        version: link:../cache
       '@mindlog/core':
         specifier: workspace:*
         version: link:../core
@@ -601,6 +638,9 @@ importers:
       '@bufbuild/protobuf':
         specifier: ^2.16.0
         version: 2.16.0
+      '@mindlog/cache':
+        specifier: workspace:*
+        version: link:../cache
       '@mindlog/core':
         specifier: workspace:*
         version: link:../core

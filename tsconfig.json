@@ -62,6 +62,9 @@
       "path": "packages/index-graph"
     },
     {
+      "path": "packages/cache"
+    },
+    {
       "path": "packages/jobs"
     },
     {

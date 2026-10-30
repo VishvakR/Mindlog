@@ -28,6 +28,7 @@
     "@mindlog/adapter-http": "workspace:*",
     "@mindlog/adapter-mcp": "workspace:*",
     "@mindlog/adapter-resp": "workspace:*",
+    "@mindlog/cache": "workspace:*",
     "@mindlog/core": "workspace:*",
     "@mindlog/eventbus": "workspace:*",
     "@mindlog/index-graph": "workspace:*",

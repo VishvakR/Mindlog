@@ -1,0 +1,42 @@
+{
+  "CACHE.SET": {
+    "summary": "Caches an answer for a prompt in a scope, with the memories it depends on (PLAN 13.9).",
+    "complexity": "O(N) in the scope's cache entries",
+    "group": "cache",
+    "since": "0.6.0",
+    "arity": -4,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "prompt", "type": "string" },
+      { "name": "answer", "type": "string" },
+      { "name": "id", "type": "string", "token": "USING", "optional": true, "multiple": true },
+      { "name": "seconds", "type": "integer", "token": "TTL", "optional": true }
+    ]
+  },
+  "CACHE.GET": {
+    "summary": "Returns the cached answer for a similar prompt in a scope, or nil.",
+    "complexity": "O(N) in the scope's cache entries",
+    "group": "cache",
+    "since": "0.6.0",
+    "arity": -3,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "prompt", "type": "string" },
+      { "name": "threshold", "type": "double", "token": "THRESHOLD", "optional": true }
+    ]
+  },
+  "CACHE.DEL": {
+    "summary": "Drops cache entries of a scope; returns how many existed.",
+    "complexity": "O(N) in the ids",
+    "group": "cache",
+    "since": "0.6.0",
+    "arity": -3,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "id", "type": "string", "multiple": true }
+    ]
+  }
+}

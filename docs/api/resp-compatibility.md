@@ -21,6 +21,7 @@ Every write is appended to the durable log and applied before it is acknowledged
 | Server | `DBSIZE` `TIME` `INFO` `CONFIG GET` `COMMAND` `COMMAND COUNT` `COMMAND INFO` `COMMAND DOCS` `COMMAND LIST` |
 | Cluster (Mindlog) | `CLUSTER.INFO` `CLUSTER.ADDLEARNER` `CLUSTER.PROMOTE` `CLUSTER.REMOVE` `CLUSTER.TRANSFER` (ADR-0006) |
 | Memory (Mindlog) | `MEM.ADD` `MEM.SEARCH` `MEM.PACK` `MEM.GET` `MEM.FORGET` `MEM.HISTORY` (PLAN 15.1; scope is `user[/agent[/session]]` under the connection's tenant) |
+| Semantic cache (Mindlog) | `CACHE.SET` `CACHE.GET` `CACHE.DEL` (PLAN 13.9; entries belong to the scope's user and are dropped when a memory they use is forgotten) |
 
 ## Protocol
 

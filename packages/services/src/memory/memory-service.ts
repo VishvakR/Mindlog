@@ -10,6 +10,7 @@ import {
   ok,
   prefixRange,
 } from '@mindlog/core';
+import type { CacheHit, SemanticCache } from '@mindlog/cache';
 import { replies } from '@mindlog/kv';
 import type {
   GraphView,
@@ -27,6 +28,9 @@ import type { CommandStamper } from '@mindlog/statemachine';
 import type { z } from 'zod';
 import type { Caller, Placement, RangeCall, RangeRouter, RangeTarget } from '../kv/range-router.js';
 import type {
+  CacheDeleteRequest,
+  CacheLookupRequest,
+  CacheStoreRequest,
   ForgetRequest,
   GetMemoryRequest,
   GraphRequest,
@@ -37,6 +41,9 @@ import type {
   ScopesRequest,
 } from './schemas.js';
 import {
+  cacheDeleteSchema,
+  cacheLookupSchema,
+  cacheStoreSchema,
   forgetSchema,
   getMemorySchema,
   graphSchema,
@@ -49,20 +56,31 @@ import {
 
 /** Cluster version that knows the memory and job commands (ADR-0032, PLAN 19.5). */
 export const MEMORY_CLUSTER_VERSION = 5;
+/** Cluster version that knows the cache commands (ADR-0012). */
+export const CACHE_CLUSTER_VERSION = 6;
 
 export interface MemoryServiceDeps {
   readonly engine: MemoryEngine;
+  /** The semantic cache; without it the cache operations answer UNIMPLEMENTED. */
+  readonly cache?: SemanticCache;
   readonly router: RangeRouter;
   readonly stamper: CommandStamper;
   /** The cluster version PD reports; writes need `MEMORY_CLUSTER_VERSION`. Absent: always met. */
   readonly clusterVersion?: () => number;
 }
 
+interface Engines {
+  readonly memory: MemoryEngine;
+  readonly cache: SemanticCache | undefined;
+}
+
 interface Op<S extends z.ZodType, O> {
   readonly schema: S;
   readonly write: boolean;
+  /** Cluster version a write needs (default `MEMORY_CLUSTER_VERSION`). */
+  readonly version?: number;
   run(
-    engine: MemoryEngine,
+    engines: Engines,
     range: MemoryRange,
     scope: MemoryScope,
     input: z.output<S>,
@@ -76,24 +94,24 @@ const OPS = {
   remember: op({
     schema: rememberSchema,
     write: true,
-    run: (e, r, scope, i, c) =>
+    run: ({ memory: e }, r, scope, i, c) =>
       e.remember(r, { ...i, scope } as Parameters<MemoryEngine['remember']>[1], c),
   }),
   recall: op({
     schema: recallSchema,
     write: false,
-    run: (e, r, scope, i, c) =>
+    run: ({ memory: e }, r, scope, i, c) =>
       e.recall(r, { ...i, scope } as Parameters<MemoryEngine['recall']>[1], c),
   }),
   get: op({
     schema: getMemorySchema,
     write: false,
-    run: (e, r, scope, i) => e.get(r, scope, i.id),
+    run: ({ memory: e }, r, scope, i) => e.get(r, scope, i.id),
   }),
   list: op({
     schema: listMemorySchema,
     write: false,
-    run: (e, r, scope, i) =>
+    run: ({ memory: e }, r, scope, i) =>
       e.list(r, scope, {
         limit: i.limit,
         ...(i.after ? { after: i.after } : {}),
@@ -104,18 +122,67 @@ const OPS = {
   forget: op({
     schema: forgetSchema,
     write: true,
-    run: (e, r, scope, i, c) =>
+    run: ({ memory: e }, r, scope, i, c) =>
       e.forget(r, { scope, ids: i.ids, ...(i.reason ? { reason: i.reason } : {}) }, c),
   }),
   history: op({
     schema: historySchema,
     write: false,
-    run: (e, r, scope, i) => e.history(r, scope, i.id),
+    run: ({ memory: e }, r, scope, i) => e.history(r, scope, i.id),
   }),
   graph: op({
     schema: graphSchema,
     write: false,
-    run: (e, r, scope, i) => e.graph(r, scope, i.entity, i.depth),
+    run: ({ memory: e }, r, scope, i) => e.graph(r, scope, i.entity, i.depth),
+  }),
+  cacheGet: op({
+    schema: cacheLookupSchema,
+    write: false,
+    run: async (
+      { cache },
+      r,
+      scope,
+      i,
+    ): Promise<Result<{ hit: CacheHit | null; degraded: boolean }, MindlogError>> => {
+      if (!cache) return err(mindlogError('UNIMPLEMENTED', 'the semantic cache is not available'));
+      const found = await cache.lookup(r, scope, i.prompt, i.threshold);
+      return found.ok
+        ? ok({ hit: found.value.hit ?? null, degraded: found.value.degraded })
+        : found;
+    },
+  }),
+  cacheSet: op({
+    schema: cacheStoreSchema,
+    write: true,
+    version: CACHE_CLUSTER_VERSION,
+    run: ({ cache }, r, scope, i, c) =>
+      cache
+        ? cache.store(
+            r,
+            scope,
+            {
+              prompt: i.prompt,
+              answer: i.answer,
+              ...(i.dependsOn ? { dependsOn: i.dependsOn } : {}),
+              ...(i.ttlSeconds ? { ttlSeconds: i.ttlSeconds } : {}),
+              ...(i.modelHint ? { modelHint: i.modelHint } : {}),
+            },
+            c,
+          )
+        : Promise.resolve(
+            err(mindlogError('UNIMPLEMENTED', 'the semantic cache is not available')),
+          ),
+  }),
+  cacheDel: op({
+    schema: cacheDeleteSchema,
+    write: true,
+    version: CACHE_CLUSTER_VERSION,
+    run: ({ cache }, r, scope, i, c) =>
+      cache
+        ? cache.invalidate(r, scope, i.ids, c)
+        : Promise.resolve(
+            err(mindlogError('UNIMPLEMENTED', 'the semantic cache is not available')),
+          ),
   }),
 };
 
@@ -195,6 +262,29 @@ export class MemoryService {
     return this.#execute(caller, 'graph', input);
   }
 
+  /** The cached answer for a similar prompt in the user scope, or `hit: null` (PLAN 13.9). */
+  cacheLookup(
+    caller: Caller,
+    input: CacheLookupRequest,
+  ): Promise<Result<{ hit: CacheHit | null; degraded: boolean }, MindlogError>> {
+    return this.#execute(caller, 'cacheGet', input);
+  }
+
+  /** Caches an answer with the memories it depends on. */
+  cacheStore(
+    caller: Caller,
+    input: CacheStoreRequest,
+  ): Promise<Result<{ id: string; degraded: boolean }, MindlogError>> {
+    return this.#execute(caller, 'cacheSet', input);
+  }
+
+  cacheDelete(
+    caller: Caller,
+    input: CacheDeleteRequest,
+  ): Promise<Result<{ count: number }, MindlogError>> {
+    return this.#execute(caller, 'cacheDel', input);
+  }
+
   /**
    * User scopes of the tenant that hold memory, from the ranges this node holds a replica of.
    *
@@ -246,11 +336,15 @@ export class MemoryService {
     const parsed = spec.schema.safeParse(raw);
     if (!parsed.success) return err(invalid(parsed.error.issues));
     const input = parsed.data as { scope: { user: string } };
-    if (spec.write && this.#d.clusterVersion && this.#d.clusterVersion() < MEMORY_CLUSTER_VERSION)
+    if (
+      spec.write &&
+      this.#d.clusterVersion &&
+      this.#d.clusterVersion() < (spec.version ?? MEMORY_CLUSTER_VERSION)
+    )
       return err(
         mindlogError(
           'UNAVAILABLE',
-          'the cluster has not reached the version of memory commands yet; retry',
+          `the cluster has not reached the version of ${name} commands yet; retry`,
         ),
       );
     const requestId = spec.write
@@ -324,7 +418,8 @@ export class MemoryService {
       proposer: target.proposer,
       reader: target.reader,
     };
-    return spec.run(this.#d.engine, range, { tenant: caller.tenant, ...scope }, input, {
+    const engines = { memory: this.#d.engine, cache: this.#d.cache };
+    return spec.run(engines, range, { tenant: caller.tenant, ...scope }, input, {
       principal: caller.principal,
       ...(requestId ? { requestId } : {}),
     });

@@ -1,3 +1,4 @@
+from mindlog.v1 import cache_pb2 as _cache_pb2
 from mindlog.v1 import common_pb2 as _common_pb2
 from mindlog.v1 import jobs_pb2 as _jobs_pb2
 from mindlog.v1 import kv_pb2 as _kv_pb2
@@ -13,7 +14,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Command(_message.Message):
-    __slots__ = ("request_id", "principal", "hlc", "branch", "tenant", "kv_write", "kv_batch", "expire", "gc_threshold", "memory_commit", "memory_forget", "txn_prewrite", "txn_commit", "txn_rollback", "txn_check", "job_lease", "job_complete", "split", "freeze", "merge", "pd_alloc_ids", "pd_put_node", "pd_put_range", "pd_remove_range", "pd_set_tso", "pd_set_version", "pd_record_operator")
+    __slots__ = ("request_id", "principal", "hlc", "branch", "tenant", "kv_write", "kv_batch", "expire", "gc_threshold", "memory_commit", "memory_forget", "cache_set", "cache_invalidate", "txn_prewrite", "txn_commit", "txn_rollback", "txn_check", "job_lease", "job_complete", "split", "freeze", "merge", "pd_alloc_ids", "pd_put_node", "pd_put_range", "pd_remove_range", "pd_set_tso", "pd_set_version", "pd_record_operator")
     REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
     PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
     HLC_FIELD_NUMBER: _ClassVar[int]
@@ -25,6 +26,8 @@ class Command(_message.Message):
     GC_THRESHOLD_FIELD_NUMBER: _ClassVar[int]
     MEMORY_COMMIT_FIELD_NUMBER: _ClassVar[int]
     MEMORY_FORGET_FIELD_NUMBER: _ClassVar[int]
+    CACHE_SET_FIELD_NUMBER: _ClassVar[int]
+    CACHE_INVALIDATE_FIELD_NUMBER: _ClassVar[int]
     TXN_PREWRITE_FIELD_NUMBER: _ClassVar[int]
     TXN_COMMIT_FIELD_NUMBER: _ClassVar[int]
     TXN_ROLLBACK_FIELD_NUMBER: _ClassVar[int]
@@ -52,6 +55,8 @@ class Command(_message.Message):
     gc_threshold: GcThreshold
     memory_commit: _memory_pb2.MemoryCommit
     memory_forget: _memory_pb2.MemoryForget
+    cache_set: _cache_pb2.CacheSet
+    cache_invalidate: _cache_pb2.CacheInvalidate
     txn_prewrite: _txn_pb2.TxnPrewrite
     txn_commit: _txn_pb2.TxnCommit
     txn_rollback: _txn_pb2.TxnRollback
@@ -68,7 +73,7 @@ class Command(_message.Message):
     pd_set_tso: _pd_pb2.PdSetTso
     pd_set_version: _pd_pb2.PdSetVersion
     pd_record_operator: _pd_pb2.PdRecordOperator
-    def __init__(self, request_id: _Optional[bytes] = ..., principal: _Optional[str] = ..., hlc: _Optional[int] = ..., branch: _Optional[str] = ..., tenant: _Optional[str] = ..., kv_write: _Optional[_Union[_kv_pb2.KvWrite, _Mapping]] = ..., kv_batch: _Optional[_Union[_kv_pb2.KvBatch, _Mapping]] = ..., expire: _Optional[_Union[_kv_pb2.Expire, _Mapping]] = ..., gc_threshold: _Optional[_Union[GcThreshold, _Mapping]] = ..., memory_commit: _Optional[_Union[_memory_pb2.MemoryCommit, _Mapping]] = ..., memory_forget: _Optional[_Union[_memory_pb2.MemoryForget, _Mapping]] = ..., txn_prewrite: _Optional[_Union[_txn_pb2.TxnPrewrite, _Mapping]] = ..., txn_commit: _Optional[_Union[_txn_pb2.TxnCommit, _Mapping]] = ..., txn_rollback: _Optional[_Union[_txn_pb2.TxnRollback, _Mapping]] = ..., txn_check: _Optional[_Union[_txn_pb2.TxnCheck, _Mapping]] = ..., job_lease: _Optional[_Union[_jobs_pb2.JobLease, _Mapping]] = ..., job_complete: _Optional[_Union[_jobs_pb2.JobComplete, _Mapping]] = ..., split: _Optional[_Union[_range_pb2.Split, _Mapping]] = ..., freeze: _Optional[_Union[_range_pb2.Freeze, _Mapping]] = ..., merge: _Optional[_Union[_range_pb2.Merge, _Mapping]] = ..., pd_alloc_ids: _Optional[_Union[_pd_pb2.PdAllocIds, _Mapping]] = ..., pd_put_node: _Optional[_Union[_pd_pb2.PdPutNode, _Mapping]] = ..., pd_put_range: _Optional[_Union[_pd_pb2.PdPutRange, _Mapping]] = ..., pd_remove_range: _Optional[_Union[_pd_pb2.PdRemoveRange, _Mapping]] = ..., pd_set_tso: _Optional[_Union[_pd_pb2.PdSetTso, _Mapping]] = ..., pd_set_version: _Optional[_Union[_pd_pb2.PdSetVersion, _Mapping]] = ..., pd_record_operator: _Optional[_Union[_pd_pb2.PdRecordOperator, _Mapping]] = ...) -> None: ...
+    def __init__(self, request_id: _Optional[bytes] = ..., principal: _Optional[str] = ..., hlc: _Optional[int] = ..., branch: _Optional[str] = ..., tenant: _Optional[str] = ..., kv_write: _Optional[_Union[_kv_pb2.KvWrite, _Mapping]] = ..., kv_batch: _Optional[_Union[_kv_pb2.KvBatch, _Mapping]] = ..., expire: _Optional[_Union[_kv_pb2.Expire, _Mapping]] = ..., gc_threshold: _Optional[_Union[GcThreshold, _Mapping]] = ..., memory_commit: _Optional[_Union[_memory_pb2.MemoryCommit, _Mapping]] = ..., memory_forget: _Optional[_Union[_memory_pb2.MemoryForget, _Mapping]] = ..., cache_set: _Optional[_Union[_cache_pb2.CacheSet, _Mapping]] = ..., cache_invalidate: _Optional[_Union[_cache_pb2.CacheInvalidate, _Mapping]] = ..., txn_prewrite: _Optional[_Union[_txn_pb2.TxnPrewrite, _Mapping]] = ..., txn_commit: _Optional[_Union[_txn_pb2.TxnCommit, _Mapping]] = ..., txn_rollback: _Optional[_Union[_txn_pb2.TxnRollback, _Mapping]] = ..., txn_check: _Optional[_Union[_txn_pb2.TxnCheck, _Mapping]] = ..., job_lease: _Optional[_Union[_jobs_pb2.JobLease, _Mapping]] = ..., job_complete: _Optional[_Union[_jobs_pb2.JobComplete, _Mapping]] = ..., split: _Optional[_Union[_range_pb2.Split, _Mapping]] = ..., freeze: _Optional[_Union[_range_pb2.Freeze, _Mapping]] = ..., merge: _Optional[_Union[_range_pb2.Merge, _Mapping]] = ..., pd_alloc_ids: _Optional[_Union[_pd_pb2.PdAllocIds, _Mapping]] = ..., pd_put_node: _Optional[_Union[_pd_pb2.PdPutNode, _Mapping]] = ..., pd_put_range: _Optional[_Union[_pd_pb2.PdPutRange, _Mapping]] = ..., pd_remove_range: _Optional[_Union[_pd_pb2.PdRemoveRange, _Mapping]] = ..., pd_set_tso: _Optional[_Union[_pd_pb2.PdSetTso, _Mapping]] = ..., pd_set_version: _Optional[_Union[_pd_pb2.PdSetVersion, _Mapping]] = ..., pd_record_operator: _Optional[_Union[_pd_pb2.PdRecordOperator, _Mapping]] = ...) -> None: ...
 
 class GcThreshold(_message.Message):
     __slots__ = ("below_index", "limit", "below_version")

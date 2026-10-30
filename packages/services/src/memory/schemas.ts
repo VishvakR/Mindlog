@@ -69,6 +69,35 @@ export const graphSchema = z.strictObject({
   depth: z.int().min(1).max(2).default(1),
 });
 
+export const cacheLookupSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  prompt: z.string().min(1).max(4096),
+  /** Similarity a hit needs, 0..1 (default 0.92). */
+  threshold: z.number().min(0).max(1).optional(),
+});
+
+export const cacheStoreSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  prompt: z.string().min(1).max(4096),
+  answer: z
+    .string()
+    .min(1)
+    .max(64 * 1024),
+  /** Memories the answer was derived from; forgetting one drops the entry. */
+  dependsOn: z.array(memoryId).max(100).optional(),
+  ttlSeconds: z
+    .int()
+    .min(1)
+    .max(30 * 86_400)
+    .optional(),
+  modelHint: z.string().max(128).optional(),
+});
+
+export const cacheDeleteSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  ids: z.array(z.string().min(1).max(64)).min(1).max(100),
+});
+
 export const scopesSchema = z.strictObject({ limit: z.int().min(1).max(1000).default(200) });
 
 export type RememberRequest = z.input<typeof rememberSchema>;
@@ -79,3 +108,6 @@ export type ForgetRequest = z.input<typeof forgetSchema>;
 export type HistoryRequest = z.input<typeof historySchema>;
 export type GraphRequest = z.input<typeof graphSchema>;
 export type ScopesRequest = z.input<typeof scopesSchema>;
+export type CacheLookupRequest = z.input<typeof cacheLookupSchema>;
+export type CacheStoreRequest = z.input<typeof cacheStoreSchema>;
+export type CacheDeleteRequest = z.input<typeof cacheDeleteSchema>;

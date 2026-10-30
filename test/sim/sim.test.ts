@@ -17,7 +17,7 @@ const WITH_PD = process.env.SIM_PD === '1';
 // SIM_BANK=1 adds the bank-transfer workload (cross-range transactions, ADR-0030) to every seed.
 const WITH_BANK = process.env.SIM_BANK === '1';
 
-// SIM_MEM=1 adds the memory workload (remember and forget through the engine, phase 5) to every seed.
+// SIM_MEM=1 adds the memory workload (remember, forget and cache through the engine, phases 5–6) to every seed.
 const WITH_MEM = process.env.SIM_MEM === '1';
 
 async function violations(seed: bigint): Promise<string[]> {

@@ -247,6 +247,13 @@ export {
 } from './gen/mindlog/v1/jobs_pb.js';
 export type { Job, JobComplete, JobLease, JobOutcome, JobSpec } from './gen/mindlog/v1/jobs_pb.js';
 export {
+  CacheEntrySchema,
+  CacheInvalidateSchema,
+  CacheSetSchema,
+  file_mindlog_v1_cache,
+} from './gen/mindlog/v1/cache_pb.js';
+export type { CacheEntry, CacheInvalidate, CacheSet } from './gen/mindlog/v1/cache_pb.js';
+export {
   EntityEdgeSchema,
   EntityMentionSchema,
   JobRefSchema,

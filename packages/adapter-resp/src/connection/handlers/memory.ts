@@ -217,3 +217,79 @@ export const memHistoryCommand: ConnectionCommand = {
       ),
     ),
 };
+
+/** `CACHE.SET <scope> <prompt> <answer> [USING id ...] [TTL seconds]`: the new entry's id. */
+export const cacheSetCommand: ConnectionCommand = {
+  name: 'CACHE.SET',
+  execute: (ctx, argv) =>
+    withMemory(ctx, async (memory) => {
+      const using: string[] = [];
+      let ttl: number | undefined;
+      for (let i = 4; i < argv.length; i++) {
+        const token = decoder.decode(argv[i]).toUpperCase();
+        if (token === 'TTL' && i + 1 < argv.length) {
+          const n = integerOption(decoder.decode(argv[++i]));
+          if (isReply(n)) return n;
+          ttl = n;
+        } else if (token === 'USING') {
+          while (i + 1 < argv.length && decoder.decode(argv[i + 1]).toUpperCase() !== 'TTL')
+            using.push(decoder.decode(argv[++i]));
+        } else return replies.errors.syntax();
+      }
+      return answer(
+        await memory.cacheStore(caller(ctx), {
+          scope: scopeOf(argv[1]),
+          prompt: decoder.decode(argv[2]),
+          answer: decoder.decode(argv[3]),
+          ...(using.length > 0 ? { dependsOn: using } : {}),
+          ...(ttl !== undefined ? { ttlSeconds: ttl } : {}),
+        }),
+        (r) => text(r.id),
+      );
+    }),
+};
+
+/** `CACHE.GET <scope> <prompt> [THRESHOLD t]`: nil on a miss, else the answer and how it matched. */
+export const cacheGetCommand: ConnectionCommand = {
+  name: 'CACHE.GET',
+  execute: (ctx, argv) =>
+    withMemory(ctx, async (memory) => {
+      const o = options(argv, 3, ['THRESHOLD'], []);
+      if (isReply(o)) return o;
+      const threshold = typeof o.THRESHOLD === 'string' ? Number(o.THRESHOLD) : undefined;
+      if (threshold !== undefined && !Number.isFinite(threshold))
+        return replies.error('INVALID_ARGUMENT', 'threshold is not a number');
+      return answer(
+        await memory.cacheLookup(caller(ctx), {
+          scope: scopeOf(argv[1]),
+          prompt: decoder.decode(argv[2]),
+          ...(threshold !== undefined ? { threshold } : {}),
+        }),
+        ({ hit }) =>
+          hit
+            ? replies.map([
+                [text('id'), text(hit.id)],
+                [text('answer'), text(hit.answer)],
+                [text('similarity'), replies.double(Math.round(hit.similarity * 1e6) / 1e6)],
+                [text('level'), text(hit.level)],
+                [text('using'), replies.array(hit.dependsOn.map(text))],
+              ])
+            : replies.nil(),
+      );
+    }),
+};
+
+/** `CACHE.DEL <scope> <id> [id ...]`: how many entries were dropped. */
+export const cacheDelCommand: ConnectionCommand = {
+  name: 'CACHE.DEL',
+  execute: (ctx, argv) =>
+    withMemory(ctx, async (memory) =>
+      answer(
+        await memory.cacheDelete(caller(ctx), {
+          scope: scopeOf(argv[1]),
+          ids: argv.slice(2).map((a) => decoder.decode(a)),
+        }),
+        (r) => replies.integer(r.count),
+      ),
+    ),
+};

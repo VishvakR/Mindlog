@@ -10,12 +10,14 @@ import {
   keyPrefix,
   prefixRange,
 } from '@mindlog/core';
+import { cacheInvalidateHandler, cacheSetHandler } from '@mindlog/cache';
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import { jobCompleteHandler, jobLeaseHandler, jobRangeHooks } from '@mindlog/jobs';
 import type { MemoryConfig, MemoryRange, PprRunner } from '@mindlog/memory';
 import {
   MemoryEngine,
   VectorCache,
+  liveMemory,
   memoryCommitHandler,
   memoryForgetHandler,
 } from '@mindlog/memory';
@@ -42,7 +44,14 @@ export async function memoryNode(
   const logger = new MemoryLogger();
   const metrics = new MemoryMetrics();
   const handlers = new ApplyHandlerRegistry();
-  for (const h of [memoryCommitHandler, memoryForgetHandler, jobLeaseHandler, jobCompleteHandler])
+  for (const h of [
+    memoryCommitHandler,
+    memoryForgetHandler,
+    jobLeaseHandler,
+    jobCompleteHandler,
+    cacheSetHandler(liveMemory),
+    cacheInvalidateHandler,
+  ])
     handlers.register(h);
   const store = new MemoryStore();
   const events = new InMemoryEventBus({ logger, metrics });

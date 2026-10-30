@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+// Memory-aware semantic cache (PLAN 13.9, ADR-0012). Entries live in the user
+// scope's range next to the memories they depend on.
+
+// Stored at m/(user, 'c', id); each dependency also has an empty
+// m/(user, 'q', memory id, id) row, so forgetting the memory drops the entry.
+message CacheEntry {
+  string id = 1;
+  // Normalised prompt (NFKC, lowercase, single spaces).
+  string prompt = 2;
+  // Prompt embedding, float32 little-endian, L2-normalised; empty when no
+  // embedder was available (exact prompt matches only).
+  bytes vector = 3;
+  string embedding_model = 4;
+  string answer = 5;
+  // Memory ids the answer was derived from.
+  repeated string memory_deps = 6;
+  // MVCC version (HLC) of the CacheSet that stored it; set in apply.
+  uint64 created_at = 7;
+  // HLC physical milliseconds after which the entry is a miss; 0 never expires.
+  uint64 expires_at_ms = 8;
+  // Which model produced the answer, for the caller's own checks.
+  string model_hint = 9;
+}
+
+// Command body 40: store an entry, evicting the scope's oldest entries beyond
+// `max_entries` in the same batch.
+message CacheSet {
+  string user = 1;
+  CacheEntry entry = 2;
+  uint32 max_entries = 3;
+}
+
+// Command body 41: drop entries (CACHE.DEL).
+message CacheInvalidate {
+  string user = 1;
+  repeated string ids = 2;
+}

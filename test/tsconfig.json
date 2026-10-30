@@ -8,6 +8,9 @@
   "include": ["architecture", "bench", "compat", "integration", "sim", "support"],
   "references": [
     {
+      "path": "../packages/cache"
+    },
+    {
       "path": "../packages/core"
     },
     {

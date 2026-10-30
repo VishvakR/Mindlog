@@ -17,6 +17,9 @@
       "path": "../adapter-resp"
     },
     {
+      "path": "../cache"
+    },
+    {
       "path": "../core"
     },
     {

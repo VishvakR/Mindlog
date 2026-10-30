@@ -9,10 +9,12 @@ import {
   SeededRandom,
   UlidGenerator,
 } from '@mindlog/core';
+import { SemanticCache, cacheInvalidateHandler, cacheSetHandler } from '@mindlog/cache';
 import { jobCompleteHandler, jobLeaseHandler, jobRangeHooks } from '@mindlog/jobs';
 import {
   MemoryEngine,
   VectorCache,
+  liveMemory,
   memoryCommitHandler,
   memoryForgetHandler,
 } from '@mindlog/memory';
@@ -171,6 +173,7 @@ interface Incarnation {
   readonly clock: Clock;
   readonly metrics: MemoryMetrics;
   readonly engine: MemoryEngine;
+  readonly cache: SemanticCache;
   readonly logger: MemoryLogger;
 }
 
@@ -263,6 +266,8 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       memoryForgetHandler,
       jobLeaseHandler,
       jobCompleteHandler,
+      cacheSetHandler(liveMemory),
+      cacheInvalidateHandler,
       ...PD_HANDLERS,
       ...(o.bank > 0
         ? [
@@ -393,11 +398,20 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       vectors,
       ranges: () => undefined,
     });
+    const cache = new SemanticCache({
+      models: new FakeModels(),
+      stamper,
+      ids: new UlidGenerator(clock, new SeededRandom(seed + 11n)),
+      clock,
+      metrics,
+      tracer: new OtelTracer(),
+    });
     node.up = {
       scheduler,
       store,
       stateStore,
       engine,
+      cache,
       services: new WeakMap(),
       sessions: new Map(),
       epochs: new Map(),
@@ -700,6 +714,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
                       store: n.up.store,
                       stateStore: n.up.stateStore,
                       engine: n.up.engine,
+                      cache: n.up.cache,
                     },
                   ]
                 : [],
@@ -721,6 +736,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     };
     for (let w = 0; w < 2; w++) every(50, 250, () => memory.remember());
     every(400, 1200, () => memory.forget());
+    every(300, 900, () => memory.cacheStore());
   }
 
   // ---- run ----

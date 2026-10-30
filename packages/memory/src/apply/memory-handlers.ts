@@ -1,4 +1,6 @@
 import { create, fromBinary } from '@bufbuild/protobuf';
+import type { LiveMemory } from '@mindlog/cache';
+import { dropDependents } from '@mindlog/cache';
 import { completeJob, enqueueJob } from '@mindlog/jobs';
 import type { CommandResult } from '@mindlog/proto';
 import { CommandResultSchema, MemoryRecordSchema } from '@mindlog/proto';
@@ -21,6 +23,12 @@ function outsideRange(ctx: ApplyContext, user: string): CommandResult | undefine
     ? undefined
     : errorResult('RANGE_MOVED', `scope is not in range ${String(ctx.descriptor.rangeId)}`);
 }
+
+/** A memory record exists and is not forgotten (for `cacheSetHandler`, ADR-0012). */
+export const liveMemory: LiveMemory = async (ctx, tenant, user, id) => {
+  const bytes = await ctx.txn.get(recordKey(tenant, user, id));
+  return bytes !== undefined && fromBinary(MemoryRecordSchema, bytes).expiredAt === 0n;
+};
 
 /**
  * `MemoryCommit` (ADR-0032): validates everything first, then completes the
@@ -60,7 +68,11 @@ export const memoryCommitHandler: ApplyHandler = {
   },
 };
 
-/** `MemoryForget`: expires the current ones among `ids`; unknown or forgotten ids are skipped. */
+/**
+ * `MemoryForget`: expires the current ones among `ids`; unknown or forgotten
+ * ids are skipped. Cache entries depending on them are dropped in the same
+ * batch (ADR-0012).
+ */
 export const memoryForgetHandler: ApplyHandler = {
   body: 'memoryForget',
   async apply(ctx) {
@@ -78,7 +90,10 @@ export const memoryForgetHandler: ApplyHandler = {
       await forgetMemory(ctx, tenant, user, record, reason);
       forgotten.push(id);
     }
-    if (forgotten.length > 0) await bumpGeneration(ctx, tenant, user);
+    if (forgotten.length > 0) {
+      await bumpGeneration(ctx, tenant, user);
+      await dropDependents(ctx, tenant, user, forgotten);
+    }
     return outcome(forgotten);
   },
 };

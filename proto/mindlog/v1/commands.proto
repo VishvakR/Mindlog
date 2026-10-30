@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package mindlog.v1;
 
+import "mindlog/v1/cache.proto";
 import "mindlog/v1/common.proto";
 import "mindlog/v1/jobs.proto";
 import "mindlog/v1/kv.proto";
@@ -36,6 +37,8 @@ message Command {
     GcThreshold gc_threshold = 13;
     MemoryCommit memory_commit = 20;
     MemoryForget memory_forget = 22;
+    CacheSet cache_set = 40;
+    CacheInvalidate cache_invalidate = 41;
     TxnPrewrite txn_prewrite = 60;
     TxnCommit txn_commit = 61;
     TxnRollback txn_rollback = 62;
@@ -56,7 +59,8 @@ message Command {
 
   reserved 14 to 19;
   reserved 21;
-  reserved 23 to 59;
+  reserved 23 to 39;
+  reserved 42 to 59;
   reserved 64 to 70;
   reserved 73 to 79;
   reserved 83 to 89;

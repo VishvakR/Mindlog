@@ -96,6 +96,35 @@ describe('ioredis: MEM.*', () => {
     );
   });
 
+  test('CACHE.SET, CACHE.GET and CACHE.DEL; forgetting a memory drops the entries using it', async () => {
+    const added = asMap(
+      await redis.call('MEM.ADD', 'erin', 'Erin drinks oolong', 'KIND', 'semantic'),
+    );
+    const memory = (added.ids as string[])[0] ?? '';
+    const id = (await redis.call(
+      'CACHE.SET',
+      'erin',
+      'What does Erin drink?',
+      'Oolong.',
+      'USING',
+      memory,
+      'TTL',
+      '3600',
+    )) as string;
+    const kept = (await redis.call('CACHE.SET', 'erin', 'Hello?', 'Hi.')) as string;
+    // No model service here: only the exact normalised prompt matches.
+    const hit = asMap(await redis.call('CACHE.GET', 'erin', '  what does ERIN drink? '));
+    expect(hit).toMatchObject({ id, answer: 'Oolong.', using: [memory] });
+    expect(Number(hit.similarity)).toBe(1);
+    expect(await redis.call('CACHE.GET', 'erin', 'what does erin eat?')).toBeNull();
+    expect(await redis.call('CACHE.GET', 'frank', 'what does erin drink?')).toBeNull();
+    expect(await redis.call('MEM.FORGET', 'erin', memory)).toBe(1);
+    expect(await redis.call('CACHE.GET', 'erin', 'what does erin drink?')).toBeNull();
+    expect(await redis.call('CACHE.DEL', 'erin', kept, id)).toBe(1);
+    expect(await redis.call('CACHE.GET', 'erin', 'hello?')).toBeNull();
+    await expect(redis.call('CACHE.SET', 'erin', 'p', 'a', 'BOGUS')).rejects.toThrow(/syntax/i);
+  });
+
   test('bad arguments are errors', async () => {
     await expect(redis.call('MEM.ADD', 'alice', 'x', 'KIND', 'gossip')).rejects.toThrow(/kind/i);
     await expect(redis.call('MEM.SEARCH', 'alice', 'x', 'K', 'many')).rejects.toThrow(/integer/);

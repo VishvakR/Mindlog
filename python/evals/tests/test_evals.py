@@ -2,9 +2,11 @@ import json
 from pathlib import Path
 
 import pytest
-from evals.data import Haystack, Question, Turn, locomo, longmemeval, session_of, stratified
+from evals.cache_eval import sweep
 from evals.metrics import at_level, dedupe, ndcg, recall_all, recall_any
 from evals.report import markdown
+
+from evals.data import Haystack, Question, Turn, locomo, longmemeval, session_of, stratified
 
 
 def test_metrics_match_longmemeval_definitions() -> None:
@@ -117,6 +119,8 @@ def test_report_renders_every_section() -> None:
                     "threshold": 0.9,
                     "hit_rate": 1.0,
                     "false_positive_rate": 0.0,
+                    "false_hits_on_different": 0.0,
+                    "wrong_entry_on_repeats": 0.0,
                     "wrong_share_of_hits": 0.0,
                 }
             ],
@@ -127,3 +131,21 @@ def test_report_renders_every_section() -> None:
     assert "| Vector + scoring | 50.0 | 75.0 | 40.0 | 60.0 | 80.0 | 12 | 30 |" in md
     assert "| Plain RAG (vector, similarity only) | 50.0 (200) |" in md
     assert "Chosen threshold: 0.90" in md
+
+
+def test_cache_false_positives_are_rated_over_their_own_lookups() -> None:
+    results = [
+        ("a1", "a1", 0.95),  # repeat, right entry
+        ("a2", "a1", 0.95),  # repeat, another question's entry
+        ("a3", "a3", 0.85),  # repeat, right entry below 0.90
+        (None, "a1", 0.91),  # different question, false hit
+        (None, "a2", 0.50),
+        (None, None, 0.0),
+        (None, "a3", 0.30),
+    ]
+    at_90 = next(c for c in sweep(results) if c["threshold"] == 0.90)
+    assert at_90["hit_rate"] == pytest.approx(1 / 3)
+    assert at_90["false_hits_on_different"] == pytest.approx(1 / 4)
+    assert at_90["wrong_entry_on_repeats"] == pytest.approx(1 / 3)
+    assert at_90["false_positive_rate"] == pytest.approx(1 / 3)
+    assert at_90["wrong_share_of_hits"] == pytest.approx(2 / 3)

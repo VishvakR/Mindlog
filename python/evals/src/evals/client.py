@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import re
+import time
+import urllib.request
 from typing import Any, cast
 
 import redis
+
+_DEPTH = re.compile(r"^mindlog_jobs_queue_depth_count\{[^}]*\} (\S+)$", re.M)
 
 # Leave room under the 32 KB per-item limit (PLAN 12.3) for UTF-8 growth.
 MAX_TEXT_BYTES = 30_000
@@ -20,7 +25,14 @@ def _str(value: Any) -> str:
 
 
 class Mindlog:
-    def __init__(self, host: str = "127.0.0.1", port: int = 6390, timeout: float = 120.0) -> None:
+    def __init__(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 6390,
+        timeout: float = 120.0,
+        http_port: int = 8099,
+    ) -> None:
+        self._metrics = f"http://{host}:{http_port}/metrics"
         self._r = redis.Redis(
             host=host, port=port, protocol=3, decode_responses=True, socket_timeout=timeout
         )
@@ -28,9 +40,10 @@ class Mindlog:
     def _call(self, *args: str | int | float) -> Any:
         return self._r.execute_command(*args)  # type: ignore[no-untyped-call]
 
-    def add(self, scope: str, text: str, kind: str = "episodic") -> list[str]:
+    def add(self, scope: str, text: str, kind: str = "episodic") -> tuple[list[str], bool]:
+        """Stores a turn; True when it was stored raw and left to the enrichment jobs."""
         reply = cast(dict[str, Any], self._call("MEM.ADD", scope, _clip(text), "KIND", kind))
-        return [_str(i) for i in reply["ids"]]
+        return [_str(i) for i in reply["ids"]], bool(reply.get("degraded"))
 
     def search(self, scope: str, query: str, k: int, recipe: str) -> list[str]:
         items = cast(
@@ -63,3 +76,18 @@ class Mindlog:
         if ids:
             self._r.hset(f"evals:map:{scope}", mapping=dict.fromkeys(ids, corpus_id))
         self._r.set(f"evals:next:{scope}", next_turn)
+
+    def queued_jobs(self) -> int:
+        """Queued and leased jobs on the node, from its metrics."""
+        with urllib.request.urlopen(self._metrics, timeout=10) as r:
+            text = r.read().decode()
+        return int(sum(float(v) for v in _DEPTH.findall(text)))
+
+    def drain(self, say: Any, timeout_s: float = 3600) -> None:
+        """Waits for the enrichment jobs (embeddings, entities) of degraded writes to finish."""
+        deadline = time.monotonic() + timeout_s
+        while (left := self.queued_jobs()) > 0:
+            if time.monotonic() > deadline:
+                raise TimeoutError(f"{left} jobs still queued after {timeout_s:.0f} s")
+            say(f"waiting for {left} enrichment jobs")
+            time.sleep(30)

@@ -5,7 +5,9 @@ import { FakeModels, serveModels } from '@mindlog/models-client';
 import { startTestNode } from '../support/node.js';
 
 /**
- * Phase 5 gate (PLAN 24): recall p95 < 150 ms with 10K memories in a scope.
+ * Phase 5 gate (PLAN 24): recall p95 < 150 ms with 10K memories in a scope. PLAN 1 sets
+ * the target without rerank, so the gate times `hybrid_ppr`; `full` (the default, with the
+ * cross-encoder) is timed and reported alongside.
  * Opt-in: `BENCH=1 pnpm vitest run test/bench/recall.test.ts` (scripts/bench-recall.sh).
  * Models: FakeModels over gRPC by default; BENCH_MODELS=host:port uses a running
  * model service (real embeddings and NER; seeding is then much slower).
@@ -61,26 +63,38 @@ describe.skipIf(process.env.BENCH !== '1')('recall benchmark', () => {
       );
       const seedMs = performance.now() - seedStart;
 
-      const times: number[] = [];
-      for (let q = 0; q < QUERIES + 20; q++) {
-        const query = `${WORDS[q % WORDS.length] ?? ''} ${NAMES[q % NAMES.length] ?? ''}`;
-        const started = performance.now();
-        const items = (await redis.call('MEM.SEARCH', 'bench', query, 'K', '10')) as unknown[];
-        if (q >= 20) times.push(performance.now() - started); // the first 20 warm the caches
-        expect(items.length).toBeGreaterThan(0);
-      }
-      times.sort((a, b) => a - b);
+      const timeRecipe = async (recipe: string) => {
+        const times: number[] = [];
+        for (let q = 0; q < QUERIES + 20; q++) {
+          const query = `${WORDS[q % WORDS.length] ?? ''} ${NAMES[q % NAMES.length] ?? ''}`;
+          const started = performance.now();
+          const items = (await redis?.call(
+            'MEM.SEARCH',
+            'bench',
+            query,
+            'K',
+            '10',
+            'RECIPE',
+            recipe,
+          )) as unknown[];
+          if (q >= 20) times.push(performance.now() - started); // the first 20 warm the caches
+          expect(items.length).toBeGreaterThan(0);
+        }
+        times.sort((a, b) => a - b);
+        const ms = (p: number) => Math.round(percentile(times, p) * 10) / 10;
+        return { p50Ms: ms(50), p95Ms: ms(95), p99Ms: ms(99) };
+      };
+      const gate = await timeRecipe('hybrid_ppr');
       const report = {
         memories: MEMORIES,
         queries: QUERIES,
         models: process.env.BENCH_MODELS ? `service at ${endpoint}` : 'FakeModels over gRPC',
         seedSeconds: Math.round(seedMs / 100) / 10,
-        p50Ms: Math.round(percentile(times, 50) * 10) / 10,
-        p95Ms: Math.round(percentile(times, 95) * 10) / 10,
-        p99Ms: Math.round(percentile(times, 99) * 10) / 10,
+        hybrid_ppr: gate,
+        full: await timeRecipe('full'),
       };
       console.log(`recall benchmark ${JSON.stringify(report)}`);
-      expect(report.p95Ms).toBeLessThan(150);
+      expect(gate.p95Ms).toBeLessThan(150);
     },
   );
 });

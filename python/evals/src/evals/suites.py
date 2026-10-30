@@ -21,26 +21,37 @@ Job = tuple[Haystack, Question]
 
 def ingest(
     client: Mindlog, haystacks: list[Haystack], workers: int, say: Callable[[str], None]
-) -> dict[str, dict[str, str]]:
-    """Stores every turn (resuming where a previous run stopped); returns memory → corpus ids."""
+) -> tuple[dict[str, dict[str, str]], int]:
+    """Stores every turn (resuming where a previous run stopped) and waits for enrichment.
 
-    def one(h: Haystack) -> tuple[str, dict[str, str]]:
+    Returns memory → corpus ids per scope and how many writes came back degraded.
+    """
+
+    def one(h: Haystack) -> tuple[str, dict[str, str], int]:
         mapping, start = client.mapping(h.scope)
+        degraded = 0
         for i in range(start, len(h.turns)):
             turn = h.turns[i]
-            ids = client.add(h.scope, turn.text) if turn.text.strip() else []
+            ids, raw = client.add(h.scope, turn.text) if turn.text.strip() else ([], False)
+            degraded += raw
             client.record(h.scope, ids, turn.id, i + 1)
             mapping.update(dict.fromkeys(ids, turn.id))
-        return h.scope, mapping
+        return h.scope, mapping, degraded
 
     started = time.monotonic()
     out: dict[str, dict[str, str]] = {}
+    degraded = 0
     with ThreadPoolExecutor(workers) as pool:
-        for n, (scope, mapping) in enumerate(pool.map(one, haystacks), 1):
+        for n, (scope, mapping, d) in enumerate(pool.map(one, haystacks), 1):
             out[scope] = mapping
+            degraded += d
             if n % 10 == 0 or n == len(haystacks):
                 say(f"ingested {n}/{len(haystacks)} scopes ({time.monotonic() - started:.0f} s)")
-    return out
+    if degraded:
+        say(f"{degraded} writes were degraded under load")
+    # Degraded writes have no vectors until their enrichment jobs run; score only after.
+    client.drain(say)
+    return out, degraded
 
 
 @dataclass

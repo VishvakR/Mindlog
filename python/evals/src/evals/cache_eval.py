@@ -51,22 +51,10 @@ def evaluate(
 
     with ThreadPoolExecutor(workers) as pool:
         results = list(pool.map(best, lookups))
-    positives = sum(1 for e, _, _ in results if e is not None)
-    curve = []
-    for t in THRESHOLDS:
-        hits = [(e, a) for e, a, s in results if a is not None and s >= t]
-        right = sum(1 for e, a in hits if e is not None and a == e)
-        wrong = len(hits) - right
-        curve.append(
-            {
-                "threshold": t,
-                "hit_rate": right / positives if positives else 0.0,
-                "false_positive_rate": wrong / len(results),
-                "wrong_share_of_hits": wrong / len(hits) if hits else 0.0,
-            }
-        )
+    curve = sweep(results)
     ok = [c for c in curve if c["false_positive_rate"] < MAX_FALSE_POSITIVE_RATE]
     chosen = max(ok, key=lambda c: (c["hit_rate"], -c["threshold"])) if ok else None
+    positives = sum(1 for e, _, _ in results if e is not None)
     return {
         "stored": len(stored),
         "lookups": len(results),
@@ -75,3 +63,35 @@ def evaluate(
         "curve": curve,
         "chosen": chosen,
     }
+
+
+Result = tuple[str | None, str | None, float]
+
+
+def sweep(results: list[Result]) -> list[dict[str, float]]:
+    """Per threshold, from (expected answer or None, best answer, similarity) per lookup.
+
+    `false_positive_rate` is the larger of two wrong-answer rates, each over its own
+    lookups: different questions that hit anything, and repeats that hit another entry.
+    """
+    positives = [(e, a, s) for e, a, s in results if e is not None]
+    negatives = [(a, s) for e, a, s in results if e is None]
+    curve = []
+    for t in THRESHOLDS:
+        right = sum(1 for e, a, s in positives if s >= t and a == e)
+        wrong_repeat = sum(1 for e, a, s in positives if s >= t and a is not None and a != e)
+        wrong_other = sum(1 for a, s in negatives if s >= t and a is not None)
+        hits = right + wrong_repeat + wrong_other
+        on_negatives = wrong_other / len(negatives) if negatives else 0.0
+        on_repeats = wrong_repeat / len(positives) if positives else 0.0
+        curve.append(
+            {
+                "threshold": t,
+                "hit_rate": right / len(positives) if positives else 0.0,
+                "false_positive_rate": max(on_negatives, on_repeats),
+                "false_hits_on_different": on_negatives,
+                "wrong_entry_on_repeats": on_repeats,
+                "wrong_share_of_hits": (wrong_repeat + wrong_other) / hits if hits else 0.0,
+            }
+        )
+    return curve

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 5 gate (PLAN 24): recall p95 < 150 ms with 10K memories in one scope.
+# Phase 5 gate (PLAN 24): recall p95 < 150 ms with 10K memories in one scope (no rerank, PLAN 1).
 # Usage: scripts/bench-recall.sh [memories] [queries]   (defaults 10000, 300)
 # BENCH_MODELS=host:port uses a running model service instead of FakeModels over gRPC.
 set -euo pipefail

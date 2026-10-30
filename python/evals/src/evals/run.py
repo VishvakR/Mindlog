@@ -24,7 +24,7 @@ def run_suite(
     client: Mindlog, name: str, haystacks: list[data.Haystack], args: argparse.Namespace, note: str
 ) -> dict[str, Any]:
     say(f"{name}: {len(haystacks)} scopes, {sum(len(h.turns) for h in haystacks)} turns")
-    mappings = suites.ingest(client, haystacks, args.workers, say)
+    mappings, degraded = suites.ingest(client, haystacks, args.workers, say)
     # One query at a time, so the latency columns are per query, not queueing at the models.
     scores = suites.score(client, haystacks, mappings, tuple(args.recipes), 1)
     result: dict[str, Any] = {
@@ -32,6 +32,7 @@ def run_suite(
             "scopes": len(haystacks),
             "questions": sum(len(h.questions) for h in haystacks),
             "memories": sum(len(m) for m in mappings.values()),
+            "degraded_writes": degraded,
             "note": note,
         },
         "recipes": {r: dataclasses.asdict(s) for r, s in scores.items()},
@@ -51,13 +52,14 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--seed", type=int, default=6)
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=6390)
+    p.add_argument("--http-port", type=int, default=8099, help="the node's HTTP port (metrics)")
     p.add_argument("--workers", type=int, default=16)
     p.add_argument("--recipes", nargs="+", default=list(suites.RECIPES))
     p.add_argument("--no-packing", dest="packing", action="store_false")
     p.add_argument("--out", type=Path, default=OUT, help="results path without extension")
     args = p.parse_args(argv)
 
-    client = Mindlog(args.host, args.port)
+    client = Mindlog(args.host, args.port, http_port=args.http_port)
     lme_path, locomo_path = data.download()
     json_path, md_path = args.out.with_suffix(".json"), args.out.with_suffix(".md")
     merged: dict[str, Any] = {}

@@ -101,14 +101,20 @@ def markdown(data: dict[str, Any]) -> str:
             f"{c['stored']} distinct questions stored; {c['positives']} reworded repeats and "
             f"{c['negatives']} different questions looked up.",
             "",
-            "| Threshold | Hit rate on repeats | False-positive rate | Wrong share of hits |",
-            "|---:|---:|---:|---:|",
+            "False hits are counted per kind of lookup: a different question that hits any entry, "
+            "and a repeat that hits another question's entry. The false-positive rate is the "
+            "larger of the two.",
+            "",
+            "| Threshold | Hit rate on repeats | False hits on different questions "
+            "| Wrong entry on repeats | Wrong share of hits |",
+            "|---:|---:|---:|---:|---:|",
         ]
         for p in c["curve"]:
             cells = [
                 f"{p['threshold']:.2f}",
                 _pct(p["hit_rate"]),
-                _pct(p["false_positive_rate"]),
+                _pct(p["false_hits_on_different"]),
+                _pct(p["wrong_entry_on_repeats"]),
                 _pct(p["wrong_share_of_hits"]),
             ]
             lines.append("| " + " | ".join(cells) + " |")

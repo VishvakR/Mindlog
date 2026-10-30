@@ -198,10 +198,13 @@ function diversifyStage(vectors: VectorCache): Stage<RecallDraft> {
     async run(d) {
       const { tenant, user } = d.input.scope;
       const index = await vectors.index(tenant, user);
+      // Min-max scores, so relevance spans 0..1 like the similarity it is traded against:
+      // the recency/importance/retention floor would otherwise let near-duplicates lose to noise.
+      const scaled = minMax(new Map(d.ranked.map((item) => [item.memory.id, item.score])));
       const candidates = d.ranked.map((item) => ({
         id: item.memory.id,
         text: item.memory.text,
-        score: item.score,
+        score: scaled.get(item.memory.id) ?? 0,
         item,
       }));
       const sim = similarity((id) => index?.get(id));

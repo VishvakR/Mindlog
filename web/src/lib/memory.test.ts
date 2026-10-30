@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { formatScope, parseScope, radialLayout } from '@/lib/memory';
+import type { RecallItem } from '@/lib/memory';
+import {
+  formatScope,
+  parseScope,
+  presentSignals,
+  radialLayout,
+  retrieverColumns,
+} from '@/lib/memory';
 
 describe('scopes', () => {
   test('user[/agent[/session]] parses and prints back', () => {
@@ -42,5 +49,44 @@ describe('radialLayout', () => {
     const one = a.get('org:acme');
     const two = a.get('place:lisbon');
     expect(one && two && Math.round(Math.hypot(one.x - two.x, one.y - two.y))).toBeGreaterThan(50);
+  });
+});
+
+describe('recall explain helpers', () => {
+  const item = (id: string, text: string, signals: Partial<RecallItem['signals']>): RecallItem => ({
+    memory: {
+      id,
+      user: 'u',
+      kind: 'semantic',
+      text,
+      entities: [],
+      links: [],
+      source: { type: 'user', principal: 'p' },
+      trust: 'normal',
+      importance: 0.5,
+      tags: [],
+      createdAtMs: 0,
+    },
+    score: 0.5,
+    signals: { fused: 1, recency: 1, importance: 0.5, retention: 1, ...signals },
+  });
+
+  test('retriever columns follow the pipeline order and show text for returned memories', () => {
+    const cols = retrieverColumns(
+      {
+        items: [item('a', 'Ana likes tea', { vector: 0.9 })],
+        explain: { lists: { ppr: ['b', 'a'], vector: ['a'], keyword: [] }, themes: [] },
+      },
+      1,
+    );
+    expect(cols.map((c) => c.name)).toEqual(['vector', 'keyword', 'ppr']);
+    expect(cols[0]?.rows).toEqual([{ id: 'a', text: 'Ana likes tea', rank: 1 }]);
+    expect(cols[2]).toEqual({ name: 'ppr', total: 2, rows: [{ id: 'b', rank: 1 }] });
+  });
+
+  test('only signals some item carries are shown', () => {
+    expect(
+      presentSignals([item('a', 'x', { vector: 0.2 }), item('b', 'y', { rerank: 3, ppr: 0.1 })]),
+    ).toEqual(['vector', 'ppr', 'rerank']);
   });
 });

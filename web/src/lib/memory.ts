@@ -28,17 +28,79 @@ export interface RecallSignals {
   vector?: number;
   keyword?: number;
   entity?: number;
+  ppr?: number;
+  theme?: number;
+  rerank?: number;
   fused: number;
   recency: number;
   importance: number;
   retention: number;
 }
 
+/** Named recall configurations (ADR-0011), in increasing order of work. */
+export const RECIPES = [
+  { name: 'rag', label: 'Plain RAG', hint: 'Vector search, ranked by similarity only' },
+  { name: 'vector', label: 'Vector', hint: 'Vector search with recency, importance and retention' },
+  { name: 'hybrid', label: 'Hybrid', hint: 'Vector, keyword and entity retrievers fused' },
+  { name: 'hybrid_ppr', label: 'Hybrid + graph', hint: 'Hybrid plus Personalized PageRank' },
+  { name: 'full', label: 'Full', hint: 'Hybrid, graph, themes, cross-encoder rerank and MMR' },
+] as const;
+export type RecipeName = (typeof RECIPES)[number]['name'];
+
+export interface RecallItem {
+  memory: MemoryView;
+  score: number;
+  signals: RecallSignals;
+}
+
 export interface RecallResult {
-  items: Array<{ memory: MemoryView; score: number; signals: RecallSignals }>;
+  items: RecallItem[];
   context: string;
   tokens: number;
+  budget: number;
+  groups: Array<{ name: string; ids: string[] }>;
+  dropped: string[];
+  compressed: string[];
+  recipe: RecipeName;
+  route: 'specific' | 'multihop' | 'broad';
   degraded: boolean;
+  explain?: {
+    lists: Record<string, string[]>;
+    themes: Array<{ label: string; ids: string[] }>;
+  };
+}
+
+const RETRIEVER_ORDER = ['vector', 'keyword', 'entity', 'ppr', 'theme'];
+
+/**
+ * Each retriever's ranked list for display, top `limit`, with the memory text
+ * when the memory is among the returned items (other ids show as ids).
+ */
+export function retrieverColumns(
+  r: Pick<RecallResult, 'items' | 'explain'>,
+  limit = 10,
+): Array<{
+  name: string;
+  total: number;
+  rows: Array<{ id: string; text?: string; rank: number }>;
+}> {
+  const text = new Map(r.items.map((i) => [i.memory.id, i.memory.text]));
+  return Object.entries(r.explain?.lists ?? {})
+    .sort(([a], [b]) => RETRIEVER_ORDER.indexOf(a) - RETRIEVER_ORDER.indexOf(b))
+    .map(([name, ids]) => ({
+      name,
+      total: ids.length,
+      rows: ids.slice(0, limit).map((id, i) => {
+        const t = text.get(id);
+        return t === undefined ? { id, rank: i + 1 } : { id, text: t, rank: i + 1 };
+      }),
+    }));
+}
+
+/** Which per-retriever signals any item carries, in display order. */
+export function presentSignals(items: readonly RecallItem[]): Array<keyof RecallSignals> {
+  const raw: Array<keyof RecallSignals> = ['vector', 'keyword', 'entity', 'ppr', 'theme', 'rerank'];
+  return raw.filter((key) => items.some((i) => i.signals[key] !== undefined));
 }
 
 export interface GraphResult {

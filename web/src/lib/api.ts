@@ -5,6 +5,7 @@ import type {
   MemoryScope,
   MemoryView,
   RecallResult,
+  RecipeName,
 } from '@/lib/memory';
 
 export type KeyType = 'string' | 'hash' | 'list' | 'set' | 'zset' | 'json';
@@ -219,8 +220,15 @@ export const api = {
     tenant: string,
     scope: MemoryScope,
     query: string,
-    options: { k: number; tokenBudget: number; inherit: boolean },
-  ) => request<RecallResult>('POST', '/memory/recall', { tenant, scope, query, ...options }),
+    options: { k: number; tokenBudget: number; inherit: boolean; recipe: RecipeName },
+  ) =>
+    request<RecallResult>('POST', '/memory/recall', {
+      tenant,
+      scope,
+      query,
+      ...options,
+      explain: true,
+    }),
   memoryGraph: (tenant: string, scope: MemoryScope, entity: string, depth: number) =>
     request<GraphResult>('POST', '/memory/graph', { tenant, scope, entity, depth }),
 };

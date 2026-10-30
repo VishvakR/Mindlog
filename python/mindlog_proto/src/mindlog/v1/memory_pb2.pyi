@@ -236,14 +236,18 @@ class MemoryTrust(_message.Message):
     def __init__(self, user: _Optional[str] = ..., ids: _Optional[_Iterable[str]] = ..., trust: _Optional[str] = ..., reason: _Optional[str] = ...) -> None: ...
 
 class MemoryForget(_message.Message):
-    __slots__ = ("user", "ids", "reason")
+    __slots__ = ("user", "ids", "reason", "source_ref", "cascade_limit")
     USER_FIELD_NUMBER: _ClassVar[int]
     IDS_FIELD_NUMBER: _ClassVar[int]
     REASON_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_REF_FIELD_NUMBER: _ClassVar[int]
+    CASCADE_LIMIT_FIELD_NUMBER: _ClassVar[int]
     user: str
     ids: _containers.RepeatedScalarFieldContainer[str]
     reason: str
-    def __init__(self, user: _Optional[str] = ..., ids: _Optional[_Iterable[str]] = ..., reason: _Optional[str] = ...) -> None: ...
+    source_ref: str
+    cascade_limit: int
+    def __init__(self, user: _Optional[str] = ..., ids: _Optional[_Iterable[str]] = ..., reason: _Optional[str] = ..., source_ref: _Optional[str] = ..., cascade_limit: _Optional[int] = ...) -> None: ...
 
 class MemoryEntity(_message.Message):
     __slots__ = ("name", "type", "mention_count", "created_at")

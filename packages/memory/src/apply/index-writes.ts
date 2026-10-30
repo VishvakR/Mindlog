@@ -17,6 +17,7 @@ import {
 import type { ApplyContext } from '@mindlog/statemachine';
 import type { Root } from '../keys.js';
 import {
+  derivedKey,
   dfKey,
   edgeKey,
   entityKey,
@@ -25,9 +26,12 @@ import {
   mentionKey,
   postingKey,
   recordKey,
+  sourceRefKey,
   statsKey,
   vectorKey,
 } from '../keys.js';
+
+const EMPTY = new Uint8Array();
 
 /** Memories an edge remembers as its support (the newest win). */
 const EDGE_SUPPORT = 20;
@@ -102,6 +106,12 @@ export async function writeMemory(
   }
   record.entities = ids;
   ctx.txn.put(recordKey(tenant, user, record.id), toBinary(MemoryRecordSchema, record));
+  // Kept after forgetting, so a later taint cascade still reaches what was derived.
+  if (record.source?.ref)
+    ctx.txn.put(sourceRefKey(tenant, user, record.source.ref, record.id), EMPTY);
+  for (const l of record.links)
+    if (l.relation === 'derived_from')
+      ctx.txn.put(derivedKey(tenant, user, l.to, record.id), EMPTY);
   if (m.vector.length > 0)
     ctx.txn.put(
       vectorKey(tenant, user, record.id),

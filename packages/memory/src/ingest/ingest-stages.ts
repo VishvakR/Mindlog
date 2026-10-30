@@ -8,9 +8,10 @@ import { matchesScope } from '../recall/scope-filter.js';
 import { conflictStage } from './conflict-stage.js';
 import type { DraftFact, IngestDraft } from './draft.js';
 import type { ConflictConfig } from './conflicts.js';
+import type { TrustPolicy } from './text.js';
 import { byteLength, chunk, importance, normalizeText, trustOf, usefulEntity } from './text.js';
 
-export interface IngestConfig extends ConflictConfig {
+export interface IngestConfig extends ConflictConfig, TrustPolicy {
   readonly maxTextBytes: number;
   readonly entityLabels: readonly string[];
   readonly linkThreshold: number;
@@ -173,7 +174,12 @@ export function ingestStages(
       name: 'trust',
       run: (d) =>
         Promise.resolve(
-          ok(mapFacts(d, (f) => ({ ...f, trust: trustOf(d.input.source?.type ?? 'user') }))),
+          ok(
+            mapFacts(d, (f) => ({
+              ...f,
+              trust: trustOf(d.input.source ?? { type: 'user' }, config),
+            })),
+          ),
         ),
     },
     conflictStage(models, reads, vectors, config),

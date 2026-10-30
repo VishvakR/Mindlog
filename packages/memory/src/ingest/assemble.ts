@@ -8,9 +8,9 @@ import {
   NewMemorySchema,
   SupersedeSchema,
 } from '@mindlog/proto';
-import type { CallContext } from '../types.js';
+import type { CallContext, Trust } from '../types.js';
 import type { IngestDraft } from './draft.js';
-import { initialStrength } from './text.js';
+import { initialStrength, minTrust } from './text.js';
 
 /** Relation of entities named in the same memory when no relation was extracted. */
 export const CO_MENTION = 'mentioned_with';
@@ -42,6 +42,7 @@ export function assemble(
   context: CallContext,
   nextId: () => string,
   derivedFrom: readonly string[] = [],
+  inherited: Trust = 'verified',
 ): Assembled {
   const { scope, source, tags = [], meta, validFromMs, validToMs } = draft.input;
   const memories: NewMemory[] = [];
@@ -67,7 +68,8 @@ export function assemble(
             ref: source?.ref ?? '',
             principal: context.principal,
           },
-          trust: fact.trust,
+          // Derived memories are no more trusted than their inputs (PLAN 13.4).
+          trust: minTrust(fact.trust, inherited),
           importance: fact.importance,
           strength: initialStrength(fact.importance),
           tags: [...tags],

@@ -100,3 +100,13 @@ export const openConflictKey = (tenant: string, user: Root, id: string): Uint8Ar
   key(tenant, [...head(user), 'ko', id]);
 export const openConflictPrefix = (tenant: string, user: Root): Uint8Array =>
   prefix(tenant, [...head(user), 'ko']);
+
+/** Provenance indexes (PLAN 13.4): memories by source reference, and by the memory they derive from. */
+export const sourceRefKey = (tenant: string, user: Root, ref: string, id: string): Uint8Array =>
+  key(tenant, [...head(user), 'sr', ref, id]);
+export const sourceRefPrefix = (tenant: string, user: Root, ref: string): Uint8Array =>
+  prefix(tenant, [...head(user), 'sr', ref]);
+export const derivedKey = (tenant: string, user: Root, from: string, id: string): Uint8Array =>
+  key(tenant, [...head(user), 'dv', from, id]);
+export const derivedPrefix = (tenant: string, user: Root, from: string): Uint8Array =>
+  prefix(tenant, [...head(user), 'dv', from]);

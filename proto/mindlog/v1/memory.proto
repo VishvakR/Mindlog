@@ -183,6 +183,11 @@ message MemoryForget {
   string user = 1;
   repeated string ids = 2;
   string reason = 3;
+  // Taint cascade (PLAN 13.4): also forget every memory with this source
+  // reference and, transitively, every memory derived from those.
+  string source_ref = 4;
+  // Most memories the cascade may reach; past it the command fails.
+  uint32 cascade_limit = 5;
 }
 
 // Stored at m/(user, 'e', type, normalized name).

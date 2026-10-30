@@ -60,8 +60,46 @@ export function importance(text: string, kind: MemoryKind): number {
 }
 
 /** Source-based trust (PLAN 13.4): content from the web is quarantined until verified. */
-export function trustOf(source: SourceType): Trust {
-  return source === 'web' ? 'quarantined' : 'normal';
+/** The lower of two trust levels. */
+export const minTrust = (a: Trust, b: Trust): Trust =>
+  a === 'quarantined' || b === 'quarantined' ? 'quarantined' : a === 'normal' ? a : b;
+
+/** Which tools and web domains are trusted (PLAN 13.4); everything else they bring is quarantined. */
+export interface TrustPolicy {
+  readonly trustedTools: readonly string[];
+  readonly trustedDomains: readonly string[];
+}
+
+/** The host of a URL-like reference, lower-cased; '' when it has none. */
+function hostOf(ref: string): string {
+  try {
+    return new URL(ref.includes('://') ? ref : `https://${ref}`).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+const trustedHost = (host: string, domains: readonly string[]) =>
+  host !== '' && domains.some((d) => host === d || host.endsWith(`.${d}`));
+
+/**
+ * Trust by source (PLAN 13.4): tools off the allow-list, and web pages or
+ * documents from untrusted domains, are quarantined; the rest is normal.
+ */
+export function trustOf(
+  source: { readonly type: SourceType; readonly ref?: string | undefined },
+  policy: TrustPolicy,
+): Trust {
+  const ref = source.ref ?? '';
+  switch (source.type) {
+    case 'tool':
+      return policy.trustedTools.includes(ref) ? 'normal' : 'quarantined';
+    case 'web':
+    case 'document':
+      return trustedHost(hostOf(ref), policy.trustedDomains) ? 'normal' : 'quarantined';
+    default:
+      return 'normal';
+  }
 }
 
 /** Forgetting-curve stability S in days for a new memory: important ones decay slower. */

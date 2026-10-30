@@ -48,5 +48,7 @@ export type * from './types.js';
 export { MEMORY_KINDS, SOURCE_TYPES } from './types.js';
 export type { VectorCacheOptions, VectorMeta } from './vector-cache.js';
 export { VectorCache } from './vector-cache.js';
+export type { TrustPolicy } from './ingest/text.js';
+export { trustOf } from './ingest/text.js';
 export { TRUST_LEVELS } from './review.js';
 export { toView } from './view.js';

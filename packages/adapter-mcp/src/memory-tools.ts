@@ -186,10 +186,19 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
     'forget',
     {
       description:
-        'Forget memories by id (from recall or history), for example when the user asks or a fact is wrong. ' +
+        'Forget memories by id (from recall or history), for example when the user asks or a fact is wrong, ' +
+        'or everything from a source that turned out to be bad. ' +
         'Forgotten memories are no longer recalled; the history keeps an audit trail.',
       inputSchema: z.object({
-        ids: z.array(z.string().min(1).max(64)).min(1).max(100),
+        ids: z.array(z.string().min(1).max(64)).max(100).optional(),
+        source: z
+          .string()
+          .min(1)
+          .max(512)
+          .optional()
+          .describe(
+            'Forget everything that came from this source reference (a URL, file or tool) and what was derived from it',
+          ),
         reason: z.string().max(500).optional(),
         ...scopeFields,
       }),
@@ -201,7 +210,8 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
         (scope) =>
           memory.forget(caller, {
             scope,
-            ids: args.ids,
+            ...(args.ids ? { ids: args.ids } : {}),
+            ...(args.source ? { source: args.source } : {}),
             ...(args.reason ? { reason: args.reason } : {}),
           }),
         (r) => ({ text: `Forgot ${String(r.count)}.`, data: { count: r.count, ids: r.ids } }),

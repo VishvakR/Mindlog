@@ -96,6 +96,13 @@ export const configSchema = z.strictObject({
             .default('quarantine_new'),
         })
         .prefault({}),
+      // Trust by source (PLAN 13.4): content from other tools and domains is quarantined.
+      trust: z
+        .strictObject({
+          tools: z.array(z.string().min(1)).default([]),
+          domains: z.array(z.string().min(1)).default([]),
+        })
+        .prefault({}),
     })
     .prefault({}),
   features: z

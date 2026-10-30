@@ -210,20 +210,23 @@ export const memGetCommand: ConnectionCommand = {
     }),
 };
 
-/** `MEM.FORGET <scope> <id> [id ...]`. */
+/** `MEM.FORGET <scope> <id> [id ...]` or `MEM.FORGET <scope> SOURCE <ref>` (taint cascade). */
 export const memForgetCommand: ConnectionCommand = {
   name: 'MEM.FORGET',
   execute: (ctx, argv) =>
-    withMemory(ctx, async (memory) =>
-      answer(
+    withMemory(ctx, async (memory) => {
+      const bySource = argv.length === 4 && decoder.decode(argv[2]).toUpperCase() === 'SOURCE';
+      return answer(
         await memory.forget(caller(ctx), {
           scope: scopeOf(argv[1]),
-          ids: argv.slice(2).map((a) => decoder.decode(a)),
+          ...(bySource
+            ? { source: decoder.decode(argv[3]) }
+            : { ids: argv.slice(2).map((a) => decoder.decode(a)) }),
           reason: `MEM.FORGET by ${ctx.session.principal}`,
         }),
         (r) => replies.integer(r.count),
-      ),
-    ),
+      );
+    }),
 };
 
 /** `MEM.HISTORY <scope> <id>`: versions newest first. */

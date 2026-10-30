@@ -4,9 +4,10 @@ import { dropDependents } from '@mindlog/cache';
 import { completeJob, enqueueJob } from '@mindlog/jobs';
 import type { CommandResult } from '@mindlog/proto';
 import { CommandResultSchema, MemoryRecordSchema } from '@mindlog/proto';
+import { decodeKey } from '@mindlog/core';
 import type { ApplyContext, ApplyHandler } from '@mindlog/statemachine';
 import { errorResult, inSpan } from '@mindlog/statemachine';
-import { recordKey, scopeKey } from '../keys.js';
+import { derivedPrefix, recordKey, scopeKey, sourceRefPrefix } from '../keys.js';
 import { MEMORY_KINDS } from '../types.js';
 import {
   bumpGeneration,
@@ -83,21 +84,64 @@ export const memoryCommitHandler: ApplyHandler = {
   },
 };
 
+/** Ids under a key prefix whose last element is the id. */
+async function* idsUnder(ctx: ApplyContext, prefix: Uint8Array): AsyncGenerator<string> {
+  for await (const { key } of ctx.txn.scan(prefix)) {
+    const decoded = decodeKey(key);
+    const id = decoded.ok ? decoded.value.tuple.at(-1) : undefined;
+    if (typeof id === 'string') yield id;
+  }
+}
+
 /**
- * `MemoryForget`: expires the current ones among `ids`; unknown or forgotten
- * ids are skipped. Cache entries depending on them are dropped in the same
- * batch (ADR-0012).
+ * The taint cascade (PLAN 13.4): memories from a source and, transitively,
+ * those derived from them; undefined past `limit`.
+ */
+async function taintedBy(
+  ctx: ApplyContext,
+  tenant: string,
+  user: string,
+  ref: string,
+  limit: number,
+): Promise<Set<string> | undefined> {
+  const seen = new Set<string>();
+  const queue: string[] = [];
+  for await (const id of idsUnder(ctx, sourceRefPrefix(tenant, user, ref))) queue.push(id);
+  while (queue.length > 0) {
+    const id = queue.shift() as string;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    if (seen.size > limit) return undefined;
+    for await (const child of idsUnder(ctx, derivedPrefix(tenant, user, id))) queue.push(child);
+  }
+  return seen;
+}
+
+/**
+ * `MemoryForget`: expires the current ones among `ids`, plus everything a
+ * tainted source led to; unknown or forgotten ids are skipped. Cache entries
+ * depending on them are dropped in the same batch (ADR-0012).
  */
 export const memoryForgetHandler: ApplyHandler = {
   body: 'memoryForget',
   async apply(ctx) {
     if (ctx.command.body.case !== 'memoryForget') throw new Error('memoryForget got another body');
-    const { user, ids, reason } = ctx.command.body.value;
+    const { user, ids, reason, sourceRef, cascadeLimit } = ctx.command.body.value;
     const { tenant } = ctx.command;
     const moved = outsideRange(ctx, user);
     if (moved) return moved;
+    const targets = new Set(ids);
+    if (sourceRef !== '') {
+      const tainted = await taintedBy(ctx, tenant, user, sourceRef, cascadeLimit);
+      if (!tainted)
+        return errorResult(
+          'PAYLOAD_TOO_LARGE',
+          `more than ${String(cascadeLimit)} memories derive from ${sourceRef}`,
+        );
+      for (const id of tainted) targets.add(id);
+    }
     const forgotten: string[] = [];
-    for (const id of new Set(ids)) {
+    for (const id of targets) {
       const bytes = await ctx.txn.get(recordKey(tenant, user, id));
       if (!bytes) continue;
       const record = fromBinary(MemoryRecordSchema, bytes);

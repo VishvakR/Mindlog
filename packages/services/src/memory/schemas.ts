@@ -88,11 +88,18 @@ export const listMemorySchema = z.strictObject({
   asOf: asOf.optional(),
 });
 
-export const forgetSchema = z.strictObject({
-  scope: memoryScopeSchema,
-  ids: z.array(memoryId).min(1).max(100),
-  reason: z.string().max(500).optional(),
-});
+export const forgetSchema = z
+  .strictObject({
+    scope: memoryScopeSchema,
+    ids: z.array(memoryId).max(100).default([]),
+    reason: z.string().max(500).optional(),
+    /** Taint cascade: forget everything from this source and derived from it (PLAN 13.4). */
+    source: z.string().min(1).max(512).optional(),
+  })
+  .refine((f) => f.ids.length > 0 || f.source !== undefined, {
+    message: 'give ids or a source',
+    path: ['ids'],
+  });
 
 export const historySchema = z.strictObject({ scope: memoryScopeSchema, id: memoryId });
 

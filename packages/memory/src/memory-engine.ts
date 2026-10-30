@@ -32,6 +32,7 @@ import { emptyDraft } from './recall/recall-draft.js';
 import { DEFAULT_RECIPE, RECIPES } from './recall/recipes.js';
 import type { IndexSource, RecallConfig } from './recall/recall-stages.js';
 import { recallStages } from './recall/recall-stages.js';
+import { minTrust } from './ingest/text.js';
 import { listConflicts } from './review.js';
 import type {
   AsOf,
@@ -57,6 +58,8 @@ export interface MemoryConfig extends IngestConfig, RecallConfig {
   readonly tokenBudget: number;
   /** Jobs a user scope may hold before async remember answers BUSY (PLAN 12.7, ADR-0017). */
   readonly maxQueuedJobs: number;
+  /** Most memories one taint cascade may forget (PLAN 13.4). */
+  readonly maxCascade: number;
 }
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
@@ -91,8 +94,11 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   duplicateThreshold: 0.9,
   conflictPolicy: 'quarantine_new',
   conflictCandidates: 5,
+  trustedTools: [],
+  trustedDomains: [],
   tokenBudget: 1000,
   maxQueuedJobs: 1000,
+  maxCascade: 1000,
 };
 
 export interface MemoryEngineDeps {
@@ -175,11 +181,16 @@ export class MemoryEngine {
     const { scope } = draft.input;
     let n = 0;
     const nextId = () => extra.ids?.[n++] ?? this.#d.ids.next();
+    let inherited: Trust = 'verified';
+    const reads = new MemoryReads(range.reader, scope.tenant, scope.user);
+    for (const id of extra.derivedFrom ?? [])
+      inherited = minTrust(inherited, ((await reads.record(id))?.trust ?? 'normal') as Trust);
     const { memories, edges, conflicts, supersede } = assemble(
       draft,
       context,
       nextId,
       extra.derivedFrom,
+      inherited,
     );
     const command = this.#d.stamper.stamp(
       scope.tenant,
@@ -202,7 +213,6 @@ export class MemoryEngine {
     if (!committed.ok) return committed;
     const outcome = committed.value.outcome;
     const ids = outcome.case === 'memory' ? outcome.value.ids : [];
-    const reads = new MemoryReads(range.reader, scope.tenant, scope.user);
     const views: MemoryView[] = [];
     for (const id of ids) {
       const record = await reads.record(id);
@@ -413,14 +423,21 @@ export class MemoryEngine {
     return ok(next ? { memories, next } : { memories });
   }
 
+  /** Forgets memories, and with `sourceRef` everything from that source and derived from it (PLAN 13.4). */
   async forget(
     range: MemoryRange,
-    input: { scope: MemoryScope; ids: readonly string[]; reason?: string },
+    input: { scope: MemoryScope; ids: readonly string[]; reason?: string; sourceRef?: string },
     context: CallContext,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     return this.#write(range, input.scope, context, {
       case: 'memoryForget',
-      value: { user: input.scope.user, ids: [...input.ids], reason: input.reason ?? '' },
+      value: {
+        user: input.scope.user,
+        ids: [...input.ids],
+        reason: input.reason ?? '',
+        sourceRef: input.sourceRef ?? '',
+        cascadeLimit: this.#config.maxCascade,
+      },
     });
   }
 

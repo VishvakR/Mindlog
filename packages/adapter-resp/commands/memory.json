@@ -65,7 +65,7 @@
     ]
   },
   "MEM.FORGET": {
-    "summary": "Forgets memories of a scope (append-only: history is kept); returns how many.",
+    "summary": "Forgets memories of a scope, or with SOURCE ref everything from that source and derived from it (append-only: history is kept); returns how many.",
     "complexity": "O(N) in the ids",
     "group": "memory",
     "since": "0.5.0",

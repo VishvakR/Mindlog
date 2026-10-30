@@ -152,7 +152,16 @@ const OPS = {
     schema: forgetSchema,
     write: true,
     run: ({ memory: e }, r, scope, i, c) =>
-      e.forget(r, { scope, ids: i.ids, ...(i.reason ? { reason: i.reason } : {}) }, c),
+      e.forget(
+        r,
+        {
+          scope,
+          ids: i.ids,
+          ...(i.reason ? { reason: i.reason } : {}),
+          ...(i.source ? { sourceRef: i.source } : {}),
+        },
+        c,
+      ),
   }),
   history: op({
     schema: historySchema,

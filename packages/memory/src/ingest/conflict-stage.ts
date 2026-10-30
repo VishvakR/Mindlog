@@ -10,6 +10,7 @@ import type { MemoryScope, Trust } from '../types.js';
 import type { VectorCache } from '../vector-cache.js';
 import type { ConflictConfig, Window } from './conflicts.js';
 import { applyPolicy, disjoint, supersedes, verdict } from './conflicts.js';
+import { minTrust } from './text.js';
 import type { Checked, DraftConflict, DraftFact, IngestDraft } from './draft.js';
 
 export interface CheckInput {
@@ -24,9 +25,6 @@ const window = (r: MemoryRecord): Window => ({
   validFrom: Number(r.validFrom),
   validTo: Number(r.validTo),
 });
-
-const minTrust = (a: Trust, b: Trust): Trust =>
-  a === 'quarantined' || b === 'quarantined' ? 'quarantined' : a === 'normal' ? a : b;
 
 async function candidates(
   fact: DraftFact,

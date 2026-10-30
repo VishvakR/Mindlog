@@ -88,6 +88,8 @@ export function openMemory(deps: {
       modelTimeoutMs: timeoutMs,
       conflictThreshold: config.memory.conflicts.threshold,
       conflictPolicy: config.memory.conflicts.policy,
+      trustedTools: config.memory.trust.tools,
+      trustedDomains: config.memory.trust.domains.map((d) => d.toLowerCase()),
     },
     ranges: (rangeId) => {
       const target = router.local(rangeId);

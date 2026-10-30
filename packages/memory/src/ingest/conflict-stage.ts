@@ -20,6 +20,8 @@ export interface CheckInput {
   readonly facts: readonly DraftFact[];
   /** World time (ms) of the decision. */
   readonly nowMs: number;
+  /** Cosine a candidate needs to the new fact; without vectors every candidate is compared. */
+  readonly minSimilarity: number;
 }
 
 const windowOf = (r: MemoryRecord): Window => ({
@@ -49,7 +51,16 @@ async function candidates(
   for (const m of fact.mentions)
     for (const id of await reads.mentions(entityId(m.type, m.name), n)) ids.add(id);
   const out: MemoryRecord[] = [];
+  const cosine = (id: string) => {
+    const v = index?.get(id);
+    if (!fact.vector || !v || v.length !== fact.vector.length) return 1;
+    let dot = 0;
+    for (let i = 0; i < v.length; i++) dot += (v[i] ?? 0) * (fact.vector[i] ?? 0);
+    return dot;
+  };
   for (const id of ids) {
+    // NLI flags unrelated facts about one person; only similar facts are compared (ADR-0015).
+    if (cosine(id) < input.minSimilarity) continue;
     const r = await reads.record(id);
     if (!r || r.expiredAt !== 0n || r.kind !== 'semantic' || r.trust === 'quarantined') continue;
     if (r.validTo !== 0n && Number(r.validTo) <= input.nowMs) continue;
@@ -160,6 +171,7 @@ export function conflictStage(
           })),
           facts: d.facts,
           nowMs: Number(context.clock.now()),
+          minSimilarity: config.conflictMinSimilarity,
         },
         { nli, reads, vectors },
         config,

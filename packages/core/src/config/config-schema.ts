@@ -90,7 +90,9 @@ export const configSchema = z.strictObject({
       conflicts: z
         .strictObject({
           // Contradiction probability that raises a conflict (θ_c); above 0.5 it is the NLI top label.
-          threshold: z.number().min(0.5).max(1).default(0.8),
+          threshold: z.number().min(0.5).max(1).default(0.95),
+          // Cosine a fact needs to a new one to be compared (unrelated facts about one person are not).
+          minSimilarity: z.number().min(0).max(1).default(0.5),
           policy: z
             .enum(['quarantine_new', 'newest_wins', 'ask_human', 'prefer_verified'])
             .default('quarantine_new'),

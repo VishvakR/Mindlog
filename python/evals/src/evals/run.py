@@ -1,19 +1,21 @@
-"""`uv run python -m evals.run --suite longmemeval|locomo|cache|all` against a running node."""
+"""`uv run python -m evals.run --suite longmemeval|locomo|cache|all|conflicts` against a node."""
 
 from __future__ import annotations
 
 import argparse
 import dataclasses
+import json
 import sys
 import time
 from pathlib import Path
 from typing import Any
 
-from . import cache_eval, data, report, suites
+from . import cache_eval, conflict_eval, conflict_pairs, data, report, suites
 from .client import Mindlog
 
 ROOT = Path(__file__).resolve().parents[4]
 OUT = ROOT / "docs" / "evals" / "phase-6"
+CONFLICTS_OUT = ROOT / "docs" / "evals" / "phase-7"
 
 
 def say(line: str) -> None:
@@ -46,7 +48,10 @@ def run_suite(
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--suite", choices=["longmemeval", "locomo", "cache", "all"], default="all")
+    p.add_argument(
+        "--suite", choices=["longmemeval", "locomo", "cache", "all", "conflicts"], default="all"
+    )
+    p.add_argument("--models", default="127.0.0.1:50051", help="model service, for the NLI sweep")
     p.add_argument("--n", type=int, default=100, help="LongMemEval questions (stratified sample)")
     p.add_argument("--full", action="store_true", help="all 500 LongMemEval questions")
     p.add_argument("--seed", type=int, default=6)
@@ -60,6 +65,9 @@ def main(argv: list[str] | None = None) -> None:
     args = p.parse_args(argv)
 
     client = Mindlog(args.host, args.port, http_port=args.http_port)
+    if args.suite == "conflicts":
+        run_conflicts(args)
+        return
     lme_path, locomo_path = data.download()
     json_path, md_path = args.out.with_suffix(".json"), args.out.with_suffix(".md")
     merged: dict[str, Any] = {}
@@ -84,6 +92,26 @@ def main(argv: list[str] | None = None) -> None:
         )
     md_path.write_text(report.markdown(merged))
     say(f"wrote {json_path} and {md_path}")
+
+
+def run_conflicts(args: argparse.Namespace) -> None:
+    """Phase 7: conflict detection on the hand-written pairs (its own report)."""
+    pairs = conflict_pairs.pairs()
+    say(f"conflicts: {len(pairs)} pairs; NLI sweep against {args.models}")
+    result = {
+        "sweep": conflict_eval.sweep(args.models, pairs),
+        "end_to_end": conflict_eval.end_to_end(
+            lambda: Mindlog(args.host, args.port, http_port=args.http_port),
+            pairs,
+            args.workers,
+            say,
+        ),
+    }
+    config = {"threshold": 0.95, "minSimilarity": 0.5, "policy": "quarantine_new"}
+    out = CONFLICTS_OUT
+    out.with_suffix(".json").write_text(json.dumps(result, indent=2) + "\n")
+    out.with_suffix(".md").write_text(conflict_eval.markdown(result, config))
+    say(f"wrote {out}.json and .md; end-to-end F1 {result['end_to_end']['f1']}")
 
 
 if __name__ == "__main__":

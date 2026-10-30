@@ -9,6 +9,7 @@ const config: ConflictConfig = {
   duplicateThreshold: 0.9,
   conflictPolicy: 'quarantine_new',
   conflictCandidates: 5,
+  conflictMinSimilarity: 0.5,
 };
 const DAY = 86_400_000;
 
@@ -94,7 +95,9 @@ async function open(n: Node) {
   return r.value.conflicts;
 }
 
-const node = (config: Partial<MemoryConfig> = {}) => memoryNode({ config });
+// FakeModels scores contradictions 0.9; these tests are about the mechanism, not the tuned threshold.
+const node = (config: Partial<MemoryConfig> = {}) =>
+  memoryNode({ config: { conflictThreshold: 0.8, ...config } });
 
 describe('conflict detection before commit', () => {
   test('quarantines a contradicting fact and raises a conflict that a resolution settles', async () => {

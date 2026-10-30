@@ -20,6 +20,8 @@ export interface ConflictConfig {
   readonly conflictPolicy: ConflictPolicy;
   /** Existing facts compared with each new one, by similarity and by shared entity. */
   readonly conflictCandidates: number;
+  /** Cosine a candidate needs to the new fact to be compared at all. */
+  readonly conflictMinSimilarity: number;
 }
 
 /** World-time validity of a fact in ms; 0 is open. */

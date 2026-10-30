@@ -176,6 +176,7 @@ export async function planBranchMerge(
       windows: added.map((r) => ({ validFrom: Number(r.validFrom), validTo: Number(r.validTo) })),
       facts,
       nowMs: deps.nowMs,
+      minSimilarity: deps.config.conflictMinSimilarity,
     },
     { nli: deps.models, reads: main, vectors: deps.vectors },
     // Raw contradictions: the merge policy decides what they do.

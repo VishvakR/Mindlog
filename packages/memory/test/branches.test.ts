@@ -39,7 +39,9 @@ async function merge(n: Node, policy: MergePolicy, name = 'plan') {
   return r.value;
 }
 
-const node = (config: Partial<MemoryConfig> = {}) => memoryNode({ config });
+// FakeModels scores contradictions 0.9; these tests are about the mechanism, not the tuned threshold.
+const node = (config: Partial<MemoryConfig> = {}) =>
+  memoryNode({ config: { conflictThreshold: 0.8, ...config } });
 
 describe('branch isolation (ADR-0013)', () => {
   test('a branch sees main as of its fork plus its own writes; main sees neither', async () => {

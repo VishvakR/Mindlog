@@ -845,11 +845,17 @@ name = "mindlog-evals"
 version = "0.0.0"
 source = { editable = "evals" }
 dependencies = [
+    { name = "mindlog-proto" },
+    { name = "numpy" },
     { name = "redis" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "redis", specifier = ">=8.1.0" }]
+requires-dist = [
+    { name = "mindlog-proto", editable = "mindlog_proto" },
+    { name = "numpy", specifier = ">=2.0" },
+    { name = "redis", specifier = ">=8.1.0" },
+]
 
 [[package]]
 name = "mindlog-model-service"

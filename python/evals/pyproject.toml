@@ -1,11 +1,16 @@
 [project]
 name = "mindlog-evals"
 version = "0.0.0"
-description = "Retrieval evals for Mindlog's memory (LongMemEval, LoCoMo), recipe ablations, packing curves and cache false positives (phase 6)"
+description = "Retrieval evals for Mindlog's memory (LongMemEval, LoCoMo), recipe ablations, packing curves and cache false positives (phase 6), conflict detection (phase 7)"
 requires-python = ">=3.12"
 dependencies = [
+    "mindlog-proto",
+    "numpy>=2.0",
     "redis>=8.1.0",
 ]
+
+[tool.uv.sources]
+mindlog-proto = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.9.27,<0.10"]

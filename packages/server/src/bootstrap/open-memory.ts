@@ -89,6 +89,7 @@ export function openMemory(deps: {
     config: {
       modelTimeoutMs: timeoutMs,
       conflictThreshold: config.memory.conflicts.threshold,
+      conflictMinSimilarity: config.memory.conflicts.minSimilarity,
       conflictPolicy: config.memory.conflicts.policy,
       trustedTools: config.memory.trust.tools,
       trustedDomains: config.memory.trust.domains.map((d) => d.toLowerCase()),

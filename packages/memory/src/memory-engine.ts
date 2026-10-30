@@ -97,8 +97,9 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   themeMaxNodes: 2000,
   themeCount: 2,
   modelTimeoutMs: 2000,
-  // ADR-0015.
-  conflictThreshold: 0.8,
+  // ADR-0015, tuned on the phase 7 conflict set (docs/evals/phase-7.md).
+  conflictThreshold: 0.95,
+  conflictMinSimilarity: 0.5,
   duplicateThreshold: 0.9,
   conflictPolicy: 'quarantine_new',
   conflictCandidates: 5,

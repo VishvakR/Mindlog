@@ -149,3 +149,24 @@ def test_cache_false_positives_are_rated_over_their_own_lookups() -> None:
     assert at_90["wrong_entry_on_repeats"] == pytest.approx(1 / 3)
     assert at_90["false_positive_rate"] == pytest.approx(1 / 3)
     assert at_90["wrong_share_of_hits"] == pytest.approx(2 / 3)
+
+
+def test_conflict_pairs_cover_each_label_with_distinct_texts() -> None:
+    from evals.conflict_pairs import pairs
+
+    ps = pairs()
+    counts = {
+        label: sum(p.label == label for p in ps)
+        for label in ("contradict", "entail", "neutral", "change")
+    }
+    assert counts == {"contradict": 100, "entail": 100, "neutral": 100, "change": 20}
+    assert all(p.a != p.b for p in ps)
+    assert all(p.b_from > p.a_from > 0 for p in ps if p.label == "change")
+    assert pairs() == ps
+
+
+def test_prf() -> None:
+    from evals.conflict_eval import prf
+
+    assert prf(8, 2, 2) == {"precision": 0.8, "recall": 0.8, "f1": 0.8}
+    assert prf(0, 0, 3) == {"precision": 0.0, "recall": 0.0, "f1": 0.0}

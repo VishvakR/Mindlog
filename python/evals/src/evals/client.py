@@ -67,6 +67,21 @@ class Mindlog:
         hit = cast(dict[str, Any], reply)
         return _str(hit["answer"]), float(hit["similarity"])
 
+    def add_fact(self, scope: str, text: str, valid_from: int = 0) -> str:
+        """Stores one semantic fact verbatim; its id."""
+        args: list[str | int] = ["MEM.ADD", scope, text, "KIND", "semantic"]
+        if valid_from:
+            args += ["VALID_FROM", valid_from]
+        reply = cast(dict[str, Any], self._call(*args))
+        return _str(reply["ids"][0])
+
+    def conflicts(self, scope: str) -> list[dict[str, Any]]:
+        return cast(list[dict[str, Any]], self._call("MEM.CONFLICTS", scope, "ALL"))
+
+    def valid_to(self, scope: str, memory_id: str) -> int:
+        reply = cast(dict[str, Any] | None, self._call("MEM.GET", scope, memory_id))
+        return int((reply or {}).get("valid_to", 0))
+
     # Resumable ingestion: memory id → corpus id in a hash, and how many turns are in.
     def mapping(self, scope: str) -> tuple[dict[str, str], int]:
         done = self._r.get(f"evals:next:{scope}")

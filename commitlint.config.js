@@ -53,6 +53,7 @@ export default {
         'ci',
         'github',
         'python',
+        'evals',
         'model-service',
         'sim',
         'compat',

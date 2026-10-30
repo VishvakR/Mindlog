@@ -49,3 +49,5 @@ test/maelstrom/store/
 
 # Model weights (ADR-0020): downloaded only here, never committed
 /python/model_service/models/
+# Eval datasets (LongMemEval, LoCoMo CC BY-NC): downloaded by `python -m evals.download`, never committed.
+/python/evals/data/

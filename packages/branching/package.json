@@ -1,0 +1,21 @@
+{
+  "name": "@mindlog/branching",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Memory branch merges: state-based CRDTs (OR-set, PN-counter, LWW register) and the pure merge planner (ADR-0013)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/branching/"
+  }
+}

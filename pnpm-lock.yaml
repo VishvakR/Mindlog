@@ -254,6 +254,8 @@ importers:
         specifier: workspace:*
         version: link:../storage
 
+  packages/branching: {}
+
   packages/cache:
     dependencies:
       '@bufbuild/protobuf':

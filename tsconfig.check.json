@@ -125,6 +125,12 @@
       "path": "packages/index-graph/test"
     },
     {
+      "path": "packages/branching"
+    },
+    {
+      "path": "packages/branching/test"
+    },
+    {
       "path": "packages/cache"
     },
     {

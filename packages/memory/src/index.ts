@@ -60,4 +60,4 @@ export { VectorCache } from './vector-cache.js';
 export type { TrustPolicy } from './ingest/text.js';
 export { trustOf } from './ingest/text.js';
 export { TRUST_LEVELS } from './review.js';
-export { toView } from './view.js';
+export { hlcMs, toView } from './view.js';

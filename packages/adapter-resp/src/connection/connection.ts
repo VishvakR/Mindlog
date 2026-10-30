@@ -72,6 +72,7 @@ export class Connection implements ConnectionContext {
   #closeAfterReply: CloseReason | undefined;
   #closed = false;
   #paused = false;
+  #ends: Array<() => void> = [];
 
   constructor(deps: ConnectionDeps) {
     this.#deps = deps;
@@ -129,7 +130,25 @@ export class Connection implements ConnectionContext {
     this.#closed = true;
     this.server.clients.remove(this.client.id);
     this.#deps.transport.close();
+    this.#end();
     this.#deps.onClose?.(reason);
+  }
+
+  #end(): void {
+    const ends = this.#ends;
+    this.#ends = [];
+    for (const fn of ends) fn();
+  }
+
+  push(items: readonly KvReply[]): void {
+    if (this.#closed) return;
+    this.#writer.writePush(items, this.client.protocol);
+    // Mid-pipeline the push leaves with the batch; otherwise now.
+    if (!this.#processing) this.#flush();
+  }
+
+  onEnd(fn: () => void): void {
+    this.#ends.push(fn);
   }
 
   closeAfterReply(): void {
@@ -137,6 +156,7 @@ export class Connection implements ConnectionContext {
   }
 
   resetSession(): void {
+    this.#end();
     this.#session = this.#openSession();
     this.client.protocol = 2;
     this.client.multi = -1;

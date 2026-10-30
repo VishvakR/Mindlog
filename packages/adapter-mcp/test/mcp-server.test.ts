@@ -3,6 +3,12 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { err, mindlogError, ok } from '@mindlog/core';
 import type { ApiKeyIdentity } from '@mindlog/services';
+import { ChangeFeed } from '@mindlog/services';
+import { create } from '@bufbuild/protobuf';
+import { MemoryLogger, MemoryMetrics } from '@mindlog/core';
+import { InMemoryEventBus } from '@mindlog/eventbus';
+import type { Command } from '@mindlog/proto';
+import { CommandResultSchema, CommandSchema } from '@mindlog/proto';
 import type { McpMemory } from '@mindlog/adapter-mcp';
 import { McpHttpServer, proxyMessages } from '@mindlog/adapter-mcp';
 
@@ -128,10 +134,11 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((s) => s.close()));
 });
 
-async function start() {
+async function start(changes?: ChangeFeed) {
   const { memory, asked } = stubMemory();
   const server = new McpHttpServer({
     memory,
+    ...(changes ? { changes } : {}),
     keys: {
       verify: (key) =>
         Promise.resolve(
@@ -256,6 +263,43 @@ describe('MCP over Streamable HTTP', () => {
       conflicts: 0,
     });
     expect(asked.at(-1)).toMatchObject({ op: 'mergeBranch', input: { policy: 'prefer_branch' } });
+  });
+
+  test('a listen stream hears updates of memory://<user>/recent only for scopes the key may read', async () => {
+    const bus = new InMemoryEventBus({ logger: new MemoryLogger(), metrics: new MemoryMetrics() });
+    const changes = new ChangeFeed();
+    changes.attach(bus);
+    const { connect } = await start(changes);
+    let index = 0n;
+    const forget = (tenant: string, user: string) => {
+      bus.publish({
+        type: 'CommandApplied',
+        rangeId: 1n,
+        index: ++index,
+        command: create(CommandSchema, {
+          tenant,
+          hlc: 1n << 16n,
+          body: { case: 'memoryForget', value: { user, ids: ['m'] } } as Command['body'],
+        }),
+        result: create(CommandResultSchema, {
+          outcome: { case: 'memory', value: { ids: ['m'], count: 1 } },
+        }),
+        duplicate: false,
+      });
+    };
+    const client = await connect('mlk_alice');
+    const updated: string[] = [];
+    client.setNotificationHandler('notifications/resources/updated', (n) => {
+      updated.push(n.params.uri);
+    });
+    const subscription = await client.listen({
+      resourceSubscriptions: ['memory://alice/recent', 'memory://bob/recent'],
+    });
+    forget('other', 'alice');
+    forget('acme', 'bob');
+    forget('acme', 'alice');
+    await expect.poll(() => updated).toEqual(['memory://alice/recent']);
+    await subscription.close();
   });
 
   test('cache_store and cache_lookup run as the key', async () => {

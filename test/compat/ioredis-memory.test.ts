@@ -1,3 +1,4 @@
+import { connect } from 'node:net';
 import { Redis } from 'ioredis';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { startTestNode } from '../support/node.js';
@@ -149,6 +150,33 @@ describe('ioredis: MEM.*', () => {
     expect(await redis.call('MEM.GET', 'dora', id, 'ASOF', '2020-01-01')).toBeNull();
     // Log index 1 is before this scope's first command.
     expect(await redis.call('MEM.GET', 'dora', id, 'ASOF', '1')).toBeNull();
+  });
+
+  test('MEM.WATCH pushes the scope’s changes after +OK, and FROM replays the held ones', async () => {
+    const socket = connect(server.port, '127.0.0.1');
+    let seen = '';
+    socket.on('data', (b: Buffer) => (seen += b.toString()));
+    socket.write('*2\r\n$9\r\nMEM.WATCH\r\n$4\r\nerin\r\n');
+    await expect.poll(() => seen).toBe('+OK\r\n');
+    const added = asMap(await redis.call('MEM.ADD', 'erin', 'Erin likes sailing.'));
+    await redis.call('MEM.ADD', 'frank', 'Frank likes golf.');
+    await expect.poll(() => seen).toContain('memory.added');
+    expect(seen).toContain('*4\r\n$10\r\nmem.change\r\n');
+    expect(seen).toContain((added.ids as string[])[0]);
+    expect(seen).not.toContain('frank');
+    const cursor = /"cursor":"(\d+:\d+)"/.exec(seen)?.[1] ?? '';
+    socket.destroy();
+
+    const again = connect(server.port, '127.0.0.1');
+    let replay = '';
+    again.on('data', (b: Buffer) => (replay += b.toString()));
+    const [range = '', index = '0'] = cursor.split(':');
+    const before = `${range}:${String(Number(index) - 1)}`;
+    again.write(
+      `*4\r\n$9\r\nMEM.WATCH\r\n$4\r\nerin\r\n$4\r\nFROM\r\n$${String(before.length)}\r\n${before}\r\n`,
+    );
+    await expect.poll(() => replay).toContain('memory.added');
+    again.destroy();
   });
 
   test('bad arguments are errors', async () => {

@@ -280,6 +280,7 @@ export class StateMachine {
     const started = this.#deps.clock.monotonic();
     const batch = this.#deps.store.batch();
     let result = await this.#idempotency.lookup(command.requestId);
+    const duplicate = result !== undefined;
     const frozen = result ? undefined : this.#frozenResult(command);
     if (frozen) {
       // The refusal is recorded, so a re-proposed copy of the same request gets the same answer
@@ -311,7 +312,14 @@ export class StateMachine {
     const body = command.body.case ?? 'none';
     this.#appliedTotal.inc(1, { body });
     this.#latency.observe(Number(this.#deps.clock.monotonic() - started) / 1e9);
-    this.#deps.events.publish({ type: 'CommandApplied', rangeId: this.#rangeId, index, command });
+    this.#deps.events.publish({
+      type: 'CommandApplied',
+      rangeId: this.#rangeId,
+      index,
+      command,
+      result,
+      duplicate,
+    });
     return result;
   }
 

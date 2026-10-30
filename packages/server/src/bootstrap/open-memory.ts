@@ -7,7 +7,7 @@ import { MemoryEngine, VectorCache } from '@mindlog/memory';
 import type { Capability, Models } from '@mindlog/models-client';
 import { GrpcModels, GuardedModels, NoModels } from '@mindlog/models-client';
 import type { RangeRouter } from '@mindlog/services';
-import { MemoryService } from '@mindlog/services';
+import { ChangeFeed, MemoryService } from '@mindlog/services';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
 import { openPprPool } from './ppr-pool.js';
@@ -18,6 +18,8 @@ export interface MemoryParts {
   /** Job workers the range jobs run (the `memory.enrich` worker). */
   readonly workers: WorkerRegistry;
   readonly models: Models;
+  /** The memory change stream of this node's replicas (PLAN 13.5). */
+  readonly changes: ChangeFeed;
   /** Stops the PPR worker pool. */
   close(): Promise<void>;
 }
@@ -114,5 +116,7 @@ export function openMemory(deps: {
     stamper: deps.stamper,
     ...(deps.clusterVersion ? { clusterVersion: deps.clusterVersion } : {}),
   });
-  return { service, engine, workers, models, close: ppr.close };
+  const changes = new ChangeFeed();
+  changes.attach(deps.events);
+  return { service, engine, workers, models, changes, close: ppr.close };
 }

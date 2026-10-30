@@ -1,6 +1,12 @@
 import type { Clock, Logger, Tracer } from '@mindlog/core';
 import type { KvReply } from '@mindlog/proto';
-import type { ClusterService, KvService, MemoryService, Session } from '@mindlog/services';
+import type {
+  ChangeFeed,
+  ClusterService,
+  KvService,
+  MemoryService,
+  Session,
+} from '@mindlog/services';
 import type { CommandTable } from '../commands/command-table.js';
 import type { ClientRegistry, ClientState } from './client-state.js';
 
@@ -23,6 +29,8 @@ export interface ServerContext {
   readonly cluster?: ClusterService;
   /** MEM.* commands; absent when the node runs no memory engine. */
   readonly memory?: MemoryService;
+  /** The memory change stream MEM.WATCH follows (PLAN 13.5). */
+  readonly changes?: ChangeFeed;
   readonly commands: CommandTable;
   readonly clients: ClientRegistry;
   readonly clock: Clock;
@@ -41,6 +49,10 @@ export interface ConnectionContext {
   closeAfterReply(): void;
   /** Fresh session: no transaction, no watches, authentication reset (RESET). */
   resetSession(): void;
+  /** Sends a push message now, between replies (MEM.WATCH). */
+  push(items: readonly KvReply[]): void;
+  /** Runs `fn` when the connection closes or its session is reset. */
+  onEnd(fn: () => void): void;
 }
 
 /**

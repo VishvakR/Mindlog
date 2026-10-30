@@ -109,3 +109,33 @@ export const memDropCommand: ConnectionCommand = {
       answer(await memory.dropBranch(caller(ctx), target(argv)), () => replies.ok()),
     ),
 };
+
+/**
+ * `MEM.WATCH <scope> [FROM cursor]`: follows the scope's changes as push
+ * messages `mem.change <cursor> <type> <json>` until the connection closes or
+ * resets (PLAN 13.5). A cursor older than this node holds pushes `resync`.
+ */
+export const memWatchCommand: ConnectionCommand = {
+  name: 'MEM.WATCH',
+  execute: (ctx, argv) => {
+    const feed = ctx.server.changes;
+    if (!feed) return replies.error('UNIMPLEMENTED', 'change streams are not available');
+    const o = options(argv, 2, ['FROM'], []);
+    if (isReply(o)) return o;
+    const { user } = scopeOf(argv[1]);
+    const filter = { tenant: ctx.session.tenant, user };
+    const from = typeof o.FROM === 'string' ? o.FROM : undefined;
+    // Subscribe after this reply is written, so pushes follow the confirmation.
+    setImmediate(() => {
+      const stop = feed.subscribe(filter, from, (e) => {
+        ctx.push(
+          e.type === 'resync'
+            ? [text('mem.change'), text(''), text('resync'), text('{}')]
+            : [text('mem.change'), text(e.cursor), text(e.type), text(JSON.stringify(e))],
+        );
+      });
+      ctx.onEnd(stop);
+    });
+    return replies.ok();
+  },
+};

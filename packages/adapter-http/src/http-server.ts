@@ -16,6 +16,7 @@ import { CONSOLE_PROTOCOL, consoleRoutes } from './routes/console-routes.js';
 import { dashboardRoutes, isSpaRoute } from './routes/dashboard-routes.js';
 import { healthRoutes } from './routes/health-routes.js';
 import { kvRoutes } from './routes/kv-routes.js';
+import { realtimeRoutes } from './routes/realtime-routes.js';
 import { superuserRoutes } from './routes/superuser-routes.js';
 
 const BEARER = 'bearer.';
@@ -138,6 +139,7 @@ export class HttpServer {
     memoryRoutes(app, this.#routes, deps);
     apiKeyRoutes(app, this.#routes, deps);
     consoleRoutes(app, deps);
+    realtimeRoutes(app, deps);
     const document = () => openApiDocument(this.#routes, deps.version);
     app.get('/api/openapi.json', { config: { auth: false } }, () => document());
     dashboard = await dashboardRoutes(app, deps.dashboardDir);

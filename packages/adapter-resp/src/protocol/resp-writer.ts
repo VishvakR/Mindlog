@@ -85,6 +85,12 @@ export class RespWriter {
     this.#ascii('\r\n');
   }
 
+  /** An out-of-band push (`>` in RESP3, an array in RESP2 as for pub/sub messages). */
+  writePush(items: readonly KvReply[], protocol: ProtocolVersion): void {
+    this.#ascii(`${protocol === 3 ? '>' : '*'}${String(items.length)}\r\n`);
+    for (const item of items) this.write(item, protocol);
+  }
+
   /** Returns the bytes written so far and starts a new buffer. */
   take(): Buffer {
     const out = Buffer.from(this.#buf.subarray(0, this.#len));

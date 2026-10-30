@@ -649,6 +649,9 @@ importers:
       '@mindlog/core':
         specifier: workspace:*
         version: link:../core
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
       '@mindlog/kv':
         specifier: workspace:*
         version: link:../kv
@@ -671,9 +674,6 @@ importers:
         specifier: ^4.6.6
         version: 4.6.6
     devDependencies:
-      '@mindlog/eventbus':
-        specifier: workspace:*
-        version: link:../eventbus
       '@mindlog/jobs':
         specifier: workspace:*
         version: link:../jobs

@@ -192,5 +192,17 @@
       { "name": "scope", "type": "string" },
       { "name": "name", "type": "string" }
     ]
+  },
+  "MEM.WATCH": {
+    "summary": "Follows a scope's memory changes as push messages, from an optional cursor (PLAN 13.5).",
+    "complexity": "O(1) to subscribe",
+    "group": "memory",
+    "since": "0.7.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "from", "type": "string", "token": "FROM", "optional": true }
+    ]
   }
 }

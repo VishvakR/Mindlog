@@ -52,7 +52,7 @@ import {
 } from '@mindlog/multiraft';
 import { ConnectPdClient } from '@mindlog/pd';
 import { StoreRouter, connectForwardCall, fromRequest } from '@mindlog/router';
-import type { MemoryService, PdAdmin } from '@mindlog/services';
+import type { ChangeFeed, MemoryService, PdAdmin } from '@mindlog/services';
 import { KvService, StaticAuthenticator } from '@mindlog/services';
 import {
   ApplyHandlerRegistry,
@@ -106,6 +106,8 @@ export interface NodeCore {
   readonly service: KvService;
   /** Memory requests (PLAN 12); routed to the leader of each user scope. */
   readonly memory: MemoryService;
+  /** Memory change stream (PLAN 13.5). */
+  readonly changes: ChangeFeed;
   /** Job workers for the range jobs (ADR-0017). */
   readonly workers: WorkerRegistry;
   /** Log entries applied while opening (ADR-0005). */
@@ -448,6 +450,7 @@ export async function openNodeCore(
     stateStore,
     service,
     memory: memory.service,
+    changes: memory.changes,
     workers: memory.workers,
     replayed: Number(machine.appliedIndex - before),
     async close() {

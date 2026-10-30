@@ -148,6 +148,7 @@ export async function startNode(
     service,
     cluster: new ClusterService(replica),
     memory: core.memory,
+    changes: core.changes,
     commands: new CommandTable(loadCommandSpecs()),
     clients: new ClientRegistry(),
     clock,
@@ -184,6 +185,7 @@ export async function startNode(
     browser: new KvBrowser(service),
     cluster: new ClusterDirectory(core.pdAdmin),
     memory: core.memory,
+    changes: core.changes,
     apiKeys,
     resp: { server: context, handlers, limits },
     prometheus:
@@ -204,6 +206,7 @@ export async function startNode(
 
   const mcp = new McpHttpServer({
     memory: core.memory,
+    changes: core.changes,
     keys: apiKeys,
     host: config.listen.mcp.http.host,
     port: config.listen.mcp.http.port,

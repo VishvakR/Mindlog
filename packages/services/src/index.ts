@@ -30,6 +30,8 @@ export {
   clusterView,
   describeKey,
 } from './cluster/cluster-directory.js';
+export type { ChangeEvent, ChangeFilter, ChangeType, Resync } from './memory/change-feed.js';
+export { CHANGE_TYPES, ChangeFeed, changesOf } from './memory/change-feed.js';
 export type { MemoryServiceDeps } from './memory/memory-service.js';
 export {
   CACHE_CLUSTER_VERSION,

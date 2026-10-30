@@ -28,6 +28,7 @@ import {
   memDiffCommand,
   memDropCommand,
   memMergeCommand,
+  memWatchCommand,
 } from './branches.js';
 import { memConflictsCommand, memResolveCommand, memTrustCommand } from './review.js';
 import { quitCommand, resetCommand, selectCommand } from './session-commands.js';
@@ -62,6 +63,7 @@ export function createConnectionCommands(): ConnectionCommandRegistry {
     memDiffCommand,
     memMergeCommand,
     memDropCommand,
+    memWatchCommand,
     cacheSetCommand,
     cacheGetCommand,
     cacheDelCommand,

@@ -22,6 +22,7 @@
     "@bufbuild/protobuf": "^2.16.0",
     "@mindlog/cache": "workspace:*",
     "@mindlog/core": "workspace:*",
+    "@mindlog/eventbus": "workspace:*",
     "@mindlog/kv": "workspace:*",
     "@mindlog/memory": "workspace:*",
     "@mindlog/proto": "workspace:*",
@@ -31,7 +32,6 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@mindlog/eventbus": "workspace:*",
     "@mindlog/jobs": "workspace:*",
     "@mindlog/models-client": "workspace:*",
     "@mindlog/multiraft": "workspace:*"

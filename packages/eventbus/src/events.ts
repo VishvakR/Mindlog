@@ -1,5 +1,5 @@
 import type { ScopePath } from '@mindlog/core';
-import type { Command } from '@mindlog/proto';
+import type { Command, CommandResult } from '@mindlog/proto';
 
 /**
  * Domain events (PLAN 4.4). They are emitted after a command is applied
@@ -26,6 +26,10 @@ export interface CommandApplied {
   readonly rangeId: bigint;
   readonly index: bigint;
   readonly command: Command;
+  /** What apply answered (an error result changed nothing). */
+  readonly result: CommandResult;
+  /** A retried request the idempotency table answered: nothing was applied again. */
+  readonly duplicate: boolean;
 }
 
 /** Memory records were committed in a scope. */

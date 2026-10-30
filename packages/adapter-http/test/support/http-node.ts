@@ -15,7 +15,7 @@ import {
   kvBatchHandler,
   kvWriteHandler,
 } from '@mindlog/kv';
-import type { MemoryService, PdAdmin } from '@mindlog/services';
+import type { ChangeFeed, MemoryService, PdAdmin } from '@mindlog/services';
 import {
   AdminService,
   ApiKeyService,
@@ -46,7 +46,13 @@ export const ADMIN = { email: 'admin@example.com', password: 'correct horse batt
 
 /** An HttpServer over an in-memory single-node stack, with one superuser. */
 export async function httpNode(
-  options: { ready?: boolean; dashboardDir?: string; pd?: PdAdmin; memory?: MemoryService } = {},
+  options: {
+    ready?: boolean;
+    dashboardDir?: string;
+    pd?: PdAdmin;
+    memory?: MemoryService;
+    changes?: ChangeFeed;
+  } = {},
 ) {
   const clock = new ManualClock(1_760_000_000_000n);
   const logger = new MemoryLogger();
@@ -116,6 +122,7 @@ export async function httpNode(
     browser: new KvBrowser(kv),
     cluster: new ClusterDirectory(options.pd),
     ...(options.memory ? { memory: options.memory } : {}),
+    ...(options.changes ? { changes: options.changes } : {}),
     resp: {
       server,
       handlers: createConnectionCommands(),

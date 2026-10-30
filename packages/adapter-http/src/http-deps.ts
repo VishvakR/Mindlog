@@ -7,6 +7,7 @@ import type { Clock, Logger, Metrics, Tracer } from '@mindlog/core';
 import type {
   AdminService,
   ApiKeyService,
+  ChangeFeed,
   ClusterDirectory,
   KvBrowser,
   KvService,
@@ -31,6 +32,8 @@ export interface HttpServerDeps {
   readonly cluster: ClusterDirectory;
   /** Memory operations (PLAN 15.3); absent on nodes without a memory engine. */
   readonly memory?: MemoryService;
+  /** The memory change stream `/api/realtime` serves (PLAN 13.5). */
+  readonly changes?: ChangeFeed;
   /** What the WebSocket console needs to run RESP connections. */
   readonly resp: {
     readonly server: ServerContext;

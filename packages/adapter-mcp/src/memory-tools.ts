@@ -23,7 +23,11 @@ const failure = (e: MindlogError): ToolResult => ({
  * Every call runs as the API key: its tenant, its user if it is pinned to one.
  */
 export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: string): McpServer {
-  const server = new McpServer({ name: 'mindlog', version });
+  // `memory://{user}/recent` updates reach listen streams (PLAN 13.5).
+  const server = new McpServer(
+    { name: 'mindlog', version },
+    { capabilities: { resources: { subscribe: true } } },
+  );
   const caller = { tenant: key.tenant, principal: `apikey:${key.id}` };
 
   /** Resolves and authorizes the scope, runs `call`, and renders its result or error. */

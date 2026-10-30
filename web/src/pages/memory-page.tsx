@@ -39,6 +39,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Toggle } from '@/components/ui/toggle';
 import {
   Table,
   TableBody,
@@ -63,6 +64,7 @@ export function MemoryPage() {
   const [kind, setKind] = useState<string>(ALL);
   const [open, setOpen] = useState<MemoryView | undefined>();
   const [forgetting, setForgetting] = useState<MemoryView | undefined>();
+  const [quarantinedOnly, setQuarantinedOnly] = useState(false);
   const list = useInfiniteQuery({
     queryKey: ['memories', scope.tenant, scope.scope, kind],
     queryFn: ({ pageParam }) =>
@@ -85,7 +87,21 @@ export function MemoryPage() {
     },
     onError: (e) => toast.error(e.message),
   });
-  const memories = list.data?.pages.flatMap((p) => p.memories) ?? [];
+  const trust = useMutation({
+    mutationFn: ({ m, level }: { m: MemoryView; level: string }) =>
+      api.memoryTrust(scope.tenant, { user: m.user }, m.id, level),
+    onSuccess: (_r, { level }) => {
+      toast.success(
+        level === 'normal' ? 'Released: agents can recall it now.' : `Marked ${level}.`,
+      );
+      setOpen(undefined);
+      void client.invalidateQueries({ queryKey: ['memories'] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const memories = (list.data?.pages.flatMap((p) => p.memories) ?? []).filter(
+    (m) => !quarantinedOnly || (m.trust === 'quarantined' && !m.expiredAtMs),
+  );
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -116,6 +132,14 @@ export function MemoryPage() {
                 </SelectGroup>
               </SelectContent>
             </Select>
+            <Toggle
+              variant="outline"
+              pressed={quarantinedOnly}
+              onPressedChange={setQuarantinedOnly}
+              aria-label="Show only quarantined memories"
+            >
+              Quarantined
+            </Toggle>
           </div>
           {list.isError && <p className="text-sm text-destructive">{list.error.message}</p>}
           {list.isSuccess && memories.length === 0 ? (
@@ -270,13 +294,24 @@ export function MemoryPage() {
                   </ol>
                 </section>
                 {!open.expiredAtMs && (
-                  <Button
-                    variant="destructive"
-                    className="self-start"
-                    onClick={() => setForgetting(open)}
-                  >
-                    Forget
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {open.trust === 'quarantined' && (
+                      <Button onClick={() => trust.mutate({ m: open, level: 'normal' })}>
+                        Release
+                      </Button>
+                    )}
+                    {open.trust !== 'verified' && (
+                      <Button
+                        variant="outline"
+                        onClick={() => trust.mutate({ m: open, level: 'verified' })}
+                      >
+                        Mark verified
+                      </Button>
+                    )}
+                    <Button variant="destructive" onClick={() => setForgetting(open)}>
+                      {open.trust === 'quarantined' ? 'Reject (forget)' : 'Forget'}
+                    </Button>
+                  </div>
                 )}
               </div>
             </>

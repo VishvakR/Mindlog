@@ -22,6 +22,8 @@ export interface MemoryView {
   createdAtMs: number;
   expiredAtMs?: number;
   forgetReason?: string;
+  validFromMs?: number;
+  validToMs?: number;
 }
 
 export interface RecallSignals {
@@ -182,3 +184,91 @@ export const initialScope = (): ScopeValue => ({
   scope: { user: '' },
   text: '',
 });
+
+/** A contradiction between an older memory (a) and a newer one (b) (ADR-0015). */
+export interface ConflictView {
+  id: string;
+  a?: MemoryView;
+  b?: MemoryView;
+  scores: [number, number];
+  status: 'open' | 'resolved';
+  policy: string;
+  origin: string;
+  detectedAtMs: number;
+  keep?: 'a' | 'b' | 'both';
+  resolvedBy?: string;
+  resolvedAtMs?: number;
+}
+
+/** A memory branch (ADR-0013). */
+export interface BranchView {
+  name: string;
+  status: 'open' | 'merged' | 'dropped';
+  forkIndex: string;
+  forkAtMs: number;
+  createdBy: string;
+  writes: number;
+  closedAtMs?: number;
+}
+
+export interface BranchDiff {
+  added: MemoryView[];
+  forgotten: MemoryView[];
+  changed: MemoryView[];
+}
+
+export const MERGE_POLICIES = [
+  { name: 'raise', hint: 'Add contradicting facts quarantined and open conflicts' },
+  { name: 'prefer_branch', hint: 'Branch facts replace the main facts they contradict' },
+  { name: 'prefer_main', hint: 'Leave contradicting branch facts out' },
+  { name: 'abort', hint: 'Merge nothing if anything contradicts main' },
+] as const;
+export type MergePolicy = (typeof MERGE_POLICIES)[number]['name'];
+
+export interface MergeResult {
+  merged: boolean;
+  added: string[];
+  rejected: string[];
+  conflicts: Array<{ a: string; b: string; scores: [number, number]; resolved: boolean }>;
+}
+
+/** One change of a scope from `/api/realtime` (PLAN 13.5). */
+export interface ChangeEvent {
+  cursor: string;
+  type: string;
+  tenant: string;
+  user: string;
+  branch?: string;
+  ids: string[];
+  principal: string;
+  atMs: number;
+}
+
+/**
+ * Splits Server-Sent Events text into complete events and the unfinished
+ * rest: `{ event, id, data }` per block (comments are skipped).
+ */
+export function parseSse(text: string): {
+  events: Array<{ event: string; id?: string; data: string }>;
+  rest: string;
+} {
+  const blocks = text.split('\n\n');
+  const rest = blocks.pop() ?? '';
+  const events = [];
+  for (const block of blocks) {
+    let event = 'message';
+    let id: string | undefined;
+    const data: string[] = [];
+    for (const line of block.split('\n')) {
+      if (line.startsWith(':')) continue;
+      const at = line.indexOf(':');
+      const field = at < 0 ? line : line.slice(0, at);
+      const value = at < 0 ? '' : line.slice(at + 1).replace(/^ /, '');
+      if (field === 'event') event = value;
+      else if (field === 'id') id = value;
+      else if (field === 'data') data.push(value);
+    }
+    if (data.length > 0) events.push({ event, ...(id ? { id } : {}), data: data.join('\n') });
+  }
+  return { events, rest };
+}

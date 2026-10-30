@@ -3,6 +3,7 @@ import type { RecallItem } from '@/lib/memory';
 import {
   formatScope,
   parseScope,
+  parseSse,
   presentSignals,
   radialLayout,
   retrieverColumns,
@@ -88,5 +89,21 @@ describe('recall explain helpers', () => {
     expect(
       presentSignals([item('a', 'x', { vector: 0.2 }), item('b', 'y', { rerank: 3, ppr: 0.1 })]),
     ).toEqual(['vector', 'ppr', 'rerank']);
+  });
+});
+
+describe('parseSse', () => {
+  test('splits complete events, skips comments and keeps the unfinished rest', () => {
+    const text =
+      ': mindlog change stream\n\nid: 1:4\nevent: memory.added\ndata: {"a":1}\n\nevent: resync\ndata: {}\n\nid: 1:5\nda';
+    const { events, rest } = parseSse(text);
+    expect(events).toEqual([
+      { event: 'memory.added', id: '1:4', data: '{"a":1}' },
+      { event: 'resync', data: '{}' },
+    ]);
+    expect(rest).toBe('id: 1:5\nda');
+    expect(parseSse(rest + 'ta: {}\n\n').events).toEqual([
+      { event: 'message', id: '1:5', data: '{}' },
+    ]);
   });
 });

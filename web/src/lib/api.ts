@@ -1,12 +1,19 @@
 /** Typed client for the Mindlog HTTP API (packages/adapter-http). */
 import type {
+  BranchDiff,
+  BranchView,
+  ChangeEvent,
+  ConflictView,
   GraphResult,
   HistoryEntry,
   MemoryScope,
   MemoryView,
+  MergePolicy,
+  MergeResult,
   RecallResult,
   RecipeName,
 } from '@/lib/memory';
+import { parseSse } from '@/lib/memory';
 
 export type KeyType = 'string' | 'hash' | 'list' | 'set' | 'zset' | 'json';
 export type Encoding = 'utf8' | 'base64';
@@ -231,4 +238,82 @@ export const api = {
     }),
   memoryGraph: (tenant: string, scope: MemoryScope, entity: string, depth: number) =>
     request<GraphResult>('POST', '/memory/graph', { tenant, scope, entity, depth }),
+  /** The scope as it was at `timeMs` (ASOF), up to 200 memories. */
+  memoryAsOf: (tenant: string, scope: MemoryScope, timeMs: number) =>
+    request<{ memories: MemoryView[]; next?: string }>('POST', '/memory/list', {
+      tenant,
+      scope,
+      limit: 200,
+      asOf: { time: Math.floor(timeMs) },
+    }),
+  memoryConflicts: (tenant: string, scope: MemoryScope, all: boolean) =>
+    request<{ conflicts: ConflictView[]; next?: string }>('POST', '/memory/conflicts', {
+      tenant,
+      scope,
+      status: all ? 'all' : 'open',
+      limit: 100,
+    }),
+  memoryResolve: (
+    tenant: string,
+    scope: MemoryScope,
+    id: string,
+    keep: 'a' | 'b' | 'both',
+    validFrom?: string,
+  ) =>
+    request<{ ids: string[] }>('POST', '/memory/resolve', {
+      tenant,
+      scope,
+      id,
+      keep,
+      ...(validFrom ? { validFrom } : {}),
+    }),
+  memoryTrust: (tenant: string, scope: MemoryScope, id: string, trust: string) =>
+    request<{ count: number }>('POST', '/memory/trust', {
+      tenant,
+      scope,
+      ids: [id],
+      trust,
+      reason: 'reviewed in the dashboard',
+    }),
+  memoryBranches: (tenant: string, scope: MemoryScope) =>
+    request<BranchView[]>('POST', '/memory/branches', { tenant, scope }),
+  memoryDiff: (tenant: string, scope: MemoryScope, name: string) =>
+    request<BranchDiff>('POST', '/memory/diff', { tenant, scope, name }),
+  memoryMerge: (tenant: string, scope: MemoryScope, name: string, policy: MergePolicy) =>
+    request<MergeResult>('POST', '/memory/merge', { tenant, scope, name, policy }),
+  memoryDrop: (tenant: string, scope: MemoryScope, name: string) =>
+    request<{ count: number }>('POST', '/memory/drop', { tenant, scope, name }),
 };
+
+/**
+ * Follows a scope's changes from `/api/realtime` (SSE over fetch, so the bearer
+ * token goes in a header). Resumes after `from`; resolves when `signal` aborts
+ * or the stream ends.
+ */
+export async function followChanges(
+  tenant: string,
+  user: string,
+  from: string | undefined,
+  on: (event: ChangeEvent | { type: 'resync' }) => void,
+  signal: AbortSignal,
+  opened?: () => void,
+): Promise<void> {
+  const token = session.token();
+  const query = new URLSearchParams({ tenant, user, ...(from ? { from } : {}) });
+  const res = await fetch(`/api/realtime?${query.toString()}`, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`stream refused (${String(res.status)})`);
+  opened?.();
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    const parsed = parseSse(buffer + value);
+    buffer = parsed.rest;
+    for (const e of parsed.events)
+      on(e.event === 'resync' ? { type: 'resync' } : (JSON.parse(e.data) as ChangeEvent));
+  }
+}

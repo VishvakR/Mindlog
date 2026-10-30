@@ -6,11 +6,11 @@ import type { MemoryService } from '@mindlog/services';
 import type { ConnectionCommand, ConnectionContext } from '../connection-command.js';
 
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-const text = (value: string): KvReply => replies.bulk(encoder.encode(value));
-const flag = (value: boolean): KvReply => replies.integer(value ? 1 : 0);
+export const decoder = new TextDecoder();
+export const text = (value: string): KvReply => replies.bulk(encoder.encode(value));
+export const flag = (value: boolean): KvReply => replies.integer(value ? 1 : 0);
 
-function withMemory(
+export function withMemory(
   ctx: ConnectionContext,
   run: (memory: MemoryService) => Promise<KvReply>,
 ): KvReply | Promise<KvReply> {
@@ -19,21 +19,25 @@ function withMemory(
 }
 
 /** `user[/agent[/session]]` under the session's tenant (PLAN 5.5). */
-function scopeOf(arg: Uint8Array | undefined): { user: string; agent?: string; session?: string } {
+export function scopeOf(arg: Uint8Array | undefined): {
+  user: string;
+  agent?: string;
+  session?: string;
+} {
   const [user = '', agent, session] = decoder.decode(arg ?? new Uint8Array()).split('/');
   return { user, ...(agent ? { agent } : {}), ...(session ? { session } : {}) };
 }
 
-const caller = (ctx: ConnectionContext) => ({
+export const caller = (ctx: ConnectionContext) => ({
   tenant: ctx.session.tenant,
   principal: ctx.session.principal,
 });
 
-function answer<T>(result: Result<T, MindlogError>, render: (value: T) => KvReply): KvReply {
+export function answer<T>(result: Result<T, MindlogError>, render: (value: T) => KvReply): KvReply {
   return result.ok ? render(result.value) : replies.error(result.error.code, result.error.message);
 }
 
-function memoryReply(m: MemoryView): KvReply {
+export function memoryReply(m: MemoryView): KvReply {
   return replies.map([
     [text('id'), text(m.id)],
     [text('kind'), text(m.kind)],
@@ -58,7 +62,7 @@ function memoryReply(m: MemoryView): KvReply {
 type Options = Record<string, string | true>;
 
 /** Parses `TOKEN value` and bare `TOKEN` options after the positional arguments. */
-function options(
+export function options(
   argv: readonly Uint8Array[],
   from: number,
   valued: readonly string[],
@@ -74,7 +78,7 @@ function options(
   return out;
 }
 
-function integerOption(value: string | true | undefined): number | undefined | KvReply {
+export function integerOption(value: string | true | undefined): number | undefined | KvReply {
   if (value === undefined || value === true) return undefined;
   const n = parseInteger(encoder.encode(value));
   return n === undefined
@@ -82,11 +86,11 @@ function integerOption(value: string | true | undefined): number | undefined | K
     : Number(n);
 }
 
-const isReply = (x: unknown): x is KvReply =>
+export const isReply = (x: unknown): x is KvReply =>
   typeof x === 'object' && x !== null && '$typeName' in x;
 
 /** A time argument: ms since the epoch or ISO 8601 (the service validates it). */
-const timeOf = (v: string): number | string => (/^\d+$/.test(v) ? Number(v) : v);
+export const timeOf = (v: string): number | string => (/^\d+$/.test(v) ? Number(v) : v);
 
 /** `ASOF <log index>` or `ASOF <ISO time>` (PLAN 13.3). */
 const asOfOf = (v: string | true | undefined) =>

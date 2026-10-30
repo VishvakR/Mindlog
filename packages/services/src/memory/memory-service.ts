@@ -19,6 +19,7 @@ import type {
   MemoryRange,
   MemoryScope,
   MemoryView,
+  ConflictView,
   RecallOutput,
   RememberOutput,
 } from '@mindlog/memory';
@@ -38,12 +39,16 @@ import type {
   ListMemoryRequest,
   RecallRequest,
   RememberRequest,
+  ResolveRequest,
   ScopesRequest,
+  ConflictsRequest,
+  TrustRequest,
 } from './schemas.js';
 import {
   cacheDeleteSchema,
   cacheLookupSchema,
   cacheStoreSchema,
+  conflictsSchema,
   forgetSchema,
   getMemorySchema,
   graphSchema,
@@ -51,13 +56,18 @@ import {
   listMemorySchema,
   recallSchema,
   rememberSchema,
+  resolveSchema,
   scopesSchema,
+  toAsOf,
+  trustSchema,
 } from './schemas.js';
 
 /** Cluster version that knows the memory and job commands (ADR-0032, PLAN 19.5). */
 export const MEMORY_CLUSTER_VERSION = 5;
 /** Cluster version that knows the cache commands (ADR-0012). */
 export const CACHE_CLUSTER_VERSION = 6;
+/** Cluster version that knows conflict review, trust and branch commands (ADR-0013, ADR-0015). */
+export const LOG_NATIVE_CLUSTER_VERSION = 7;
 
 export interface MemoryServiceDeps {
   readonly engine: MemoryEngine;
@@ -109,12 +119,13 @@ const OPS = {
   recall: op({
     schema: recallSchema,
     write: false,
-    run: ({ memory: e }, r, scope, { validAt, ...i }, c) =>
+    run: ({ memory: e }, r, scope, { validAt, asOf, ...i }, c) =>
       e.recall(
         r,
         {
           ...i,
           scope,
+          ...(asOf ? { asOf: toAsOf(asOf) } : {}),
           ...(validAt === undefined ? {} : { validAtMs: validAt }),
         } as Parameters<MemoryEngine['recall']>[1],
         c,
@@ -123,7 +134,7 @@ const OPS = {
   get: op({
     schema: getMemorySchema,
     write: false,
-    run: ({ memory: e }, r, scope, i) => e.get(r, scope, i.id, i.asOf),
+    run: ({ memory: e }, r, scope, i) => e.get(r, scope, i.id, toAsOf(i.asOf)),
   }),
   list: op({
     schema: listMemorySchema,
@@ -134,7 +145,7 @@ const OPS = {
         ...(i.after ? { after: i.after } : {}),
         ...(i.kind ? { kind: i.kind } : {}),
         ...(i.includeForgotten ? { includeForgotten: true } : {}),
-        ...(i.asOf ? { asOf: i.asOf } : {}),
+        ...(i.asOf ? { asOf: toAsOf(i.asOf) } : {}),
       }),
   }),
   forget: op({
@@ -152,6 +163,39 @@ const OPS = {
     schema: graphSchema,
     write: false,
     run: ({ memory: e }, r, scope, i) => e.graph(r, scope, i.entity, i.depth),
+  }),
+  conflicts: op({
+    schema: conflictsSchema,
+    write: false,
+    run: ({ memory: e }, r, scope, i) =>
+      e.conflicts(r, scope, { all: i.status === 'all', limit: i.limit, after: i.after }),
+  }),
+  resolve: op({
+    schema: resolveSchema,
+    write: true,
+    version: LOG_NATIVE_CLUSTER_VERSION,
+    run: ({ memory: e }, r, scope, i, c) =>
+      e.resolve(
+        r,
+        {
+          scope,
+          id: i.id,
+          keep: i.keep,
+          ...(i.validFrom === undefined ? {} : { validFromMs: i.validFrom }),
+        },
+        c,
+      ),
+  }),
+  trust: op({
+    schema: trustSchema,
+    write: true,
+    version: LOG_NATIVE_CLUSTER_VERSION,
+    run: ({ memory: e }, r, scope, i, c) =>
+      e.setTrust(
+        r,
+        { scope, ids: i.ids, trust: i.trust, ...(i.reason ? { reason: i.reason } : {}) },
+        c,
+      ),
   }),
   cacheGet: op({
     schema: cacheLookupSchema,
@@ -278,6 +322,30 @@ export class MemoryService {
 
   graph(caller: Caller, input: GraphRequest): Promise<Result<GraphView, MindlogError>> {
     return this.#execute(caller, 'graph', input);
+  }
+
+  /** Conflicts of a user scope, open ones by default (ADR-0015). */
+  conflicts(
+    caller: Caller,
+    input: ConflictsRequest,
+  ): Promise<Result<{ conflicts: ConflictView[]; next?: string }, MindlogError>> {
+    return this.#execute(caller, 'conflicts', input);
+  }
+
+  /** Resolves a conflict: the loser's validity ends, the winner leaves quarantine. */
+  resolve(
+    caller: Caller,
+    input: ResolveRequest,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#execute(caller, 'resolve', input);
+  }
+
+  /** Sets the trust of memories, e.g. to release reviewed quarantined content (PLAN 13.4). */
+  trust(
+    caller: Caller,
+    input: TrustRequest,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#execute(caller, 'trust', input);
   }
 
   /** The cached answer for a similar prompt in the user scope, or `hit: null` (PLAN 13.9). */

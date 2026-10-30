@@ -84,6 +84,20 @@ export const configSchema = z.strictObject({
       breakerOpenMs: z.number().int().min(1).default(10_000),
     })
     .prefault({}),
+  memory: z
+    .strictObject({
+      // Conflict detection before commit (ADR-0015).
+      conflicts: z
+        .strictObject({
+          // Contradiction probability that raises a conflict (θ_c); above 0.5 it is the NLI top label.
+          threshold: z.number().min(0.5).max(1).default(0.8),
+          policy: z
+            .enum(['quarantine_new', 'newest_wins', 'ask_human', 'prefer_verified'])
+            .default('quarantine_new'),
+        })
+        .prefault({}),
+    })
+    .prefault({}),
   features: z
     .strictObject({
       // Cross-range transactions (ADR-0030): off until the simulator has exercised them.

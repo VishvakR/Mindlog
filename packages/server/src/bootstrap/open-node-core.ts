@@ -22,7 +22,13 @@ import {
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import { jobCompleteHandler, jobLeaseHandler, jobRangeHooks } from '@mindlog/jobs';
 import type { WorkerRegistry } from '@mindlog/jobs';
-import { liveMemory, memoryCommitHandler, memoryForgetHandler } from '@mindlog/memory';
+import {
+  conflictResolveHandler,
+  liveMemory,
+  memoryCommitHandler,
+  memoryForgetHandler,
+  memoryTrustHandler,
+} from '@mindlog/memory';
 import { cacheInvalidateHandler, cacheSetHandler } from '@mindlog/cache';
 import {
   createKvRegistry,
@@ -218,6 +224,9 @@ export async function openNodeCore(
     // The semantic cache (ADR-0012): every v6 binary applies it; proposing waits for cluster version 6.
     cacheSetHandler(liveMemory),
     cacheInvalidateHandler,
+    // Conflict review (ADR-0015): every v7 binary applies it; proposing waits for cluster version 7.
+    conflictResolveHandler,
+    memoryTrustHandler,
     ...(txnOn
       ? [
           txnPrewriteHandler(registry),

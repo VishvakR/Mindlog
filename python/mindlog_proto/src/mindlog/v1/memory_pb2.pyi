@@ -154,18 +154,86 @@ class JobRef(_message.Message):
     def __init__(self, id: _Optional[str] = ..., attempt: _Optional[int] = ...) -> None: ...
 
 class MemoryCommit(_message.Message):
-    __slots__ = ("user", "memories", "edges", "enqueue", "complete")
+    __slots__ = ("user", "memories", "edges", "enqueue", "complete", "conflicts", "supersede")
     USER_FIELD_NUMBER: _ClassVar[int]
     MEMORIES_FIELD_NUMBER: _ClassVar[int]
     EDGES_FIELD_NUMBER: _ClassVar[int]
     ENQUEUE_FIELD_NUMBER: _ClassVar[int]
     COMPLETE_FIELD_NUMBER: _ClassVar[int]
+    CONFLICTS_FIELD_NUMBER: _ClassVar[int]
+    SUPERSEDE_FIELD_NUMBER: _ClassVar[int]
     user: str
     memories: _containers.RepeatedCompositeFieldContainer[NewMemory]
     edges: _containers.RepeatedCompositeFieldContainer[EntityEdge]
     enqueue: _containers.RepeatedCompositeFieldContainer[_jobs_pb2.JobSpec]
     complete: JobRef
-    def __init__(self, user: _Optional[str] = ..., memories: _Optional[_Iterable[_Union[NewMemory, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[EntityEdge, _Mapping]]] = ..., enqueue: _Optional[_Iterable[_Union[_jobs_pb2.JobSpec, _Mapping]]] = ..., complete: _Optional[_Union[JobRef, _Mapping]] = ...) -> None: ...
+    conflicts: _containers.RepeatedCompositeFieldContainer[MemoryConflict]
+    supersede: _containers.RepeatedCompositeFieldContainer[Supersede]
+    def __init__(self, user: _Optional[str] = ..., memories: _Optional[_Iterable[_Union[NewMemory, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[EntityEdge, _Mapping]]] = ..., enqueue: _Optional[_Iterable[_Union[_jobs_pb2.JobSpec, _Mapping]]] = ..., complete: _Optional[_Union[JobRef, _Mapping]] = ..., conflicts: _Optional[_Iterable[_Union[MemoryConflict, _Mapping]]] = ..., supersede: _Optional[_Iterable[_Union[Supersede, _Mapping]]] = ...) -> None: ...
+
+class MemoryConflict(_message.Message):
+    __slots__ = ("id", "a", "b", "score_ab", "score_ba", "detected_at", "status", "policy", "origin", "model_id", "keep", "resolved_by", "resolved_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    A_FIELD_NUMBER: _ClassVar[int]
+    B_FIELD_NUMBER: _ClassVar[int]
+    SCORE_AB_FIELD_NUMBER: _ClassVar[int]
+    SCORE_BA_FIELD_NUMBER: _ClassVar[int]
+    DETECTED_AT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    POLICY_FIELD_NUMBER: _ClassVar[int]
+    ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
+    KEEP_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_BY_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    a: str
+    b: str
+    score_ab: float
+    score_ba: float
+    detected_at: int
+    status: str
+    policy: str
+    origin: str
+    model_id: str
+    keep: str
+    resolved_by: str
+    resolved_at: int
+    def __init__(self, id: _Optional[str] = ..., a: _Optional[str] = ..., b: _Optional[str] = ..., score_ab: _Optional[float] = ..., score_ba: _Optional[float] = ..., detected_at: _Optional[int] = ..., status: _Optional[str] = ..., policy: _Optional[str] = ..., origin: _Optional[str] = ..., model_id: _Optional[str] = ..., keep: _Optional[str] = ..., resolved_by: _Optional[str] = ..., resolved_at: _Optional[int] = ...) -> None: ...
+
+class Supersede(_message.Message):
+    __slots__ = ("id", "valid_to")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    VALID_TO_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    valid_to: int
+    def __init__(self, id: _Optional[str] = ..., valid_to: _Optional[int] = ...) -> None: ...
+
+class ConflictResolve(_message.Message):
+    __slots__ = ("user", "id", "keep", "valid_from", "now_ms")
+    USER_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    KEEP_FIELD_NUMBER: _ClassVar[int]
+    VALID_FROM_FIELD_NUMBER: _ClassVar[int]
+    NOW_MS_FIELD_NUMBER: _ClassVar[int]
+    user: str
+    id: str
+    keep: str
+    valid_from: int
+    now_ms: int
+    def __init__(self, user: _Optional[str] = ..., id: _Optional[str] = ..., keep: _Optional[str] = ..., valid_from: _Optional[int] = ..., now_ms: _Optional[int] = ...) -> None: ...
+
+class MemoryTrust(_message.Message):
+    __slots__ = ("user", "ids", "trust", "reason")
+    USER_FIELD_NUMBER: _ClassVar[int]
+    IDS_FIELD_NUMBER: _ClassVar[int]
+    TRUST_FIELD_NUMBER: _ClassVar[int]
+    REASON_FIELD_NUMBER: _ClassVar[int]
+    user: str
+    ids: _containers.RepeatedScalarFieldContainer[str]
+    trust: str
+    reason: str
+    def __init__(self, user: _Optional[str] = ..., ids: _Optional[_Iterable[str]] = ..., trust: _Optional[str] = ..., reason: _Optional[str] = ...) -> None: ...
 
 class MemoryForget(_message.Message):
     __slots__ = ("user", "ids", "reason")

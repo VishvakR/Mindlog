@@ -122,7 +122,7 @@ export interface RecallInput {
   /** Also return each retriever's ranked ids and the route (PLAN 12.4 stage 11). */
   readonly explain?: boolean;
   /** Recall the scope as it was then (system time). */
-  readonly asOf?: AsOf;
+  readonly asOf?: AsOf | undefined;
   /** Only facts true at this world time (ms); default: true at the ASOF time or now. */
   readonly validAtMs?: number;
 }
@@ -199,4 +199,29 @@ export interface HistoryEntry {
   readonly version: string;
   readonly atMs: number;
   readonly memory: MemoryView;
+}
+
+/** A contradiction between an existing memory (a) and a newer one (b), as reviewers see it (ADR-0015). */
+export interface ConflictView {
+  readonly id: string;
+  readonly a?: MemoryView;
+  readonly b?: MemoryView;
+  /** Contradiction probability of (a, b) and (b, a). */
+  readonly scores: readonly [number, number];
+  readonly status: 'open' | 'resolved';
+  readonly policy: string;
+  /** `ingest`, or `merge:<branch>`. */
+  readonly origin: string;
+  readonly detectedAtMs: number;
+  readonly keep?: 'a' | 'b' | 'both';
+  readonly resolvedBy?: string;
+  readonly resolvedAtMs?: number;
+}
+
+export interface ResolveInput {
+  readonly scope: MemoryScope;
+  readonly id: string;
+  readonly keep: 'a' | 'b' | 'both';
+  /** With `both`: world time (ms) b replaced a. */
+  readonly validFromMs?: number;
 }

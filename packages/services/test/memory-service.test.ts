@@ -62,6 +62,39 @@ describe('MemoryService', () => {
     expect(read.ok).toBe(true);
   });
 
+  test('forwarded time-travel and validity options parse the same on the leader', async () => {
+    const m = await memoryRange({ remote: true });
+    await m.service.remember(m.caller, {
+      scope: { user: 'u1' },
+      content: 'Ana lives in Lisbon.',
+      kind: 'semantic',
+      validFrom: '2020-01-01',
+    });
+    for (const asOf of [{ index: 1 }, { index: '99' }, { time: '2030-01-01T00:00:00Z' }]) {
+      const r = await m.service.recall(m.caller, {
+        scope: { user: 'u1' },
+        query: 'Ana',
+        asOf,
+        validAt: '2021-06-01',
+      });
+      expect(r.ok).toBe(true);
+    }
+    const list = await m.service.list(m.caller, { scope: { user: 'u1' }, asOf: { index: 1 } });
+    expect(list.ok && list.value.memories).toEqual([]);
+  });
+
+  test('conflict review and trust need cluster version 7', async () => {
+    const m = await memoryRange({ clusterVersion: 6 });
+    const r = await m.service.trust(m.caller, {
+      scope: { user: 'u1' },
+      ids: ['x'],
+      trust: 'normal',
+    });
+    expect(!r.ok && r.error.code).toBe('UNAVAILABLE');
+    const read = await m.service.conflicts(m.caller, { scope: { user: 'u1' } });
+    expect(read.ok && read.value.conflicts).toEqual([]);
+  });
+
   test.each([false, true])(
     'lists the scopes that hold memory (bare ranges: %s)',
     async (bareRanges) => {

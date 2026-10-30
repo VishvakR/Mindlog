@@ -17,6 +17,8 @@ import {
   liveMemory,
   memoryCommitHandler,
   memoryForgetHandler,
+  conflictResolveHandler,
+  memoryTrustHandler,
 } from '@mindlog/memory';
 import { FakeModels } from '@mindlog/models-client';
 import { InMemoryEventBus } from '@mindlog/eventbus';
@@ -264,6 +266,8 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       gcThresholdHandler,
       memoryCommitHandler,
       memoryForgetHandler,
+      conflictResolveHandler,
+      memoryTrustHandler,
       jobLeaseHandler,
       jobCompleteHandler,
       cacheSetHandler(liveMemory),

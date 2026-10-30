@@ -6,7 +6,7 @@ import { createMcpFastifyApp } from '@modelcontextprotocol/fastify';
 import { toNodeHandler } from '@modelcontextprotocol/node';
 import { createMcpHandler } from '@modelcontextprotocol/server';
 import type { FastifyInstance } from 'fastify';
-import type { McpMemory } from './memory-tools.js';
+import type { McpMemory } from './tool-kit.js';
 import { buildMcpServer } from './memory-tools.js';
 
 export interface KeyVerifier {

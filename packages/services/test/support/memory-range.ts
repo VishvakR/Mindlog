@@ -19,6 +19,8 @@ import {
   liveMemory,
   memoryCommitHandler,
   memoryForgetHandler,
+  conflictResolveHandler,
+  memoryTrustHandler,
 } from '@mindlog/memory';
 import { FakeModels } from '@mindlog/models-client';
 import { startSingleNode } from '@mindlog/multiraft';
@@ -55,6 +57,8 @@ export async function memoryRange(
   for (const h of [
     memoryCommitHandler,
     memoryForgetHandler,
+    conflictResolveHandler,
+    memoryTrustHandler,
     jobLeaseHandler,
     jobCompleteHandler,
     cacheSetHandler(liveMemory),

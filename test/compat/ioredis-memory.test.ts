@@ -125,6 +125,32 @@ describe('ioredis: MEM.*', () => {
     await expect(redis.call('CACHE.SET', 'erin', 'p', 'a', 'BOGUS')).rejects.toThrow(/syntax/i);
   });
 
+  test('MEM.TRUST releases web content, MEM.CONFLICTS lists, MEM.RESOLVE checks, ASOF reads the past', async () => {
+    const added = asMap(
+      await redis.call('MEM.ADD', 'dora', 'Espresso beans cost more now.', 'SOURCE', 'web'),
+    );
+    const id = (added.ids as string[])[0] ?? '';
+    const before = asMap(await redis.call('MEM.GET', 'dora', id));
+    expect(before.trust).toBe('quarantined');
+    expect(await redis.call('MEM.SEARCH', 'dora', 'espresso beans')).toEqual([]);
+    expect(await redis.call('MEM.TRUST', 'dora', 'normal', id)).toBe(1);
+    const found = (await redis.call('MEM.SEARCH', 'dora', 'espresso beans')) as Flat[];
+    expect(found.map((item) => asMap(item).id)).toEqual([id]);
+
+    expect(await redis.call('MEM.CONFLICTS', 'dora', 'ALL')).toEqual([]);
+    await expect(redis.call('MEM.RESOLVE', 'dora', 'nope', 'KEEP', 'a')).rejects.toThrow(
+      /NOT_FOUND|no conflict/,
+    );
+    await expect(redis.call('MEM.RESOLVE', 'dora', 'nope', 'KEEP', 'neither')).rejects.toThrow(
+      /keep/,
+    );
+
+    // As of 2020 nothing was stored; ASOF with an ISO time reads that state.
+    expect(await redis.call('MEM.GET', 'dora', id, 'ASOF', '2020-01-01')).toBeNull();
+    // Log index 1 is before this scope's first command.
+    expect(await redis.call('MEM.GET', 'dora', id, 'ASOF', '1')).toBeNull();
+  });
+
   test('bad arguments are errors', async () => {
     await expect(redis.call('MEM.ADD', 'alice', 'x', 'KIND', 'gossip')).rejects.toThrow(/kind/i);
     await expect(redis.call('MEM.SEARCH', 'alice', 'x', 'K', 'many')).rejects.toThrow(/integer/);

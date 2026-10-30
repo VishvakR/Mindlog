@@ -15,16 +15,17 @@ import {
   writeIndexTime,
   writeMemory,
 } from './index-writes.js';
+import { supersedeFacts, writeConflict } from './conflict-writes.js';
 
 const KINDS = new Set<string>(MEMORY_KINDS);
 
-function outcome(ids: string[]): CommandResult {
+export function outcome(ids: string[]): CommandResult {
   return create(CommandResultSchema, {
     outcome: { case: 'memory', value: { ids, count: ids.length } },
   });
 }
 
-function outsideRange(ctx: ApplyContext, user: string): CommandResult | undefined {
+export function outsideRange(ctx: ApplyContext, user: string): CommandResult | undefined {
   return inSpan(ctx.descriptor, scopeKey(ctx.command.tenant, user))
     ? undefined
     : errorResult('RANGE_MOVED', `scope is not in range ${String(ctx.descriptor.rangeId)}`);
@@ -39,7 +40,8 @@ export const liveMemory: LiveMemory = async (ctx, tenant, user, id) => {
 /**
  * `MemoryCommit` (ADR-0032): validates everything first, then completes the
  * job that produced the memories, enqueues new jobs and writes the memories
- * with their indexes, all in this command's one batch.
+ * with their indexes, the facts they supersede and the conflicts they raise
+ * (ADR-0015), all in this command's one batch.
  */
 export const memoryCommitHandler: ApplyHandler = {
   body: 'memoryCommit',
@@ -58,6 +60,10 @@ export const memoryCommitHandler: ApplyHandler = {
       if (await ctx.txn.get(recordKey(tenant, commit.user, r.id)))
         return errorResult('ALREADY_EXISTS', `memory ${r.id} exists`);
     }
+    const newIds = new Set(commit.memories.map((m) => m.record?.id));
+    for (const c of commit.conflicts)
+      if (c.id === '' || c.a === '' || !newIds.has(c.b))
+        return errorResult('INVALID_ARGUMENT', `invalid conflict ${c.id}`);
     if (commit.complete) {
       const completed = await completeJob(ctx, commit.user, commit.complete);
       if (completed.outcome.case === 'error') return completed;
@@ -69,6 +75,8 @@ export const memoryCommitHandler: ApplyHandler = {
     const ids: string[] = [];
     for (const m of commit.memories) ids.push(await writeMemory(ctx, tenant, commit.user, m));
     for (const e of commit.edges) await writeEdge(ctx, tenant, commit.user, e);
+    await supersedeFacts(ctx, tenant, commit.user, commit.supersede);
+    for (const c of commit.conflicts) writeConflict(ctx, tenant, commit.user, c);
     await bumpGeneration(ctx, tenant, commit.user);
     writeIndexTime(ctx, tenant, commit.user);
     return outcome(ids);

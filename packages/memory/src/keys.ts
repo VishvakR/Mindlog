@@ -90,3 +90,13 @@ export const indexTimeKey = (tenant: string, user: string, index: bigint): Uint8
   key(tenant, [user, 'ix', index]);
 export const indexTimePrefix = (tenant: string, user: string): Uint8Array =>
   prefix(tenant, [user, 'ix']);
+
+/** Conflict records, and the open ones (ADR-0015). */
+export const conflictKey = (tenant: string, user: Root, id: string): Uint8Array =>
+  key(tenant, [...head(user), 'k', id]);
+export const conflictPrefix = (tenant: string, user: Root): Uint8Array =>
+  prefix(tenant, [...head(user), 'k']);
+export const openConflictKey = (tenant: string, user: Root, id: string): Uint8Array =>
+  key(tenant, [...head(user), 'ko', id]);
+export const openConflictPrefix = (tenant: string, user: Root): Uint8Array =>
+  prefix(tenant, [...head(user), 'ko']);

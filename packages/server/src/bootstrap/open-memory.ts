@@ -84,7 +84,11 @@ export function openMemory(deps: {
     tracer,
     vectors,
     ppr: ppr.run,
-    config: { modelTimeoutMs: timeoutMs },
+    config: {
+      modelTimeoutMs: timeoutMs,
+      conflictThreshold: config.memory.conflicts.threshold,
+      conflictPolicy: config.memory.conflicts.policy,
+    },
     ranges: (rangeId) => {
       const target = router.local(rangeId);
       return target && { rangeId, proposer: target.proposer, reader: target.reader };

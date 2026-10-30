@@ -1,66 +1,21 @@
 import type { MindlogError, Result } from '@mindlog/core';
 import { MEMORY_KINDS, RECIPE_NAMES, SOURCE_TYPES } from '@mindlog/memory';
-import type { MemoryView } from '@mindlog/memory';
-import type { ApiKeyIdentity, MemoryService } from '@mindlog/services';
+import type { ApiKeyIdentity } from '@mindlog/services';
 import { authorizeScope } from '@mindlog/services';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-
-/** What the MCP adapter uses of the memory service (CLAUDE.md §3.3: narrow ports). */
-export type McpMemory = Pick<
-  MemoryService,
-  | 'remember'
-  | 'recall'
-  | 'get'
-  | 'list'
-  | 'forget'
-  | 'history'
-  | 'graph'
-  | 'cacheLookup'
-  | 'cacheStore'
->;
+import { registerReviewTools } from './review-tools.js';
+import type { McpMemory, ScopeArgs, ToolResult } from './tool-kit.js';
+import { scopeFields, summary, when } from './tool-kit.js';
 
 /** Most items a tool returns, so outputs stay small for the model (PLAN 15.2). */
 const MAX_ITEMS = 20;
 const RECENT = 20;
 
-const when = z
-  .string()
-  .min(4)
-  .max(40)
-  .describe('ISO 8601 date or date-time, e.g. 2026-03-01 or 2026-03-01T12:00:00Z');
-
-const scopeFields = {
-  user: z
-    .string()
-    .max(128)
-    .optional()
-    .describe("User scope; defaults to the API key's user, or the tenant-wide scope"),
-  agent: z.string().min(1).max(128).optional().describe('Agent scope under the user'),
-  session: z.string().min(1).max(128).optional().describe('Session scope under the agent'),
-};
-
-type ScopeArgs = {
-  user?: string | undefined;
-  agent?: string | undefined;
-  session?: string | undefined;
-};
-
-interface ToolResult {
-  [key: string]: unknown;
-  content: Array<{ type: 'text'; text: string }>;
-  structuredContent?: Record<string, unknown>;
-  isError?: boolean;
-}
-
 const failure = (e: MindlogError): ToolResult => ({
   content: [{ type: 'text', text: `${e.code}: ${e.message}` }],
   isError: true,
 });
-
-function summary(memory: MemoryView): Record<string, unknown> {
-  return { id: memory.id, kind: memory.kind, text: memory.text, trust: memory.trust };
-}
 
 /**
  * The tools, resources and prompt for one authenticated caller (PLAN 15.2).
@@ -482,5 +437,6 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
     },
   );
 
+  registerReviewTools(server, memory, run, caller);
   return server;
 }

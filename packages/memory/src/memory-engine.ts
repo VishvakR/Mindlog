@@ -19,7 +19,8 @@ import type { Command, CommandResult, JobSpec } from '@mindlog/proto';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { EnrichPayload } from './ingest/assemble.js';
 import { ENRICH, assemble, enrichJob } from './ingest/assemble.js';
-import type { IngestConfig, IngestDraft } from './ingest/ingest-stages.js';
+import type { IngestDraft } from './ingest/draft.js';
+import type { IngestConfig } from './ingest/ingest-stages.js';
 import { ingestStages } from './ingest/ingest-stages.js';
 import { runStages } from './pipeline/stage.js';
 import { indexTimeKey, indexTimePrefix } from './keys.js';
@@ -31,9 +32,13 @@ import { emptyDraft } from './recall/recall-draft.js';
 import { DEFAULT_RECIPE, RECIPES } from './recall/recipes.js';
 import type { IndexSource, RecallConfig } from './recall/recall-stages.js';
 import { recallStages } from './recall/recall-stages.js';
+import { listConflicts } from './review.js';
 import type {
   AsOf,
   CallContext,
+  ConflictView,
+  ResolveInput,
+  Trust,
   GraphView,
   HistoryEntry,
   MemoryRange,
@@ -81,6 +86,11 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   themeMaxNodes: 2000,
   themeCount: 2,
   modelTimeoutMs: 2000,
+  // ADR-0015.
+  conflictThreshold: 0.8,
+  duplicateThreshold: 0.9,
+  conflictPolicy: 'quarantine_new',
+  conflictCandidates: 5,
   tokenBudget: 1000,
   maxQueuedJobs: 1000,
 };
@@ -144,9 +154,10 @@ export class MemoryEngine {
     return ok(proposed.value.result);
   }
 
-  async #ingest(input: RememberInput, available?: (c: Capability) => boolean) {
+  async #ingest(range: MemoryRange, input: RememberInput, available?: (c: Capability) => boolean) {
     const draft: IngestDraft = { input, text: '', passages: [], facts: [], embeddingModel: '' };
-    const stages = ingestStages(this.#d.models, this.#d.vectors, this.#config);
+    const reads = new MemoryReads(range.reader, input.scope.tenant, input.scope.user);
+    const stages = ingestStages(this.#d.models, this.#d.vectors, reads, this.#config);
     return runStages(stages, draft, this.#context('ingest', available));
   }
 
@@ -164,7 +175,12 @@ export class MemoryEngine {
     const { scope } = draft.input;
     let n = 0;
     const nextId = () => extra.ids?.[n++] ?? this.#d.ids.next();
-    const { memories, edges } = assemble(draft, context, nextId, extra.derivedFrom);
+    const { memories, edges, conflicts, supersede } = assemble(
+      draft,
+      context,
+      nextId,
+      extra.derivedFrom,
+    );
     const command = this.#d.stamper.stamp(
       scope.tenant,
       context.principal,
@@ -174,6 +190,8 @@ export class MemoryEngine {
           user: scope.user,
           memories,
           edges,
+          conflicts,
+          supersede,
           enqueue: extra.enqueue ?? [],
           ...(extra.complete ? { complete: extra.complete } : {}),
         },
@@ -248,7 +266,7 @@ export class MemoryEngine {
       { 'mindlog.tenant': input.scope.tenant },
       async () => {
         // Async: store the raw passages now (model stages forced to their fallbacks), enrich in a job.
-        const run = await this.#ingest(input, input.async ? () => false : undefined);
+        const run = await this.#ingest(range, input, input.async ? () => false : undefined);
         if (!run.ok) return run;
         const { draft, degraded } = run.value;
         const enrich = input.async === true || MODEL_STAGES.some((s) => degraded.has(s));
@@ -375,7 +393,7 @@ export class MemoryEngine {
       after?: string | undefined;
       kind?: string;
       includeForgotten?: boolean;
-      asOf?: AsOf;
+      asOf?: AsOf | undefined;
     },
   ): Promise<Result<{ memories: MemoryView[]; next?: string }, MindlogError>> {
     const memories: MemoryView[] = [];
@@ -400,21 +418,74 @@ export class MemoryEngine {
     input: { scope: MemoryScope; ids: readonly string[]; reason?: string },
     context: CallContext,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
-    const command = this.#d.stamper.stamp(
-      input.scope.tenant,
-      context.principal,
-      {
-        case: 'memoryForget',
-        value: { user: input.scope.user, ids: [...input.ids], reason: input.reason ?? '' },
-      },
-      context.requestId,
-    );
+    return this.#write(range, input.scope, context, {
+      case: 'memoryForget',
+      value: { user: input.scope.user, ids: [...input.ids], reason: input.reason ?? '' },
+    });
+  }
+
+  /** Proposes a body for a scope and returns the memory ids its apply reports. */
+  async #write(
+    range: MemoryRange,
+    scope: MemoryScope,
+    context: CallContext,
+    body: Parameters<CommandStamper['stamp']>[2],
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    const command = this.#d.stamper.stamp(scope.tenant, context.principal, body, context.requestId);
     const done = await this.#propose(range, command);
     if (!done.ok) return done;
     const o = done.value.outcome;
     return ok(
       o.case === 'memory' ? { ids: [...o.value.ids], count: o.value.count } : { ids: [], count: 0 },
     );
+  }
+
+  /** A page of the scope's conflicts (ADR-0015). */
+  async conflicts(
+    range: MemoryRange,
+    scope: MemoryScope,
+    options: { all?: boolean; limit: number; after?: string | undefined },
+  ): Promise<Result<{ conflicts: ConflictView[]; next?: string }, MindlogError>> {
+    return listConflicts(new MemoryReads(range.reader, scope.tenant, scope.user), {
+      all: options.all ?? false,
+      limit: options.limit,
+      after: options.after,
+    });
+  }
+
+  /** Resolves an open conflict (`MEM.RESOLVE`); returns the memories it changed. */
+  resolve(
+    range: MemoryRange,
+    input: ResolveInput,
+    context: CallContext,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#write(range, input.scope, context, {
+      case: 'conflictResolve',
+      value: {
+        user: input.scope.user,
+        id: input.id,
+        keep: input.keep,
+        validFrom: BigInt(Math.floor(input.validFromMs ?? 0)),
+        nowMs: this.#d.clock.now(),
+      },
+    });
+  }
+
+  /** Sets the trust of memories (review of quarantined content, PLAN 13.4). */
+  setTrust(
+    range: MemoryRange,
+    input: { scope: MemoryScope; ids: readonly string[]; trust: Trust; reason?: string },
+    context: CallContext,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#write(range, input.scope, context, {
+      case: 'memoryTrust',
+      value: {
+        user: input.scope.user,
+        ids: [...input.ids],
+        trust: input.trust,
+        reason: input.reason ?? '',
+      },
+    });
   }
 
   async history(
@@ -491,7 +562,7 @@ export class MemoryEngine {
           ...(payload.source ? { source: payload.source as RememberInput['source'] & object } : {}),
           ...(payload.tags ? { tags: payload.tags } : {}),
         };
-        const run = await this.#ingest(input);
+        const run = await this.#ingest(range, input);
         if (!run.ok) return run;
         if (MODEL_STAGES.some((s) => run.value.degraded.has(s)))
           return err(mindlogError('UNAVAILABLE', 'models are still unavailable'));

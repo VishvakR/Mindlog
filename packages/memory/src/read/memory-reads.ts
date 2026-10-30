@@ -3,8 +3,13 @@ import { decodeKey } from '@mindlog/core';
 import type { Adjacency, GraphReader } from '@mindlog/index-graph';
 import type { Bm25Stats, Posting, PostingReader } from '@mindlog/index-text';
 import { decodeCount, decodePosting, decodeStats } from '@mindlog/index-text';
-import type { MemoryEntity, MemoryRecord } from '@mindlog/proto';
-import { MemoryEdgeSchema, MemoryEntitySchema, MemoryRecordSchema } from '@mindlog/proto';
+import type { MemoryConflict, MemoryEntity, MemoryRecord } from '@mindlog/proto';
+import {
+  MemoryConflictSchema,
+  MemoryEdgeSchema,
+  MemoryEntitySchema,
+  MemoryRecordSchema,
+} from '@mindlog/proto';
 import type { KvReader } from '@mindlog/storage';
 import {
   MvccReader,
@@ -15,12 +20,16 @@ import {
 } from '@mindlog/storage';
 import type { EdgeDirection, Root } from '../keys.js';
 import {
+  conflictKey,
+  conflictPrefix,
   dfKey,
   edgePrefix,
   entityKey,
   entityPrefix,
   generationKey,
   mentionPrefix,
+  openConflictKey,
+  openConflictPrefix,
   postingPrefix,
   recordKey,
   recordPrefix,
@@ -99,6 +108,28 @@ export class MemoryReads {
         out.push({ version: parsed.index, record: fromBinary(MemoryRecordSchema, value) });
     }
     return out;
+  }
+
+  async conflict(id: string): Promise<MemoryConflict | undefined> {
+    const bytes = await this.#get(conflictKey(this.tenant, this.user, id));
+    return bytes ? fromBinary(MemoryConflictSchema, bytes) : undefined;
+  }
+
+  /** Conflicts in id order (oldest first), only open ones unless `all`. */
+  async *conflicts(all: boolean, after?: string): AsyncGenerator<MemoryConflict> {
+    const { tenant, user } = this;
+    if (all) {
+      const options = after ? { after: conflictKey(tenant, user, after) } : {};
+      for await (const { value } of this.#scan(conflictPrefix(tenant, user), options))
+        yield fromBinary(MemoryConflictSchema, value);
+      return;
+    }
+    const options = after ? { after: openConflictKey(tenant, user, after) } : {};
+    for await (const { key } of this.#scan(openConflictPrefix(tenant, user), options)) {
+      const id = lastElement(key);
+      const c = typeof id === 'string' ? await this.conflict(id) : undefined;
+      if (c) yield c;
+    }
   }
 
   async entity(id: string): Promise<MemoryEntity | undefined> {

@@ -1,9 +1,15 @@
 import { create } from '@bufbuild/protobuf';
 import { termCounts } from '@mindlog/index-text';
-import type { EntityEdge, JobSpec, NewMemory } from '@mindlog/proto';
-import { EntityEdgeSchema, JobSpecSchema, NewMemorySchema } from '@mindlog/proto';
+import type { EntityEdge, JobSpec, MemoryConflict, NewMemory, Supersede } from '@mindlog/proto';
+import {
+  EntityEdgeSchema,
+  JobSpecSchema,
+  MemoryConflictSchema,
+  NewMemorySchema,
+  SupersedeSchema,
+} from '@mindlog/proto';
 import type { CallContext } from '../types.js';
-import type { IngestDraft } from './ingest-stages.js';
+import type { IngestDraft } from './draft.js';
 import { initialStrength } from './text.js';
 
 /** Relation of entities named in the same memory when no relation was extracted. */
@@ -14,6 +20,8 @@ const MAX_CO_MENTIONS = 6;
 export interface Assembled {
   readonly memories: NewMemory[];
   readonly edges: EntityEdge[];
+  readonly conflicts: MemoryConflict[];
+  readonly supersede: Supersede[];
 }
 
 function vectorBytes(v: Float32Array): Uint8Array {
@@ -110,7 +118,30 @@ export function assemble(
       });
     }
   }
-  return { memories, edges };
+  // Conflict ids come after every memory id, so callers' preassigned memory ids line up.
+  const conflicts: MemoryConflict[] = [];
+  const supersede = new Map<string, Supersede>();
+  (draft.checks ?? []).forEach((check, i) => {
+    const b = memories[i]?.record?.id ?? '';
+    for (const c of check.conflicts)
+      conflicts.push(
+        create(MemoryConflictSchema, {
+          id: nextId(),
+          a: c.with,
+          b,
+          scoreAb: c.scoreAB,
+          scoreBa: c.scoreBA,
+          status: c.status,
+          policy: c.policy,
+          origin: 'ingest',
+          modelId: c.modelId,
+          ...(c.status === 'resolved' ? { keep: 'b', resolvedBy: context.principal } : {}),
+        }),
+      );
+    for (const s of check.supersede)
+      supersede.set(s.id, create(SupersedeSchema, { id: s.id, validTo: BigInt(s.validTo) }));
+  });
+  return { memories, edges, conflicts, supersede: [...supersede.values()] };
 }
 
 /** Payload of a `memory.enrich` job: what to re-run through the full pipeline. */

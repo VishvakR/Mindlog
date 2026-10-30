@@ -37,6 +37,8 @@ message Command {
     GcThreshold gc_threshold = 13;
     MemoryCommit memory_commit = 20;
     MemoryForget memory_forget = 22;
+    ConflictResolve conflict_resolve = 24;
+    MemoryTrust memory_trust = 25;
     CacheSet cache_set = 40;
     CacheInvalidate cache_invalidate = 41;
     TxnPrewrite txn_prewrite = 60;
@@ -59,7 +61,8 @@ message Command {
 
   reserved 14 to 19;
   reserved 21;
-  reserved 23 to 39;
+  reserved 23;
+  reserved 26 to 39;
   reserved 42 to 59;
   reserved 64 to 70;
   reserved 73 to 79;

@@ -22,6 +22,7 @@ import {
   memPackCommand,
   memSearchCommand,
 } from './memory.js';
+import { memConflictsCommand, memResolveCommand, memTrustCommand } from './review.js';
 import { quitCommand, resetCommand, selectCommand } from './session-commands.js';
 
 /** Every command the RESP adapter answers itself. */
@@ -46,6 +47,9 @@ export function createConnectionCommands(): ConnectionCommandRegistry {
     memGetCommand,
     memForgetCommand,
     memHistoryCommand,
+    memConflictsCommand,
+    memResolveCommand,
+    memTrustCommand,
     cacheSetCommand,
     cacheGetCommand,
     cacheDelCommand,

@@ -51,6 +51,7 @@ message MemoryRecord {
   // Commit index in its range (set by apply).
   uint64 log_index = 18;
   string branch = 19;
+  // World time (ms since the epoch) the fact became / stopped being true; 0 is open.
   uint64 valid_from = 20;
   uint64 valid_to = 21;
   uint32 recall_count = 22;
@@ -119,6 +120,62 @@ message MemoryCommit {
   repeated EntityEdge edges = 3;
   repeated JobSpec enqueue = 4;
   JobRef complete = 5;
+  // Contradictions found before commit (ADR-0015); apply stores them and applies the policy.
+  repeated MemoryConflict conflicts = 6;
+  // Older facts whose validity ends because a new one replaces them over time.
+  repeated Supersede supersede = 7;
+}
+
+// A contradiction between an existing memory (a) and a new one (b), stored at
+// m/(user, 'k', id), and at m/(user, 'ko', id) while open (ADR-0015).
+message MemoryConflict {
+  string id = 1;
+  string a = 2;
+  string b = 3;
+  // Contradiction probability of (a, b) and of (b, a); 0 when the label was not contradiction.
+  float score_ab = 4;
+  float score_ba = 5;
+  // HLC of the command that raised it (set by apply).
+  uint64 detected_at = 6;
+  // open | resolved
+  string status = 7;
+  // quarantine_new | newest_wins | ask_human | prefer_verified
+  string policy = 8;
+  // ingest, or merge:<branch>
+  string origin = 9;
+  string model_id = 10;
+  // a | b | both, once resolved.
+  string keep = 11;
+  string resolved_by = 12;
+  uint64 resolved_at = 13;
+}
+
+message Supersede {
+  string id = 1;
+  // World time (ms) the older fact stops being true.
+  uint64 valid_to = 2;
+}
+
+// Command body 24: resolve a conflict (MEM.RESOLVE). The loser's validity ends,
+// the winner leaves quarantine; nothing is deleted.
+message ConflictResolve {
+  string user = 1;
+  string id = 2;
+  // a | b | both
+  string keep = 3;
+  // With keep = both: world time (ms) b replaced a; 0 keeps both current.
+  uint64 valid_from = 4;
+  // World time (ms) of the resolution, decided by the proposer.
+  uint64 now_ms = 5;
+}
+
+// Command body 25: set the trust of memories (review of quarantined content, PLAN 13.4).
+message MemoryTrust {
+  string user = 1;
+  repeated string ids = 2;
+  // verified | normal | quarantined
+  string trust = 3;
+  string reason = 4;
 }
 
 // Command body 22: forget memories (append-only; the records stay for history).

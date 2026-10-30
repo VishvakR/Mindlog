@@ -1,4 +1,5 @@
-import { MEMORY_KINDS, RECIPE_NAMES, SOURCE_TYPES } from '@mindlog/memory';
+import type { AsOf } from '@mindlog/memory';
+import { MEMORY_KINDS, RECIPE_NAMES, SOURCE_TYPES, TRUST_LEVELS } from '@mindlog/memory';
 import { z } from 'zod';
 
 // Memory request schemas (PLAN 15), shared by RESP, REST, MCP and node-to-node forwarding.
@@ -19,15 +20,20 @@ const time = z
   .union([z.int().min(0), z.iso.datetime({ offset: true }), z.iso.date()])
   .transform((t) => (typeof t === 'number' ? t : Date.parse(t)));
 
-/** `ASOF` (PLAN 13.3): a log index of the scope's range, or a time. */
-const asOf = z
-  .union([
-    z.strictObject({
-      index: z.union([z.int().min(0), z.string().regex(/^\d{1,20}$/)]).transform(BigInt),
-    }),
-    z.strictObject({ time }),
-  ])
-  .transform((a) => ('index' in a ? { index: a.index } : { timeMs: a.time }));
+/**
+ * `ASOF` (PLAN 13.3): a log index of the scope's range (a decimal string), or a
+ * time. Parsed values stay JSON, since forwarded requests are parsed again.
+ */
+const asOf = z.union([
+  z.strictObject({
+    index: z.union([z.int().min(0), z.string().regex(/^\d{1,20}$/)]).transform(String),
+  }),
+  z.strictObject({ time }),
+]);
+
+/** The engine's form of a parsed `asOf`. */
+export const toAsOf = (a: z.output<typeof asOf> | undefined): AsOf | undefined =>
+  a === undefined ? undefined : 'index' in a ? { index: BigInt(a.index) } : { timeMs: a.time };
 
 export const rememberSchema = z.strictObject({
   scope: memoryScopeSchema,
@@ -125,6 +131,30 @@ export const cacheDeleteSchema = z.strictObject({
   ids: z.array(z.string().min(1).max(64)).min(1).max(100),
 });
 
+export const conflictsSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  /** `open` (default) or every conflict. */
+  status: z.enum(['open', 'all']).default('open'),
+  limit: z.int().min(1).max(200).default(50),
+  after: memoryId.optional(),
+});
+
+export const resolveSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  id: memoryId,
+  /** Which memory stays current: the existing one (a), the new one (b), or both. */
+  keep: z.enum(['a', 'b', 'both']),
+  /** With `both`: when b replaced a (world time). */
+  validFrom: time.optional(),
+});
+
+export const trustSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  ids: z.array(memoryId).min(1).max(100),
+  trust: z.enum(TRUST_LEVELS as ['verified', 'normal', 'quarantined']),
+  reason: z.string().max(500).optional(),
+});
+
 export const scopesSchema = z.strictObject({ limit: z.int().min(1).max(1000).default(200) });
 
 export type RememberRequest = z.input<typeof rememberSchema>;
@@ -134,6 +164,9 @@ export type ListMemoryRequest = z.input<typeof listMemorySchema>;
 export type ForgetRequest = z.input<typeof forgetSchema>;
 export type HistoryRequest = z.input<typeof historySchema>;
 export type GraphRequest = z.input<typeof graphSchema>;
+export type ConflictsRequest = z.input<typeof conflictsSchema>;
+export type ResolveRequest = z.input<typeof resolveSchema>;
+export type TrustRequest = z.input<typeof trustSchema>;
 export type ScopesRequest = z.input<typeof scopesSchema>;
 export type CacheLookupRequest = z.input<typeof cacheLookupSchema>;
 export type CacheStoreRequest = z.input<typeof cacheStoreSchema>;

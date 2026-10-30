@@ -1,32 +1,16 @@
 import { err, mindlogError, ok } from '@mindlog/core';
 import type { Models } from '@mindlog/models-client';
 import type { Stage } from '../pipeline/stage.js';
-import type { MemoryKind, MemoryLinkView, MemoryScope, RememberInput, Trust } from '../types.js';
+import type { MemoryKind, MemoryScope } from '../types.js';
+import type { MemoryReads } from '../read/memory-reads.js';
 import type { VectorCache } from '../vector-cache.js';
 import { matchesScope } from '../recall/scope-filter.js';
+import { conflictStage } from './conflict-stage.js';
+import type { DraftFact, IngestDraft } from './draft.js';
+import type { ConflictConfig } from './conflicts.js';
 import { byteLength, chunk, importance, normalizeText, trustOf, usefulEntity } from './text.js';
 
-export interface DraftFact {
-  readonly text: string;
-  readonly kind: MemoryKind;
-  readonly relations: ReadonlyArray<{ subject: string; relation: string; object: string }>;
-  readonly mentions: ReadonlyArray<{ name: string; type: string }>;
-  readonly vector?: Float32Array;
-  readonly importance: number;
-  readonly links: readonly MemoryLinkView[];
-  readonly trust: Trust;
-}
-
-/** What the ingestion stages fill in, in order (PLAN 12.3). */
-export interface IngestDraft {
-  readonly input: RememberInput;
-  readonly text: string;
-  readonly passages: readonly string[];
-  readonly facts: readonly DraftFact[];
-  readonly embeddingModel: string;
-}
-
-export interface IngestConfig {
+export interface IngestConfig extends ConflictConfig {
   readonly maxTextBytes: number;
   readonly entityLabels: readonly string[];
   readonly linkThreshold: number;
@@ -49,10 +33,11 @@ const mapFacts = (d: IngestDraft, f: (x: DraftFact, i: number) => DraftFact): In
   facts: d.facts.map(f),
 });
 
-/** The ingestion pipeline's stages 1–9 and 11; assembling and proposing are the engine's. */
+/** The ingestion pipeline's stages 1–11; assembling and proposing are the engine's. */
 export function ingestStages(
   models: Models,
   vectors: VectorCache,
+  reads: MemoryReads,
   config: IngestConfig,
 ): Stage<IngestDraft>[] {
   const timeoutMs = config.modelTimeoutMs;
@@ -191,5 +176,6 @@ export function ingestStages(
           ok(mapFacts(d, (f) => ({ ...f, trust: trustOf(d.input.source?.type ?? 'user') }))),
         ),
     },
+    conflictStage(models, reads, vectors, config),
   ];
 }

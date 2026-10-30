@@ -87,5 +87,46 @@
       { "name": "scope", "type": "string" },
       { "name": "id", "type": "string" }
     ]
+  },
+  "MEM.CONFLICTS": {
+    "summary": "Lists the conflicts of a scope: open ones, or all with ALL (PLAN 13.2).",
+    "complexity": "O(N) in the conflicts returned",
+    "group": "memory",
+    "since": "0.7.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "all", "type": "pure-token", "token": "ALL", "optional": true },
+      { "name": "limit", "type": "integer", "token": "LIMIT", "optional": true },
+      { "name": "after", "type": "string", "token": "AFTER", "optional": true }
+    ]
+  },
+  "MEM.RESOLVE": {
+    "summary": "Resolves a conflict: keeps a, b or both; the loser's validity ends (PLAN 13.2).",
+    "complexity": "O(1)",
+    "group": "memory",
+    "since": "0.7.0",
+    "arity": -5,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "id", "type": "string" },
+      { "name": "keep", "type": "string", "token": "KEEP" },
+      { "name": "valid_from", "type": "string", "token": "VALID_FROM", "optional": true }
+    ]
+  },
+  "MEM.TRUST": {
+    "summary": "Sets the trust of memories: verified, normal or quarantined (PLAN 13.4).",
+    "complexity": "O(N) in the ids",
+    "group": "memory",
+    "since": "0.7.0",
+    "arity": -4,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "trust", "type": "string" },
+      { "name": "id", "type": "string", "multiple": true }
+    ]
   }
 }

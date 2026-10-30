@@ -66,6 +66,21 @@ function stubMemory() {
       );
     },
     list: record('list', { memories: [memoryView('m1', 'I prefer dark roast coffee.')] }),
+    conflicts: record('conflicts', {
+      conflicts: [
+        {
+          id: 'c1',
+          a: memoryView('m1', 'I prefer dark roast coffee.'),
+          b: memoryView('m2', 'I do not drink coffee.'),
+          scores: [0.9, 0.1] as const,
+          status: 'open' as const,
+          policy: 'quarantine_new',
+          origin: 'ingest',
+          detectedAtMs: 1,
+        },
+      ],
+    }),
+    resolve: record('resolve', { ids: ['m1', 'm2'], count: 2 }),
     forget: record('forget', { ids: ['m1'], count: 1 }),
     history: record('history', [{ version: '7', atMs: 1, memory: memoryView('m1', 'x') }]),
     graph: (caller, input) => {
@@ -141,11 +156,13 @@ describe('MCP over Streamable HTTP', () => {
     expect(tools.tools.map((t) => t.name).sort()).toEqual([
       'cache_lookup',
       'cache_store',
+      'conflicts',
       'forget',
       'graph_query',
       'history',
       'recall',
       'remember',
+      'resolve_conflict',
     ]);
     for (const t of tools.tools) expect(t.description?.length ?? 0).toBeGreaterThan(40);
     const prompts = await client.listPrompts();
@@ -179,6 +196,24 @@ describe('MCP over Streamable HTTP', () => {
       ['recall', { tenant: 'acme', principal: 'apikey:k-alice' }, { user: 'alice' }],
     ]);
     await client.close();
+  });
+
+  test('conflicts and resolve_conflict run as the key', async () => {
+    const { connect, asked } = await start();
+    const client = await connect('mlk_alice');
+    const listed = await client.callTool({ name: 'conflicts', arguments: {} });
+    expect(listed.structuredContent).toMatchObject({
+      conflicts: [{ id: 'c1', status: 'open', a: { id: 'm1' }, b: { id: 'm2' } }],
+    });
+    const resolved = await client.callTool({
+      name: 'resolve_conflict',
+      arguments: { id: 'c1', keep: 'both', valid_from: '2026-03-01' },
+    });
+    expect(resolved.structuredContent).toEqual({ changed: ['m1', 'm2'] });
+    expect(asked.at(-1)).toMatchObject({
+      op: 'resolve',
+      input: { scope: { user: 'alice' }, id: 'c1', keep: 'both', validFrom: '2026-03-01' },
+    });
   });
 
   test('cache_store and cache_lookup run as the key', async () => {

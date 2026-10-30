@@ -3,6 +3,15 @@
  * indexes, the ingestion and recall pipelines, degraded mode and the enrich worker.
  */
 export { liveMemory, memoryCommitHandler, memoryForgetHandler } from './apply/memory-handlers.js';
+export { conflictResolveHandler, memoryTrustHandler } from './apply/review-handlers.js';
+export type { ConflictConfig, ConflictPolicy, PairVerdict, Window } from './ingest/conflicts.js';
+export {
+  CONFLICT_POLICIES,
+  applyPolicy,
+  disjoint,
+  supersedes,
+  verdict,
+} from './ingest/conflicts.js';
 export {
   dfKey,
   edgeKey,
@@ -16,6 +25,7 @@ export {
   statsKey,
   vectorKey,
 } from './keys.js';
+export type { Root } from './keys.js';
 export type { EnrichPayload } from './ingest/assemble.js';
 export { ENRICH } from './ingest/assemble.js';
 export type { MemoryConfig, MemoryEngineDeps } from './memory-engine.js';
@@ -38,4 +48,5 @@ export type * from './types.js';
 export { MEMORY_KINDS, SOURCE_TYPES } from './types.js';
 export type { VectorCacheOptions, VectorMeta } from './vector-cache.js';
 export { VectorCache } from './vector-cache.js';
+export { TRUST_LEVELS } from './review.js';
 export { toView } from './view.js';

@@ -177,4 +177,4 @@ export async function openPdRole(deps: PdRoleDeps): Promise<PdRole> {
 }
 
 /** The phase 4 binary: the lowest binary version the cluster version may rise to (PLAN 19.5). */
-export const BINARY_VERSION = 6;
+export const BINARY_VERSION = 7;

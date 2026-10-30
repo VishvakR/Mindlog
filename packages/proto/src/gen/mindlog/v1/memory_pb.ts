@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/memory.proto.
  */
 export const file_mindlog_v1_memory: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIroECgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCRIkCgV0ZXJtcxgaIAMoCzIVLm1pbmRsb2cudjEuVGVybUNvdW50EhMKC3Rlcm1fbGVuZ3RoGBsgASgNIm0KDE1lbW9yeVZlY3RvchIQCghtb2RlbF9pZBgBIAEoCRIOCgZ2ZWN0b3IYAiABKAwSDAoEa2luZBgDIAEoCRINCgV0cnVzdBgEIAEoCRINCgVhZ2VudBgFIAEoCRIPCgdzZXNzaW9uGAYgASgJIigKCVRlcm1Db3VudBIMCgR0ZXJtGAEgASgJEg0KBWNvdW50GAIgASgNIisKDUVudGl0eU1lbnRpb24SDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJInIKCU5ld01lbW9yeRIoCgZyZWNvcmQYASABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVJlY29yZBIOCgZ2ZWN0b3IYAiABKAwSKwoIbWVudGlvbnMYAyADKAsyGS5taW5kbG9nLnYxLkVudGl0eU1lbnRpb24iiQEKCkVudGl0eUVkZ2USEAoIc3JjX25hbWUYASABKAkSEAoIc3JjX3R5cGUYAiABKAkSEAoIcmVsYXRpb24YAyABKAkSEAoIZHN0X25hbWUYBCABKAkSEAoIZHN0X3R5cGUYBSABKAkSDgoGd2VpZ2h0GAYgASgCEhEKCW1lbW9yeV9pZBgHIAEoCSIlCgZKb2JSZWYSCgoCaWQYASABKAkSDwoHYXR0ZW1wdBgCIAEoDSK4AQoMTWVtb3J5Q29tbWl0EgwKBHVzZXIYASABKAkSJwoIbWVtb3JpZXMYAiADKAsyFS5taW5kbG9nLnYxLk5ld01lbW9yeRIlCgVlZGdlcxgDIAMoCzIWLm1pbmRsb2cudjEuRW50aXR5RWRnZRIkCgdlbnF1ZXVlGAQgAygLMhMubWluZGxvZy52MS5Kb2JTcGVjEiQKCGNvbXBsZXRlGAUgASgLMhIubWluZGxvZy52MS5Kb2JSZWYiOQoMTWVtb3J5Rm9yZ2V0EgwKBHVzZXIYASABKAkSCwoDaWRzGAIgAygJEg4KBnJlYXNvbhgDIAEoCSJVCgxNZW1vcnlFbnRpdHkSDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJEhUKDW1lbnRpb25fY291bnQYAyABKA0SEgoKY3JlYXRlZF9hdBgEIAEoBCJCCgpNZW1vcnlFZGdlEg4KBndlaWdodBgBIAEoAhIQCghtZW1vcmllcxgCIAMoCRISCgpjcmVhdGVkX2F0GAMgASgEIisKDU1lbW9yeU91dGNvbWUSCwoDaWRzGAEgAygJEg0KBWNvdW50GAIgASgNYgZwcm90bzM", [file_mindlog_v1_jobs]);
+  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIroECgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCRIkCgV0ZXJtcxgaIAMoCzIVLm1pbmRsb2cudjEuVGVybUNvdW50EhMKC3Rlcm1fbGVuZ3RoGBsgASgNIm0KDE1lbW9yeVZlY3RvchIQCghtb2RlbF9pZBgBIAEoCRIOCgZ2ZWN0b3IYAiABKAwSDAoEa2luZBgDIAEoCRINCgV0cnVzdBgEIAEoCRINCgVhZ2VudBgFIAEoCRIPCgdzZXNzaW9uGAYgASgJIigKCVRlcm1Db3VudBIMCgR0ZXJtGAEgASgJEg0KBWNvdW50GAIgASgNIisKDUVudGl0eU1lbnRpb24SDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJInIKCU5ld01lbW9yeRIoCgZyZWNvcmQYASABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVJlY29yZBIOCgZ2ZWN0b3IYAiABKAwSKwoIbWVudGlvbnMYAyADKAsyGS5taW5kbG9nLnYxLkVudGl0eU1lbnRpb24iiQEKCkVudGl0eUVkZ2USEAoIc3JjX25hbWUYASABKAkSEAoIc3JjX3R5cGUYAiABKAkSEAoIcmVsYXRpb24YAyABKAkSEAoIZHN0X25hbWUYBCABKAkSEAoIZHN0X3R5cGUYBSABKAkSDgoGd2VpZ2h0GAYgASgCEhEKCW1lbW9yeV9pZBgHIAEoCSIlCgZKb2JSZWYSCgoCaWQYASABKAkSDwoHYXR0ZW1wdBgCIAEoDSKRAgoMTWVtb3J5Q29tbWl0EgwKBHVzZXIYASABKAkSJwoIbWVtb3JpZXMYAiADKAsyFS5taW5kbG9nLnYxLk5ld01lbW9yeRIlCgVlZGdlcxgDIAMoCzIWLm1pbmRsb2cudjEuRW50aXR5RWRnZRIkCgdlbnF1ZXVlGAQgAygLMhMubWluZGxvZy52MS5Kb2JTcGVjEiQKCGNvbXBsZXRlGAUgASgLMhIubWluZGxvZy52MS5Kb2JSZWYSLQoJY29uZmxpY3RzGAYgAygLMhoubWluZGxvZy52MS5NZW1vcnlDb25mbGljdBIoCglzdXBlcnNlZGUYByADKAsyFS5taW5kbG9nLnYxLlN1cGVyc2VkZSLlAQoOTWVtb3J5Q29uZmxpY3QSCgoCaWQYASABKAkSCQoBYRgCIAEoCRIJCgFiGAMgASgJEhAKCHNjb3JlX2FiGAQgASgCEhAKCHNjb3JlX2JhGAUgASgCEhMKC2RldGVjdGVkX2F0GAYgASgEEg4KBnN0YXR1cxgHIAEoCRIOCgZwb2xpY3kYCCABKAkSDgoGb3JpZ2luGAkgASgJEhAKCG1vZGVsX2lkGAogASgJEgwKBGtlZXAYCyABKAkSEwoLcmVzb2x2ZWRfYnkYDCABKAkSEwoLcmVzb2x2ZWRfYXQYDSABKAQiKQoJU3VwZXJzZWRlEgoKAmlkGAEgASgJEhAKCHZhbGlkX3RvGAIgASgEIl0KD0NvbmZsaWN0UmVzb2x2ZRIMCgR1c2VyGAEgASgJEgoKAmlkGAIgASgJEgwKBGtlZXAYAyABKAkSEgoKdmFsaWRfZnJvbRgEIAEoBBIOCgZub3dfbXMYBSABKAQiRwoLTWVtb3J5VHJ1c3QSDAoEdXNlchgBIAEoCRILCgNpZHMYAiADKAkSDQoFdHJ1c3QYAyABKAkSDgoGcmVhc29uGAQgASgJIjkKDE1lbW9yeUZvcmdldBIMCgR1c2VyGAEgASgJEgsKA2lkcxgCIAMoCRIOCgZyZWFzb24YAyABKAkiVQoMTWVtb3J5RW50aXR5EgwKBG5hbWUYASABKAkSDAoEdHlwZRgCIAEoCRIVCg1tZW50aW9uX2NvdW50GAMgASgNEhIKCmNyZWF0ZWRfYXQYBCABKAQiQgoKTWVtb3J5RWRnZRIOCgZ3ZWlnaHQYASABKAISEAoIbWVtb3JpZXMYAiADKAkSEgoKY3JlYXRlZF9hdBgDIAEoBCIrCg1NZW1vcnlPdXRjb21lEgsKA2lkcxgBIAMoCRINCgVjb3VudBgCIAEoDWIGcHJvdG8z", [file_mindlog_v1_jobs]);
 
 /**
  * @generated from message mindlog.v1.MemoryLink
@@ -192,6 +192,8 @@ export type MemoryRecord = Message<"mindlog.v1.MemoryRecord"> & {
   branch: string;
 
   /**
+   * World time (ms since the epoch) the fact became / stopped being true; 0 is open.
+   *
    * @generated from field: uint64 valid_from = 20;
    */
   validFrom: bigint;
@@ -471,6 +473,20 @@ export type MemoryCommit = Message<"mindlog.v1.MemoryCommit"> & {
    * @generated from field: mindlog.v1.JobRef complete = 5;
    */
   complete?: JobRef | undefined;
+
+  /**
+   * Contradictions found before commit (ADR-0015); apply stores them and applies the policy.
+   *
+   * @generated from field: repeated mindlog.v1.MemoryConflict conflicts = 6;
+   */
+  conflicts: MemoryConflict[];
+
+  /**
+   * Older facts whose validity ends because a new one replaces them over time.
+   *
+   * @generated from field: repeated mindlog.v1.Supersede supersede = 7;
+   */
+  supersede: Supersede[];
 };
 
 /**
@@ -479,6 +495,204 @@ export type MemoryCommit = Message<"mindlog.v1.MemoryCommit"> & {
  */
 export const MemoryCommitSchema: GenMessage<MemoryCommit> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_memory, 9);
+
+/**
+ * A contradiction between an existing memory (a) and a new one (b), stored at
+ * m/(user, 'k', id), and at m/(user, 'ko', id) while open (ADR-0015).
+ *
+ * @generated from message mindlog.v1.MemoryConflict
+ */
+export type MemoryConflict = Message<"mindlog.v1.MemoryConflict"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string a = 2;
+   */
+  a: string;
+
+  /**
+   * @generated from field: string b = 3;
+   */
+  b: string;
+
+  /**
+   * Contradiction probability of (a, b) and of (b, a); 0 when the label was not contradiction.
+   *
+   * @generated from field: float score_ab = 4;
+   */
+  scoreAb: number;
+
+  /**
+   * @generated from field: float score_ba = 5;
+   */
+  scoreBa: number;
+
+  /**
+   * HLC of the command that raised it (set by apply).
+   *
+   * @generated from field: uint64 detected_at = 6;
+   */
+  detectedAt: bigint;
+
+  /**
+   * open | resolved
+   *
+   * @generated from field: string status = 7;
+   */
+  status: string;
+
+  /**
+   * quarantine_new | newest_wins | ask_human | prefer_verified
+   *
+   * @generated from field: string policy = 8;
+   */
+  policy: string;
+
+  /**
+   * ingest, or merge:<branch>
+   *
+   * @generated from field: string origin = 9;
+   */
+  origin: string;
+
+  /**
+   * @generated from field: string model_id = 10;
+   */
+  modelId: string;
+
+  /**
+   * a | b | both, once resolved.
+   *
+   * @generated from field: string keep = 11;
+   */
+  keep: string;
+
+  /**
+   * @generated from field: string resolved_by = 12;
+   */
+  resolvedBy: string;
+
+  /**
+   * @generated from field: uint64 resolved_at = 13;
+   */
+  resolvedAt: bigint;
+};
+
+/**
+ * Describes the message mindlog.v1.MemoryConflict.
+ * Use `create(MemoryConflictSchema)` to create a new message.
+ */
+export const MemoryConflictSchema: GenMessage<MemoryConflict> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 10);
+
+/**
+ * @generated from message mindlog.v1.Supersede
+ */
+export type Supersede = Message<"mindlog.v1.Supersede"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * World time (ms) the older fact stops being true.
+   *
+   * @generated from field: uint64 valid_to = 2;
+   */
+  validTo: bigint;
+};
+
+/**
+ * Describes the message mindlog.v1.Supersede.
+ * Use `create(SupersedeSchema)` to create a new message.
+ */
+export const SupersedeSchema: GenMessage<Supersede> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 11);
+
+/**
+ * Command body 24: resolve a conflict (MEM.RESOLVE). The loser's validity ends,
+ * the winner leaves quarantine; nothing is deleted.
+ *
+ * @generated from message mindlog.v1.ConflictResolve
+ */
+export type ConflictResolve = Message<"mindlog.v1.ConflictResolve"> & {
+  /**
+   * @generated from field: string user = 1;
+   */
+  user: string;
+
+  /**
+   * @generated from field: string id = 2;
+   */
+  id: string;
+
+  /**
+   * a | b | both
+   *
+   * @generated from field: string keep = 3;
+   */
+  keep: string;
+
+  /**
+   * With keep = both: world time (ms) b replaced a; 0 keeps both current.
+   *
+   * @generated from field: uint64 valid_from = 4;
+   */
+  validFrom: bigint;
+
+  /**
+   * World time (ms) of the resolution, decided by the proposer.
+   *
+   * @generated from field: uint64 now_ms = 5;
+   */
+  nowMs: bigint;
+};
+
+/**
+ * Describes the message mindlog.v1.ConflictResolve.
+ * Use `create(ConflictResolveSchema)` to create a new message.
+ */
+export const ConflictResolveSchema: GenMessage<ConflictResolve> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 12);
+
+/**
+ * Command body 25: set the trust of memories (review of quarantined content, PLAN 13.4).
+ *
+ * @generated from message mindlog.v1.MemoryTrust
+ */
+export type MemoryTrust = Message<"mindlog.v1.MemoryTrust"> & {
+  /**
+   * @generated from field: string user = 1;
+   */
+  user: string;
+
+  /**
+   * @generated from field: repeated string ids = 2;
+   */
+  ids: string[];
+
+  /**
+   * verified | normal | quarantined
+   *
+   * @generated from field: string trust = 3;
+   */
+  trust: string;
+
+  /**
+   * @generated from field: string reason = 4;
+   */
+  reason: string;
+};
+
+/**
+ * Describes the message mindlog.v1.MemoryTrust.
+ * Use `create(MemoryTrustSchema)` to create a new message.
+ */
+export const MemoryTrustSchema: GenMessage<MemoryTrust> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 13);
 
 /**
  * Command body 22: forget memories (append-only; the records stay for history).
@@ -507,7 +721,7 @@ export type MemoryForget = Message<"mindlog.v1.MemoryForget"> & {
  * Use `create(MemoryForgetSchema)` to create a new message.
  */
 export const MemoryForgetSchema: GenMessage<MemoryForget> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 10);
+  messageDesc(file_mindlog_v1_memory, 14);
 
 /**
  * Stored at m/(user, 'e', type, normalized name).
@@ -541,7 +755,7 @@ export type MemoryEntity = Message<"mindlog.v1.MemoryEntity"> & {
  * Use `create(MemoryEntitySchema)` to create a new message.
  */
 export const MemoryEntitySchema: GenMessage<MemoryEntity> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 11);
+  messageDesc(file_mindlog_v1_memory, 15);
 
 /**
  * Stored at m/(user, 'g', 'out' | 'in', src, relation, dst).
@@ -570,7 +784,7 @@ export type MemoryEdge = Message<"mindlog.v1.MemoryEdge"> & {
  * Use `create(MemoryEdgeSchema)` to create a new message.
  */
 export const MemoryEdgeSchema: GenMessage<MemoryEdge> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 12);
+  messageDesc(file_mindlog_v1_memory, 16);
 
 /**
  * Result of a MemoryCommit or MemoryForget.
@@ -594,5 +808,5 @@ export type MemoryOutcome = Message<"mindlog.v1.MemoryOutcome"> & {
  * Use `create(MemoryOutcomeSchema)` to create a new message.
  */
 export const MemoryOutcomeSchema: GenMessage<MemoryOutcome> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 13);
+  messageDesc(file_mindlog_v1_memory, 17);
 

@@ -4,6 +4,7 @@ import type { MindlogError, Result } from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
 import type { MemoryService } from '@mindlog/services';
 import {
+  conflictsSchema,
   forgetSchema,
   getMemorySchema,
   graphSchema,
@@ -11,7 +12,9 @@ import {
   listMemorySchema,
   recallSchema,
   rememberSchema,
+  resolveSchema,
   scopesSchema,
+  trustSchema,
 } from '@mindlog/services';
 import type { HttpServerDeps } from '../http-deps.js';
 import type { AnyRouteSpec } from '../route.js';
@@ -21,7 +24,18 @@ const anyObject = z.record(z.string(), z.unknown());
 const tenant = { tenant: z.string().min(1).max(128).default('default') };
 
 type Method =
-  'remember' | 'recall' | 'pack' | 'get' | 'list' | 'forget' | 'history' | 'graph' | 'scopes';
+  | 'remember'
+  | 'recall'
+  | 'pack'
+  | 'get'
+  | 'list'
+  | 'forget'
+  | 'history'
+  | 'graph'
+  | 'scopes'
+  | 'conflicts'
+  | 'resolve'
+  | 'trust';
 
 type Caller = Parameters<MemoryService['get']>[0];
 // Each operation's input was validated by its route schema; the service validates it again.
@@ -39,6 +53,9 @@ const CALLS: Record<
   history: (m, c, i) => m.history(c, i),
   graph: (m, c, i) => m.graph(c, i),
   scopes: (m, c, i) => m.scopes(c, i),
+  conflicts: (m, c, i) => m.conflicts(c, i),
+  resolve: (m, c, i) => m.resolve(c, i),
+  trust: (m, c, i) => m.trust(c, i),
 };
 
 const ROUTES: ReadonlyArray<{ op: Method; summary: string; schema: z.ZodObject }> = [
@@ -67,6 +84,21 @@ const ROUTES: ReadonlyArray<{ op: Method; summary: string; schema: z.ZodObject }
     schema: graphSchema,
   },
   { op: 'scopes', summary: 'User scopes of the tenant that hold memory', schema: scopesSchema },
+  {
+    op: 'conflicts',
+    summary: 'Conflicts between memories of a scope, open ones by default',
+    schema: conflictsSchema,
+  },
+  {
+    op: 'resolve',
+    summary: "Resolve a conflict: keep a, b or both; the loser's validity ends",
+    schema: resolveSchema,
+  },
+  {
+    op: 'trust',
+    summary: 'Set the trust of memories (release or quarantine)',
+    schema: trustSchema,
+  },
 ];
 
 /** REST mirror of the memory operations (PLAN 15.3), for the dashboard and scripts. */

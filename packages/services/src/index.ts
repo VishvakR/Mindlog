@@ -33,6 +33,7 @@ export {
 export type { MemoryServiceDeps } from './memory/memory-service.js';
 export {
   CACHE_CLUSTER_VERSION,
+  LOG_NATIVE_CLUSTER_VERSION,
   MEMORY_CLUSTER_VERSION,
   MemoryService,
 } from './memory/memory-service.js';
@@ -40,6 +41,7 @@ export type {
   CacheDeleteRequest,
   CacheLookupRequest,
   CacheStoreRequest,
+  ConflictsRequest,
   ForgetRequest,
   GetMemoryRequest,
   GraphRequest,
@@ -47,12 +49,15 @@ export type {
   ListMemoryRequest,
   RecallRequest,
   RememberRequest,
+  ResolveRequest,
   ScopesRequest,
+  TrustRequest,
 } from './memory/schemas.js';
 export {
   cacheDeleteSchema,
   cacheLookupSchema,
   cacheStoreSchema,
+  conflictsSchema,
   forgetSchema,
   getMemorySchema,
   graphSchema,
@@ -61,7 +66,9 @@ export {
   memoryScopeSchema,
   recallSchema,
   rememberSchema,
+  resolveSchema,
   scopesSchema,
+  trustSchema,
 } from './memory/schemas.js';
 export type { ApiKeyIdentity, ApiKeyInfo, ApiKeyInput } from './admin/api-keys.js';
 export { ApiKeyService, apiKeyInputSchema, authorizeScope } from './admin/api-keys.js';

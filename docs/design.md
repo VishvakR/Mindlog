@@ -220,9 +220,8 @@ double 0x21 (IEEE sign-flip) │ false 0x26 │ true 0x27 │ version marker 0x4
 | Family | Tuple | Holds |
 |---|---|---|
 | `k` | (user key, …) | Redis values: strings, hashes (`'h'`, field), lists (`'l'`, seq), sets, sorted sets (`'z'` member → score and `'Z'` score, member), streams, JSON |
-| `m` | (user, sub-tag, …) | All memory of a user scope (ADR-0031): records `r`, vectors `v`, BM25 postings `t` / df `d` / stats `b`, entities `e`, mentions `x`, edges `g`, jobs `j`, generation `s`. One prefix per user, so a split never separates a user's memory |
+| `m` | (user, sub-tag, …) | All memory of a user scope (ADR-0031): records `r`, vectors `v`, BM25 postings `t` / df `d` / stats `b`, entities `e`, mentions `x`, edges `g`, jobs `j`, generation `s`, semantic-cache entries `c`, their dependency index `q` and count `cn` (ADR-0012). One prefix per user, so a split never separates a user's memory |
 | `c` / `x` / `u` | collection records / secondary indexes / unique constraints | Full-stack mode |
-| `q` | (scope, promptHash) | Semantic cache entries |
 | `s` | (subsystem, …) | System data: schemas, branches, conflicts, idempotency table, range descriptors, users, audit |
 
 ### 5.3 Memory record
@@ -422,7 +421,7 @@ All indexes are updated inside apply, so they never disagree with committed data
 |---|---|---|
 | Vector | Exact flat index per user scope (`@mindlog/index-vector`, ADR-0008) | Cosine on normalised 384-d vectors, filter during the scan, ties by id, so every replica answers the same. Rows `m/(user,'v',id)` are the truth; nodes cache a `FlatIndex` per scope, kept current after apply and rebuilt when the scope's generation changes. HNSW comes past ~100K vectors per scope |
 | Keyword | BM25 postings `m/(user,'t',term,id)` (`@mindlog/index-text`) | `Intl.Segmenter` tokenizer, stop words, Porter stemming; k1 = 1.2, b = 0.75; per-scope N, total length and df updated in apply. Terms are computed by the leader and carried in the command |
-| Graph | Edges in both directions `m/(user,'g','out'\|'in',…)` (`@mindlog/index-graph`) | Entity id = `type:normalized name`, so writers converge in apply. Edges from extracted relations, or `mentioned_with` between entities of one memory. 1–2 hop walks today; Personalized PageRank (HippoRAG settings) arrives in phase 6 |
+| Graph | Edges in both directions `m/(user,'g','out'\|'in',…)` (`@mindlog/index-graph`) | Entity id = `type:normalized name`, so writers converge in apply. Edges from extracted relations, or `mentioned_with` between entities of one memory. 1–2 hop walks; Personalized PageRank (HippoRAG settings, d = 0.5) over the 2-hop entity + memory sub-graph, capped at 5,000 nodes, iterated on a worker-thread pool; label-propagation communities stand in for themes until phase 8 |
 | Secondary / unique | `x/(index, value, pk)`, `u/(collection, field, value)` | Unique checks happen in the same command (one range) or via 2PC |
 
 ---
@@ -442,7 +441,7 @@ flowchart LR
 
 - Stages declare `needsModel`, `optional`, `timeoutMs` and `batchSize`, and return `Result<O, StageError>`. A **retryable** error is retried, a **skippable** one falls back to the stage's declared output, and a **fatal** one aborts.
 - All outputs (facts, vectors, entities, links, conflicts) go into **one `MemoryCommit` command**, so followers never re-run models.
-- Phase 5 builds stages 1, 3–9 and 11–13 (Redact and DetectConflicts come later). Recall builds ParseQuery, vector/keyword/entity retrieval, RRF, Filter, Score and simple packing. Without the model service (or with `async: true`) the raw passages are stored as `episodic` with a `memory.enrich` job, and the reply says `degraded`.
+- Phase 5 builds stages 1, 3–9 and 11–13 (Redact and DetectConflicts come later). Without the model service (or with `async: true`) the raw passages are stored as `episodic` with a `memory.enrich` job, and the reply says `degraded`.
 - A node that does not lead a user's range forwards the whole memory request to the leader, which runs the models before proposing (ADR-0016).
 - Long work runs as **durable jobs** (`queued → leased → done | failed → dead`). Jobs live in the scope's range, leases are replicated commands held by the range leader with an epoch that fences stale workers, there are at most 5 retries, then the dead-letter queue, and queue depth limits return `BUSY`.
 
@@ -473,6 +472,14 @@ score = 0.60 · relevance(fused or reranked)
 
 An optional `Explain` stage returns the score from each signal, which the dashboard's Recall Playground shows.
 
+What is built (phase 6, ADR-0011):
+- Requests name a **recipe**: `rag` (vector only, relevance only), `vector`, `hybrid` (vector, BM25, entity), `hybrid_ppr` (+ PPR) or `full` (+ themes, cross-encoder rerank of the top 50, MMR; the default).
+- **Routing** is a heuristic: two or more query entities make a query `multihop` (PPR weight 1.2); a broad cue without entities makes it `broad` (themes run, weight 1.5).
+- With a rerank score, the min-max normalised rerank score is the relevance term. MMR works on min-max scaled scores, so the ~0.3 that recency, importance and retention give every memory does not drown relevance.
+- **Packing** (`MEM.PACK`, MCP `recall`) is greedy by score per token, shortens items to leading sentences when they no longer fit, swaps once for value, and groups the context as Facts / Themes / Procedures / Recent episodes within the budget.
+- `CheckCache` and `RecordRecall` are not in the recall pipeline yet: agents use the cache through `CACHE.*` and MCP, and recall statistics come with the forgetting curve (phase 8).
+- Measured in `docs/evals/phase-6.md`.
+
 ### 11.3 Consolidation
 
 Leader-only background workers run per scope under per-tenant model-time budgets. All of them write through normal commands, are idempotent per `(worker, scope, inputVersion)`, and are checkpointed so a leader change resumes them.
@@ -499,7 +506,7 @@ These follow directly from the replicated log. Prior art exists for each one on 
 | **Point-in-time recall** | `ASOF index` is an MVCC read. `ASOF time` maps HLC → index through a per-second index-time table. Vector search over-fetches and then filters to records that existed at that version. `VALID_AT` filters on world time independently |
 | **Provenance and quarantine** | Every record has `source` and `principal`, and derived records have `derived_from`. Untrusted sources are quarantined and passed to models only as quoted data. `FORGET SOURCE` cascades through derivations |
 | **Change streams** | Every applied command yields `{rangeId, index, hlc, principal, keys, op}`. Subscribers (SSE, MCP, SDK, cache invalidator) resume from `(rangeId, index)`. A subscriber that fell behind compaction gets `ResyncRequired` |
-| **Semantic cache** | Two-stage lookup (ANN, then a pluggable evaluator), with an L1 exact-hash cache and an L2 replicated cache. Entries record the memories they depend on, and the change stream invalidates them when those memories change |
+| **Semantic cache** | Two-stage lookup (cosine candidate, then a pluggable evaluator), with an L1 per-node exact-prompt map and L2 entries replicated in the user scope's range. Entries record the memories they depend on; the apply that forgets a memory drops its entries in the same batch, and a store naming a forgotten memory is refused (ADR-0012) |
 | **Token-budget packing** | Greedy by score per token with an MMR penalty and one improvement pass; per-group caps (facts, episodes, themes, procedures) |
 | **Embedded replicas** | The SDK keeps a local LevelDB of subscribed scopes: a snapshot plus the change stream, session consistency, and an offline write queue with request ids |
 

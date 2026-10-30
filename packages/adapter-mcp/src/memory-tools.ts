@@ -4,9 +4,10 @@ import type { ApiKeyIdentity } from '@mindlog/services';
 import { authorizeScope } from '@mindlog/services';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
 import { z } from 'zod';
+import { registerBranchTools } from './branch-tools.js';
 import { registerReviewTools } from './review-tools.js';
 import type { McpMemory, ScopeArgs, ToolResult } from './tool-kit.js';
-import { scopeFields, summary, when } from './tool-kit.js';
+import { branchField, scopeFields, summary, when } from './tool-kit.js';
 
 /** Most items a tool returns, so outputs stay small for the model (PLAN 15.2). */
 const MAX_ITEMS = 20;
@@ -73,6 +74,7 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
         async: z.boolean().optional().describe('Acknowledge at once and enrich in the background'),
         valid_from: when.optional().describe('When the fact became true, if known'),
         valid_to: when.optional().describe('When the fact stopped being true, if known'),
+        branch: branchField,
         ...scopeFields,
       }),
       outputSchema: z.object({
@@ -93,6 +95,7 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
             ...(args.async ? { async: true } : {}),
             ...(args.valid_from ? { validFrom: args.valid_from } : {}),
             ...(args.valid_to ? { validTo: args.valid_to } : {}),
+            ...(args.branch ? { branch: args.branch } : {}),
           }),
         (r) => ({
           text: `Remembered ${String(r.ids.length)} memor${r.ids.length === 1 ? 'y' : 'ies'}${r.degraded ? ' (models unavailable: stored raw, enrichment queued)' : ''}.`,
@@ -140,6 +143,7 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
           .optional()
           .describe('Recall what was stored as of this time (time travel), not what is stored now'),
         valid_at: when.optional().describe('Only facts that were true at this time'),
+        branch: branchField,
         ...scopeFields,
       }),
       outputSchema: z.object({
@@ -165,6 +169,7 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
             ...(args.recipe ? { recipe: args.recipe } : {}),
             ...(args.as_of ? { asOf: { time: args.as_of } } : {}),
             ...(args.valid_at ? { validAt: args.valid_at } : {}),
+            ...(args.branch ? { branch: args.branch } : {}),
           }),
         (r) => ({
           text: r.context === '' ? 'Nothing relevant is remembered.' : r.context,
@@ -448,5 +453,6 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
   );
 
   registerReviewTools(server, memory, run, caller);
+  registerBranchTools(server, memory, run, caller);
   return server;
 }

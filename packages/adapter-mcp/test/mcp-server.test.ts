@@ -81,6 +81,19 @@ function stubMemory() {
       ],
     }),
     resolve: record('resolve', { ids: ['m1', 'm2'], count: 2 }),
+    createBranch: record('createBranch', { ids: [], count: 0 }),
+    diffBranch: record('diffBranch', {
+      added: [memoryView('m3', 'Ana moves to Porto.')],
+      forgotten: [],
+      changed: [],
+    }),
+    mergeBranch: record('mergeBranch', {
+      merged: true,
+      added: ['m3'],
+      rejected: [],
+      conflicts: [],
+    }),
+    dropBranch: record('dropBranch', { ids: [], count: 0 }),
     forget: record('forget', { ids: ['m1'], count: 1 }),
     history: record('history', [{ version: '7', atMs: 1, memory: memoryView('m1', 'x') }]),
     graph: (caller, input) => {
@@ -154,6 +167,10 @@ describe('MCP over Streamable HTTP', () => {
     const client = await connect('mlk_alice');
     const tools = await client.listTools();
     expect(tools.tools.map((t) => t.name).sort()).toEqual([
+      'branch_create',
+      'branch_diff',
+      'branch_drop',
+      'branch_merge',
       'cache_lookup',
       'cache_store',
       'conflicts',
@@ -214,6 +231,31 @@ describe('MCP over Streamable HTTP', () => {
       op: 'resolve',
       input: { scope: { user: 'alice' }, id: 'c1', keep: 'both', validFrom: '2026-03-01' },
     });
+  });
+
+  test('branch tools run as the key, and recall takes a branch', async () => {
+    const { connect, asked } = await start();
+    const client = await connect('mlk_alice');
+    await client.callTool({ name: 'branch_create', arguments: { name: 'trip' } });
+    expect(asked.at(-1)).toMatchObject({
+      op: 'createBranch',
+      input: { scope: { user: 'alice' }, name: 'trip' },
+    });
+    await client.callTool({ name: 'recall', arguments: { query: 'Porto', branch: 'trip' } });
+    expect(asked.at(-1)).toMatchObject({ op: 'recall', input: { branch: 'trip' } });
+    const diff = await client.callTool({ name: 'branch_diff', arguments: { name: 'trip' } });
+    expect(diff.structuredContent).toMatchObject({ added: [{ id: 'm3' }] });
+    const merged = await client.callTool({
+      name: 'branch_merge',
+      arguments: { name: 'trip', policy: 'prefer_branch' },
+    });
+    expect(merged.structuredContent).toEqual({
+      merged: true,
+      added: ['m3'],
+      rejected: [],
+      conflicts: 0,
+    });
+    expect(asked.at(-1)).toMatchObject({ op: 'mergeBranch', input: { policy: 'prefer_branch' } });
   });
 
   test('cache_store and cache_lookup run as the key', async () => {

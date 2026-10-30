@@ -19,6 +19,10 @@ export type McpMemory = Pick<
   | 'cacheStore'
   | 'conflicts'
   | 'resolve'
+  | 'createBranch'
+  | 'diffBranch'
+  | 'mergeBranch'
+  | 'dropBranch'
 >;
 
 export const when = z
@@ -26,6 +30,13 @@ export const when = z
   .min(4)
   .max(40)
   .describe('ISO 8601 date or date-time, e.g. 2026-03-01 or 2026-03-01T12:00:00Z');
+
+/** A memory branch to work on instead of main (ADR-0013). */
+export const branchField = z
+  .string()
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/)
+  .optional()
+  .describe('Work on this branch (from branch_create) instead of main memory');
 
 export const scopeFields = {
   user: z

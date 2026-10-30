@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { MemoryConfig, MergePolicy, RecallInput, RememberInput } from '@mindlog/memory';
-import { MemoryReads } from '@mindlog/memory';
+import { MemoryReads, oldestOpenFork } from '@mindlog/memory';
+import { spanIntervals } from '@mindlog/statemachine';
 import { TENANT, ctx, memoryNode, scope } from './support/memory-node.js';
 
 type Node = Awaited<ReturnType<typeof memoryNode>>;
@@ -199,5 +200,29 @@ describe('merging', () => {
     await merge(n, 'raise');
     const after = await edges();
     for (const [k, w] of Object.entries(before)) expect(after[k]).toBeGreaterThan(w);
+  });
+});
+
+describe('GC pinning', () => {
+  test('open branches pin history from their fork; closed ones release it', async () => {
+    const n = await node();
+    const pinned = async () => {
+      let oldest: bigint | undefined;
+      for (const span of spanIntervals(n.descriptor))
+        oldest ??= await oldestOpenFork(n.range.reader, span);
+      return oldest;
+    };
+    expect(await pinned()).toBeUndefined();
+    await branch(n, 'one');
+    await branch(n, 'two');
+    const listed = await n.engine.branches(n.range, scope());
+    const forks = new MemoryReads(n.range.reader, TENANT, 'u1');
+    const one = await forks.branch('one');
+    expect(listed.ok && listed.value).toHaveLength(2);
+    expect(await pinned()).toBe(one?.forkVersion);
+    await n.engine.dropBranch(n.range, scope(), 'one', ctx);
+    expect(await pinned()).toBe((await forks.branch('two'))?.forkVersion);
+    await merge(n, 'raise', 'two');
+    expect(await pinned()).toBeUndefined();
   });
 });

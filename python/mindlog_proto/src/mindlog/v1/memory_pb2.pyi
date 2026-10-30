@@ -278,3 +278,99 @@ class MemoryOutcome(_message.Message):
     ids: _containers.RepeatedScalarFieldContainer[str]
     count: int
     def __init__(self, ids: _Optional[_Iterable[str]] = ..., count: _Optional[int] = ...) -> None: ...
+
+class MemoryBranch(_message.Message):
+    __slots__ = ("name", "fork_index", "fork_version", "created_by", "status", "closed_at", "writes", "max_writes")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FORK_INDEX_FIELD_NUMBER: _ClassVar[int]
+    FORK_VERSION_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    CLOSED_AT_FIELD_NUMBER: _ClassVar[int]
+    WRITES_FIELD_NUMBER: _ClassVar[int]
+    MAX_WRITES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    fork_index: int
+    fork_version: int
+    created_by: str
+    status: str
+    closed_at: int
+    writes: int
+    max_writes: int
+    def __init__(self, name: _Optional[str] = ..., fork_index: _Optional[int] = ..., fork_version: _Optional[int] = ..., created_by: _Optional[str] = ..., status: _Optional[str] = ..., closed_at: _Optional[int] = ..., writes: _Optional[int] = ..., max_writes: _Optional[int] = ...) -> None: ...
+
+class BranchCreate(_message.Message):
+    __slots__ = ("user", "name", "max_writes")
+    USER_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    MAX_WRITES_FIELD_NUMBER: _ClassVar[int]
+    user: str
+    name: str
+    max_writes: int
+    def __init__(self, user: _Optional[str] = ..., name: _Optional[str] = ..., max_writes: _Optional[int] = ...) -> None: ...
+
+class BranchAdd(_message.Message):
+    __slots__ = ("id", "quarantine")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    QUARANTINE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    quarantine: bool
+    def __init__(self, id: _Optional[str] = ..., quarantine: _Optional[bool] = ...) -> None: ...
+
+class RecordFields(_message.Message):
+    __slots__ = ("id", "expired", "trust", "valid_to")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    EXPIRED_FIELD_NUMBER: _ClassVar[int]
+    TRUST_FIELD_NUMBER: _ClassVar[int]
+    VALID_TO_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    expired: bool
+    trust: str
+    valid_to: int
+    def __init__(self, id: _Optional[str] = ..., expired: _Optional[bool] = ..., trust: _Optional[str] = ..., valid_to: _Optional[int] = ...) -> None: ...
+
+class EdgeWeight(_message.Message):
+    __slots__ = ("src", "relation", "dst", "weight", "memories")
+    SRC_FIELD_NUMBER: _ClassVar[int]
+    RELATION_FIELD_NUMBER: _ClassVar[int]
+    DST_FIELD_NUMBER: _ClassVar[int]
+    WEIGHT_FIELD_NUMBER: _ClassVar[int]
+    MEMORIES_FIELD_NUMBER: _ClassVar[int]
+    src: str
+    relation: str
+    dst: str
+    weight: float
+    memories: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, src: _Optional[str] = ..., relation: _Optional[str] = ..., dst: _Optional[str] = ..., weight: _Optional[float] = ..., memories: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class BranchMerge(_message.Message):
+    __slots__ = ("user", "name", "policy", "main_generation", "adds", "records", "edges", "conflicts", "supersede", "rejected")
+    USER_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    POLICY_FIELD_NUMBER: _ClassVar[int]
+    MAIN_GENERATION_FIELD_NUMBER: _ClassVar[int]
+    ADDS_FIELD_NUMBER: _ClassVar[int]
+    RECORDS_FIELD_NUMBER: _ClassVar[int]
+    EDGES_FIELD_NUMBER: _ClassVar[int]
+    CONFLICTS_FIELD_NUMBER: _ClassVar[int]
+    SUPERSEDE_FIELD_NUMBER: _ClassVar[int]
+    REJECTED_FIELD_NUMBER: _ClassVar[int]
+    user: str
+    name: str
+    policy: str
+    main_generation: int
+    adds: _containers.RepeatedCompositeFieldContainer[BranchAdd]
+    records: _containers.RepeatedCompositeFieldContainer[RecordFields]
+    edges: _containers.RepeatedCompositeFieldContainer[EdgeWeight]
+    conflicts: _containers.RepeatedCompositeFieldContainer[MemoryConflict]
+    supersede: _containers.RepeatedCompositeFieldContainer[Supersede]
+    rejected: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, user: _Optional[str] = ..., name: _Optional[str] = ..., policy: _Optional[str] = ..., main_generation: _Optional[int] = ..., adds: _Optional[_Iterable[_Union[BranchAdd, _Mapping]]] = ..., records: _Optional[_Iterable[_Union[RecordFields, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[EdgeWeight, _Mapping]]] = ..., conflicts: _Optional[_Iterable[_Union[MemoryConflict, _Mapping]]] = ..., supersede: _Optional[_Iterable[_Union[Supersede, _Mapping]]] = ..., rejected: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class BranchDrop(_message.Message):
+    __slots__ = ("user", "name")
+    USER_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    user: str
+    name: str
+    def __init__(self, user: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...

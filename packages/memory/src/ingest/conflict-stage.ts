@@ -15,19 +15,21 @@ import type { Checked, DraftConflict, DraftFact, IngestDraft } from './draft.js'
 
 export interface CheckInput {
   readonly scope: MemoryScope;
-  readonly window: Window;
+  /** Each fact's validity window, in order. */
+  readonly windows: readonly Window[];
   readonly facts: readonly DraftFact[];
   /** World time (ms) of the decision. */
   readonly nowMs: number;
 }
 
-const window = (r: MemoryRecord): Window => ({
+const windowOf = (r: MemoryRecord): Window => ({
   validFrom: Number(r.validFrom),
   validTo: Number(r.validTo),
 });
 
 async function candidates(
   fact: DraftFact,
+  window: Window,
   input: CheckInput,
   reads: MemoryReads,
   vectors: VectorCache,
@@ -51,12 +53,15 @@ async function candidates(
     const r = await reads.record(id);
     if (!r || r.expiredAt !== 0n || r.kind !== 'semantic' || r.trust === 'quarantined') continue;
     if (r.validTo !== 0n && Number(r.validTo) <= input.nowMs) continue;
-    if (!matchesScope(r, input.scope, true) || disjoint(window(r), input.window)) continue;
+    if (!matchesScope(r, input.scope, true) || disjoint(windowOf(r), window)) continue;
     out.push(r);
     if (out.length === 2 * n) break;
   }
   return out;
 }
+
+const OPEN: Window = { validFrom: 0, validTo: 0 };
+const windowAt = (input: CheckInput, i: number): Window => input.windows[i] ?? OPEN;
 
 /**
  * PLAN 13.2 for each new `semantic` fact: compare it with similar and
@@ -70,9 +75,16 @@ export async function checkFacts(
   options: CallOptions,
 ): Promise<Result<Checked[], MindlogError>> {
   const found = await Promise.all(
-    input.facts.map((f) =>
+    input.facts.map((f, i) =>
       f.kind === 'semantic'
-        ? candidates(f, input, ports.reads, ports.vectors, config.conflictCandidates)
+        ? candidates(
+            f,
+            windowAt(input, i),
+            input,
+            ports.reads,
+            ports.vectors,
+            config.conflictCandidates,
+          )
         : Promise.resolve([]),
     ),
   );
@@ -102,7 +114,7 @@ export async function checkFacts(
         continue;
       }
       if (v.kind !== 'contradiction') continue;
-      const ends = supersedes(window(c), input.window);
+      const ends = supersedes(windowOf(c), windowAt(input, i));
       if (ends !== undefined) {
         supersede.push({ id: c.id, validTo: ends });
         continue;
@@ -137,10 +149,15 @@ export function conflictStage(
     needs: 'nli',
     timeoutMs,
     async run(d, context) {
+      // Branch facts are checked against main when the branch merges (ADR-0013).
+      if (d.input.branch) return ok(d);
       const r = await checkFacts(
         {
           scope: d.input.scope,
-          window: { validFrom: d.input.validFromMs ?? 0, validTo: d.input.validToMs ?? 0 },
+          windows: d.facts.map(() => ({
+            validFrom: d.input.validFromMs ?? 0,
+            validTo: d.input.validToMs ?? 0,
+          })),
           facts: d.facts,
           nowMs: Number(context.clock.now()),
         },

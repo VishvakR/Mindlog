@@ -1,7 +1,7 @@
 import { ok } from '@mindlog/core';
 import { communities, toCsr, walk } from '@mindlog/index-graph';
 import type { Stage } from '../pipeline/stage.js';
-import type { MemoryReads } from '../read/memory-reads.js';
+import type { ScopeReads } from '../read/memory-reads.js';
 import { MEMORY_NODE } from '../read/memory-reads.js';
 import type { RecallTheme } from '../types.js';
 import type { RecallDraft } from './recall-draft.js';
@@ -24,7 +24,7 @@ const SEED_HITS = 10;
  * vector hits, computed on demand until phase 8 stores theme memories. The
  * communities holding most seeds win; their memories rank by connectedness.
  */
-export function themeStage(reads: MemoryReads, config: ThemeConfig): Stage<RecallDraft> {
+export function themeStage(reads: ScopeReads, config: ThemeConfig): Stage<RecallDraft> {
   return {
     name: 'theme',
     async run(d) {

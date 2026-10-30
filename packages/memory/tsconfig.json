@@ -8,6 +8,7 @@
   "include": ["src"],
   "references": [
     { "path": "../cache" },
+    { "path": "../branching" },
     { "path": "../core" },
     { "path": "../eventbus" },
     { "path": "../index-graph" },

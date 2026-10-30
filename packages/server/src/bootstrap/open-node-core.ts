@@ -28,6 +28,9 @@ import {
   memoryCommitHandler,
   memoryForgetHandler,
   memoryTrustHandler,
+  branchCreateHandler,
+  branchMergeHandler,
+  branchDropHandler,
 } from '@mindlog/memory';
 import { cacheInvalidateHandler, cacheSetHandler } from '@mindlog/cache';
 import {
@@ -227,6 +230,9 @@ export async function openNodeCore(
     // Conflict review (ADR-0015): every v7 binary applies it; proposing waits for cluster version 7.
     conflictResolveHandler,
     memoryTrustHandler,
+    branchCreateHandler,
+    branchMergeHandler,
+    branchDropHandler,
     ...(txnOn
       ? [
           txnPrewriteHandler(registry),

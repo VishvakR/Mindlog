@@ -19,6 +19,9 @@ import {
   memoryForgetHandler,
   conflictResolveHandler,
   memoryTrustHandler,
+  branchCreateHandler,
+  branchMergeHandler,
+  branchDropHandler,
 } from '@mindlog/memory';
 import { FakeModels } from '@mindlog/models-client';
 import { InMemoryEventBus } from '@mindlog/eventbus';
@@ -268,6 +271,9 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       memoryForgetHandler,
       conflictResolveHandler,
       memoryTrustHandler,
+      branchCreateHandler,
+      branchMergeHandler,
+      branchDropHandler,
       jobLeaseHandler,
       jobCompleteHandler,
       cacheSetHandler(liveMemory),

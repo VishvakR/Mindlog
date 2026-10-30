@@ -70,7 +70,11 @@ export class VectorCache {
       const body = command.body;
       // Branch writes live in their own space (ADR-0013); main's index ignores them.
       if (command.branch !== '' && command.branch !== 'main') return;
-      if (body.case === 'memoryTrust' || body.case === 'conflictResolve') {
+      if (
+        body.case === 'memoryTrust' ||
+        body.case === 'conflictResolve' ||
+        body.case === 'branchMerge'
+      ) {
         // Trust is copied into vector rows; rebuild on next use rather than track which changed.
         this.#entries.delete(`${command.tenant}\u0000${body.value.user}`);
         return;

@@ -99,12 +99,26 @@ const asOfOf = (v: string | true | undefined) =>
 const timeOption = (name: string, v: string | true | undefined) =>
   typeof v === 'string' ? { [name]: timeOf(v) } : {};
 
+/** `BRANCH name`: work on a memory branch (ADR-0013). */
+export const branchOf = (v: string | true | undefined) =>
+  typeof v === 'string' ? { branch: v } : {};
+
+/** An optional `BRANCH name` before variadic arguments starting at `at`. */
+export function leadingBranch(
+  argv: readonly Uint8Array[],
+  at: number,
+): [string | undefined, readonly Uint8Array[]] {
+  return argv.length > at + 1 && decoder.decode(argv[at]).toUpperCase() === 'BRANCH'
+    ? [decoder.decode(argv[at + 1]), argv.slice(at + 2)]
+    : [undefined, argv.slice(at)];
+}
+
 /** `MEM.ADD <scope> <text> [KIND kind] [SOURCE type] [VALID_FROM t] [VALID_TO t] [ASYNC]`. */
 export const memAddCommand: ConnectionCommand = {
   name: 'MEM.ADD',
   execute: (ctx, argv) =>
     withMemory(ctx, async (memory) => {
-      const o = options(argv, 3, ['KIND', 'SOURCE', 'VALID_FROM', 'VALID_TO'], ['ASYNC']);
+      const o = options(argv, 3, ['KIND', 'SOURCE', 'VALID_FROM', 'VALID_TO', 'BRANCH'], ['ASYNC']);
       if (isReply(o)) return o;
       const result = await memory.remember(caller(ctx), {
         scope: scopeOf(argv[1]),
@@ -116,6 +130,7 @@ export const memAddCommand: ConnectionCommand = {
         ...(o.ASYNC ? { async: true } : {}),
         ...timeOption('validFrom', o.VALID_FROM),
         ...timeOption('validTo', o.VALID_TO),
+        ...branchOf(o.BRANCH),
       });
       return answer(result, (r) =>
         replies.map([
@@ -131,7 +146,7 @@ export const memAddCommand: ConnectionCommand = {
 function recallRequest(
   argv: readonly Uint8Array[],
 ): Parameters<MemoryService['recall']>[1] | KvReply {
-  const o = options(argv, 3, ['K', 'BUDGET', 'RECIPE', 'ASOF', 'VALID_AT'], ['INHERIT']);
+  const o = options(argv, 3, ['K', 'BUDGET', 'RECIPE', 'ASOF', 'VALID_AT', 'BRANCH'], ['INHERIT']);
   if (isReply(o)) return o;
   const k = integerOption(o.K);
   const budget = integerOption(o.BUDGET);
@@ -146,6 +161,7 @@ function recallRequest(
     ...(typeof o.RECIPE === 'string' ? { recipe: o.RECIPE.toLowerCase() as never } : {}),
     ...asOfOf(o.ASOF),
     ...timeOption('validAt', o.VALID_AT),
+    ...branchOf(o.BRANCH),
   };
 }
 
@@ -197,31 +213,36 @@ export const memGetCommand: ConnectionCommand = {
   name: 'MEM.GET',
   execute: (ctx, argv) =>
     withMemory(ctx, async (memory) => {
-      const o = options(argv, 3, ['ASOF'], []);
+      const o = options(argv, 3, ['ASOF', 'BRANCH'], []);
       if (isReply(o)) return o;
       return answer(
         await memory.get(caller(ctx), {
           scope: scopeOf(argv[1]),
           id: decoder.decode(argv[2]),
           ...asOfOf(o.ASOF),
+          ...branchOf(o.BRANCH),
         }),
         (m) => (m ? memoryReply(m) : replies.nil()),
       );
     }),
 };
 
-/** `MEM.FORGET <scope> <id> [id ...]` or `MEM.FORGET <scope> SOURCE <ref>` (taint cascade). */
+/**
+ * `MEM.FORGET <scope> [BRANCH name] <id> [id ...]`, or `MEM.FORGET <scope> SOURCE <ref>`
+ * to forget everything from a source (taint cascade).
+ */
 export const memForgetCommand: ConnectionCommand = {
   name: 'MEM.FORGET',
   execute: (ctx, argv) =>
     withMemory(ctx, async (memory) => {
       const bySource = argv.length === 4 && decoder.decode(argv[2]).toUpperCase() === 'SOURCE';
+      const [branch, rest] = leadingBranch(argv, 2);
       return answer(
         await memory.forget(caller(ctx), {
           scope: scopeOf(argv[1]),
           ...(bySource
             ? { source: decoder.decode(argv[3]) }
-            : { ids: argv.slice(2).map((a) => decoder.decode(a)) }),
+            : { ids: rest.map((a) => decoder.decode(a)), ...branchOf(branch) }),
           reason: `MEM.FORGET by ${ctx.session.principal}`,
         }),
         (r) => replies.integer(r.count),

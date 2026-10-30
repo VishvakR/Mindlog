@@ -45,7 +45,7 @@ describe('ASOF (PLAN 13.3)', () => {
     const asOf: AsOf = { index: at };
     expect(await ids(n, 'morning coffee tea', { asOf })).toEqual([coffee.id]);
 
-    const got = await n.engine.get(n.range, scope(), coffee.id, asOf);
+    const got = await n.engine.get(n.range, scope(), coffee.id, { asOf });
     expect(got.ok && got.value?.expiredAtMs).toBeUndefined();
     const listed = await n.engine.list(n.range, scope(), { limit: 10, asOf });
     expect(listed.ok && listed.value.memories.map((m) => m.id)).toEqual([coffee.id]);

@@ -20,6 +20,9 @@ import type {
   MemoryScope,
   MemoryView,
   ConflictView,
+  BranchDiff,
+  BranchView,
+  MergeResult,
   RecallOutput,
   RememberOutput,
 } from '@mindlog/memory';
@@ -43,6 +46,9 @@ import type {
   ScopesRequest,
   ConflictsRequest,
   TrustRequest,
+  BranchRequest,
+  BranchesRequest,
+  MergeRequest,
 } from './schemas.js';
 import {
   cacheDeleteSchema,
@@ -60,6 +66,9 @@ import {
   scopesSchema,
   toAsOf,
   trustSchema,
+  branchSchema,
+  branchesSchema,
+  mergeSchema,
 } from './schemas.js';
 
 /** Cluster version that knows the memory and job commands (ADR-0032, PLAN 19.5). */
@@ -134,7 +143,8 @@ const OPS = {
   get: op({
     schema: getMemorySchema,
     write: false,
-    run: ({ memory: e }, r, scope, i) => e.get(r, scope, i.id, toAsOf(i.asOf)),
+    run: ({ memory: e }, r, scope, i) =>
+      e.get(r, scope, i.id, { asOf: toAsOf(i.asOf), branch: i.branch }),
   }),
   list: op({
     schema: listMemorySchema,
@@ -146,6 +156,7 @@ const OPS = {
         ...(i.kind ? { kind: i.kind } : {}),
         ...(i.includeForgotten ? { includeForgotten: true } : {}),
         ...(i.asOf ? { asOf: toAsOf(i.asOf) } : {}),
+        ...(i.branch ? { branch: i.branch } : {}),
       }),
   }),
   forget: op({
@@ -159,6 +170,7 @@ const OPS = {
           ids: i.ids,
           ...(i.reason ? { reason: i.reason } : {}),
           ...(i.source ? { sourceRef: i.source } : {}),
+          ...(i.branch ? { branch: i.branch } : {}),
         },
         c,
       ),
@@ -202,9 +214,44 @@ const OPS = {
     run: ({ memory: e }, r, scope, i, c) =>
       e.setTrust(
         r,
-        { scope, ids: i.ids, trust: i.trust, ...(i.reason ? { reason: i.reason } : {}) },
+        {
+          scope,
+          ids: i.ids,
+          trust: i.trust,
+          ...(i.reason ? { reason: i.reason } : {}),
+          ...(i.branch ? { branch: i.branch } : {}),
+        },
         c,
       ),
+  }),
+  branchCreate: op({
+    schema: branchSchema,
+    write: true,
+    version: LOG_NATIVE_CLUSTER_VERSION,
+    run: ({ memory: e }, r, scope, i, c) => e.createBranch(r, scope, i.name, c),
+  }),
+  branches: op({
+    schema: branchesSchema,
+    write: false,
+    run: ({ memory: e }, r, scope) => e.branches(r, scope),
+  }),
+  branchDiff: op({
+    schema: branchSchema,
+    write: false,
+    run: ({ memory: e }, r, scope, i) => e.diffBranch(r, scope, i.name),
+  }),
+  branchMerge: op({
+    schema: mergeSchema,
+    write: true,
+    version: LOG_NATIVE_CLUSTER_VERSION,
+    run: ({ memory: e }, r, scope, i, c) =>
+      e.mergeBranch(r, { scope, name: i.name, policy: i.policy }, c),
+  }),
+  branchDrop: op({
+    schema: branchSchema,
+    write: true,
+    version: LOG_NATIVE_CLUSTER_VERSION,
+    run: ({ memory: e }, r, scope, i, c) => e.dropBranch(r, scope, i.name, c),
   }),
   cacheGet: op({
     schema: cacheLookupSchema,
@@ -357,6 +404,35 @@ export class MemoryService {
     return this.#execute(caller, 'trust', input);
   }
 
+  /** Creates a branch of a user scope that reads main as of now (ADR-0013). */
+  createBranch(
+    caller: Caller,
+    input: BranchRequest,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#execute(caller, 'branchCreate', input);
+  }
+
+  branches(caller: Caller, input: BranchesRequest): Promise<Result<BranchView[], MindlogError>> {
+    return this.#execute(caller, 'branches', input);
+  }
+
+  /** What a branch added, forgot and changed relative to main at its fork. */
+  diffBranch(caller: Caller, input: BranchRequest): Promise<Result<BranchDiff, MindlogError>> {
+    return this.#execute(caller, 'branchDiff', input);
+  }
+
+  /** Merges a branch into main under a conflict policy. */
+  mergeBranch(caller: Caller, input: MergeRequest): Promise<Result<MergeResult, MindlogError>> {
+    return this.#execute(caller, 'branchMerge', input);
+  }
+
+  dropBranch(
+    caller: Caller,
+    input: BranchRequest,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#execute(caller, 'branchDrop', input);
+  }
+
   /** The cached answer for a similar prompt in the user scope, or `hit: null` (PLAN 13.9). */
   cacheLookup(
     caller: Caller,
@@ -434,7 +510,11 @@ export class MemoryService {
     if (
       spec.write &&
       this.#d.clusterVersion &&
-      this.#d.clusterVersion() < (spec.version ?? MEMORY_CLUSTER_VERSION)
+      this.#d.clusterVersion() <
+        // An older binary would apply a branch write to main (ADR-0013).
+        ((input as { branch?: string }).branch
+          ? LOG_NATIVE_CLUSTER_VERSION
+          : (spec.version ?? MEMORY_CLUSTER_VERSION))
     )
       return err(
         mindlogError(

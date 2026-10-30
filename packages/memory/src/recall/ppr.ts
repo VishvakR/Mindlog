@@ -2,7 +2,7 @@ import { ok } from '@mindlog/core';
 import type { Csr, PprOptions } from '@mindlog/index-graph';
 import { personalizedPageRank, toCsr, walk } from '@mindlog/index-graph';
 import type { Stage } from '../pipeline/stage.js';
-import type { MemoryReads } from '../read/memory-reads.js';
+import type { ScopeReads } from '../read/memory-reads.js';
 import { MEMORY_NODE } from '../read/memory-reads.js';
 import type { RecallDraft } from './recall-draft.js';
 import { withList, withSignal } from './recall-draft.js';
@@ -39,7 +39,7 @@ export function minMax(scores: ReadonlyMap<string, number>): Map<string, number>
 /** Seed weights by node (PLAN 11.3): IDF-like query entities and down-weighted vector hits. */
 export async function pprSeeds(
   d: RecallDraft,
-  reads: MemoryReads,
+  reads: ScopeReads,
   config: PprConfig,
 ): Promise<Map<string, number>> {
   const entities: Array<[string, number]> = [];
@@ -66,7 +66,7 @@ export async function pprSeeds(
  * mass. Without a positive seed it returns nothing.
  */
 export function pprStage(
-  reads: MemoryReads,
+  reads: ScopeReads,
   runner: PprRunner,
   config: PprConfig & { readonly retrieveK: number },
 ): Stage<RecallDraft> {

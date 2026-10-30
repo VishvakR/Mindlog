@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/memory.proto.
  */
 export const file_mindlog_v1_memory: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIroECgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCRIkCgV0ZXJtcxgaIAMoCzIVLm1pbmRsb2cudjEuVGVybUNvdW50EhMKC3Rlcm1fbGVuZ3RoGBsgASgNIm0KDE1lbW9yeVZlY3RvchIQCghtb2RlbF9pZBgBIAEoCRIOCgZ2ZWN0b3IYAiABKAwSDAoEa2luZBgDIAEoCRINCgV0cnVzdBgEIAEoCRINCgVhZ2VudBgFIAEoCRIPCgdzZXNzaW9uGAYgASgJIigKCVRlcm1Db3VudBIMCgR0ZXJtGAEgASgJEg0KBWNvdW50GAIgASgNIisKDUVudGl0eU1lbnRpb24SDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJInIKCU5ld01lbW9yeRIoCgZyZWNvcmQYASABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVJlY29yZBIOCgZ2ZWN0b3IYAiABKAwSKwoIbWVudGlvbnMYAyADKAsyGS5taW5kbG9nLnYxLkVudGl0eU1lbnRpb24iiQEKCkVudGl0eUVkZ2USEAoIc3JjX25hbWUYASABKAkSEAoIc3JjX3R5cGUYAiABKAkSEAoIcmVsYXRpb24YAyABKAkSEAoIZHN0X25hbWUYBCABKAkSEAoIZHN0X3R5cGUYBSABKAkSDgoGd2VpZ2h0GAYgASgCEhEKCW1lbW9yeV9pZBgHIAEoCSIlCgZKb2JSZWYSCgoCaWQYASABKAkSDwoHYXR0ZW1wdBgCIAEoDSKRAgoMTWVtb3J5Q29tbWl0EgwKBHVzZXIYASABKAkSJwoIbWVtb3JpZXMYAiADKAsyFS5taW5kbG9nLnYxLk5ld01lbW9yeRIlCgVlZGdlcxgDIAMoCzIWLm1pbmRsb2cudjEuRW50aXR5RWRnZRIkCgdlbnF1ZXVlGAQgAygLMhMubWluZGxvZy52MS5Kb2JTcGVjEiQKCGNvbXBsZXRlGAUgASgLMhIubWluZGxvZy52MS5Kb2JSZWYSLQoJY29uZmxpY3RzGAYgAygLMhoubWluZGxvZy52MS5NZW1vcnlDb25mbGljdBIoCglzdXBlcnNlZGUYByADKAsyFS5taW5kbG9nLnYxLlN1cGVyc2VkZSLlAQoOTWVtb3J5Q29uZmxpY3QSCgoCaWQYASABKAkSCQoBYRgCIAEoCRIJCgFiGAMgASgJEhAKCHNjb3JlX2FiGAQgASgCEhAKCHNjb3JlX2JhGAUgASgCEhMKC2RldGVjdGVkX2F0GAYgASgEEg4KBnN0YXR1cxgHIAEoCRIOCgZwb2xpY3kYCCABKAkSDgoGb3JpZ2luGAkgASgJEhAKCG1vZGVsX2lkGAogASgJEgwKBGtlZXAYCyABKAkSEwoLcmVzb2x2ZWRfYnkYDCABKAkSEwoLcmVzb2x2ZWRfYXQYDSABKAQiKQoJU3VwZXJzZWRlEgoKAmlkGAEgASgJEhAKCHZhbGlkX3RvGAIgASgEIl0KD0NvbmZsaWN0UmVzb2x2ZRIMCgR1c2VyGAEgASgJEgoKAmlkGAIgASgJEgwKBGtlZXAYAyABKAkSEgoKdmFsaWRfZnJvbRgEIAEoBBIOCgZub3dfbXMYBSABKAQiRwoLTWVtb3J5VHJ1c3QSDAoEdXNlchgBIAEoCRILCgNpZHMYAiADKAkSDQoFdHJ1c3QYAyABKAkSDgoGcmVhc29uGAQgASgJImQKDE1lbW9yeUZvcmdldBIMCgR1c2VyGAEgASgJEgsKA2lkcxgCIAMoCRIOCgZyZWFzb24YAyABKAkSEgoKc291cmNlX3JlZhgEIAEoCRIVCg1jYXNjYWRlX2xpbWl0GAUgASgNIlUKDE1lbW9yeUVudGl0eRIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSFQoNbWVudGlvbl9jb3VudBgDIAEoDRISCgpjcmVhdGVkX2F0GAQgASgEIkIKCk1lbW9yeUVkZ2USDgoGd2VpZ2h0GAEgASgCEhAKCG1lbW9yaWVzGAIgAygJEhIKCmNyZWF0ZWRfYXQYAyABKAQiKwoNTWVtb3J5T3V0Y29tZRILCgNpZHMYASADKAkSDQoFY291bnQYAiABKA1iBnByb3RvMw", [file_mindlog_v1_jobs]);
+  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIroECgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCRIkCgV0ZXJtcxgaIAMoCzIVLm1pbmRsb2cudjEuVGVybUNvdW50EhMKC3Rlcm1fbGVuZ3RoGBsgASgNIm0KDE1lbW9yeVZlY3RvchIQCghtb2RlbF9pZBgBIAEoCRIOCgZ2ZWN0b3IYAiABKAwSDAoEa2luZBgDIAEoCRINCgV0cnVzdBgEIAEoCRINCgVhZ2VudBgFIAEoCRIPCgdzZXNzaW9uGAYgASgJIigKCVRlcm1Db3VudBIMCgR0ZXJtGAEgASgJEg0KBWNvdW50GAIgASgNIisKDUVudGl0eU1lbnRpb24SDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJInIKCU5ld01lbW9yeRIoCgZyZWNvcmQYASABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVJlY29yZBIOCgZ2ZWN0b3IYAiABKAwSKwoIbWVudGlvbnMYAyADKAsyGS5taW5kbG9nLnYxLkVudGl0eU1lbnRpb24iiQEKCkVudGl0eUVkZ2USEAoIc3JjX25hbWUYASABKAkSEAoIc3JjX3R5cGUYAiABKAkSEAoIcmVsYXRpb24YAyABKAkSEAoIZHN0X25hbWUYBCABKAkSEAoIZHN0X3R5cGUYBSABKAkSDgoGd2VpZ2h0GAYgASgCEhEKCW1lbW9yeV9pZBgHIAEoCSIlCgZKb2JSZWYSCgoCaWQYASABKAkSDwoHYXR0ZW1wdBgCIAEoDSKRAgoMTWVtb3J5Q29tbWl0EgwKBHVzZXIYASABKAkSJwoIbWVtb3JpZXMYAiADKAsyFS5taW5kbG9nLnYxLk5ld01lbW9yeRIlCgVlZGdlcxgDIAMoCzIWLm1pbmRsb2cudjEuRW50aXR5RWRnZRIkCgdlbnF1ZXVlGAQgAygLMhMubWluZGxvZy52MS5Kb2JTcGVjEiQKCGNvbXBsZXRlGAUgASgLMhIubWluZGxvZy52MS5Kb2JSZWYSLQoJY29uZmxpY3RzGAYgAygLMhoubWluZGxvZy52MS5NZW1vcnlDb25mbGljdBIoCglzdXBlcnNlZGUYByADKAsyFS5taW5kbG9nLnYxLlN1cGVyc2VkZSLlAQoOTWVtb3J5Q29uZmxpY3QSCgoCaWQYASABKAkSCQoBYRgCIAEoCRIJCgFiGAMgASgJEhAKCHNjb3JlX2FiGAQgASgCEhAKCHNjb3JlX2JhGAUgASgCEhMKC2RldGVjdGVkX2F0GAYgASgEEg4KBnN0YXR1cxgHIAEoCRIOCgZwb2xpY3kYCCABKAkSDgoGb3JpZ2luGAkgASgJEhAKCG1vZGVsX2lkGAogASgJEgwKBGtlZXAYCyABKAkSEwoLcmVzb2x2ZWRfYnkYDCABKAkSEwoLcmVzb2x2ZWRfYXQYDSABKAQiKQoJU3VwZXJzZWRlEgoKAmlkGAEgASgJEhAKCHZhbGlkX3RvGAIgASgEIl0KD0NvbmZsaWN0UmVzb2x2ZRIMCgR1c2VyGAEgASgJEgoKAmlkGAIgASgJEgwKBGtlZXAYAyABKAkSEgoKdmFsaWRfZnJvbRgEIAEoBBIOCgZub3dfbXMYBSABKAQiRwoLTWVtb3J5VHJ1c3QSDAoEdXNlchgBIAEoCRILCgNpZHMYAiADKAkSDQoFdHJ1c3QYAyABKAkSDgoGcmVhc29uGAQgASgJImQKDE1lbW9yeUZvcmdldBIMCgR1c2VyGAEgASgJEgsKA2lkcxgCIAMoCRIOCgZyZWFzb24YAyABKAkSEgoKc291cmNlX3JlZhgEIAEoCRIVCg1jYXNjYWRlX2xpbWl0GAUgASgNIlUKDE1lbW9yeUVudGl0eRIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSFQoNbWVudGlvbl9jb3VudBgDIAEoDRISCgpjcmVhdGVkX2F0GAQgASgEIkIKCk1lbW9yeUVkZ2USDgoGd2VpZ2h0GAEgASgCEhAKCG1lbW9yaWVzGAIgAygJEhIKCmNyZWF0ZWRfYXQYAyABKAQiKwoNTWVtb3J5T3V0Y29tZRILCgNpZHMYASADKAkSDQoFY291bnQYAiABKA0ioQEKDE1lbW9yeUJyYW5jaBIMCgRuYW1lGAEgASgJEhIKCmZvcmtfaW5kZXgYAiABKAQSFAoMZm9ya192ZXJzaW9uGAMgASgEEhIKCmNyZWF0ZWRfYnkYBCABKAkSDgoGc3RhdHVzGAUgASgJEhEKCWNsb3NlZF9hdBgGIAEoBBIOCgZ3cml0ZXMYByABKA0SEgoKbWF4X3dyaXRlcxgIIAEoDSI+CgxCcmFuY2hDcmVhdGUSDAoEdXNlchgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCm1heF93cml0ZXMYAyABKA0iKwoJQnJhbmNoQWRkEgoKAmlkGAEgASgJEhIKCnF1YXJhbnRpbmUYAiABKAgiTAoMUmVjb3JkRmllbGRzEgoKAmlkGAEgASgJEg8KB2V4cGlyZWQYAiABKAgSDQoFdHJ1c3QYAyABKAkSEAoIdmFsaWRfdG8YBCABKAQiWgoKRWRnZVdlaWdodBILCgNzcmMYASABKAkSEAoIcmVsYXRpb24YAiABKAkSCwoDZHN0GAMgASgJEg4KBndlaWdodBgEIAEoAhIQCghtZW1vcmllcxgFIAMoCSK0AgoLQnJhbmNoTWVyZ2USDAoEdXNlchgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnBvbGljeRgDIAEoCRIXCg9tYWluX2dlbmVyYXRpb24YBCABKAQSIwoEYWRkcxgFIAMoCzIVLm1pbmRsb2cudjEuQnJhbmNoQWRkEikKB3JlY29yZHMYBiADKAsyGC5taW5kbG9nLnYxLlJlY29yZEZpZWxkcxIlCgVlZGdlcxgHIAMoCzIWLm1pbmRsb2cudjEuRWRnZVdlaWdodBItCgljb25mbGljdHMYCCADKAsyGi5taW5kbG9nLnYxLk1lbW9yeUNvbmZsaWN0EigKCXN1cGVyc2VkZRgJIAMoCzIVLm1pbmRsb2cudjEuU3VwZXJzZWRlEhAKCHJlamVjdGVkGAogAygJIigKCkJyYW5jaERyb3ASDAoEdXNlchgBIAEoCRIMCgRuYW1lGAIgASgJYgZwcm90bzM", [file_mindlog_v1_jobs]);
 
 /**
  * @generated from message mindlog.v1.MemoryLink
@@ -824,4 +824,293 @@ export type MemoryOutcome = Message<"mindlog.v1.MemoryOutcome"> & {
  */
 export const MemoryOutcomeSchema: GenMessage<MemoryOutcome> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_memory, 17);
+
+/**
+ * A memory branch of a user scope, stored at m/(user, 'B', name) (ADR-0013).
+ * Its own memory lives under m/(user, 'w', name, ...) in main's layout.
+ *
+ * @generated from message mindlog.v1.MemoryBranch
+ */
+export type MemoryBranch = Message<"mindlog.v1.MemoryBranch"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * Log index and MVCC version (HLC) of the command that created it: the
+   * branch reads main as of fork_version.
+   *
+   * @generated from field: uint64 fork_index = 2;
+   */
+  forkIndex: bigint;
+
+  /**
+   * @generated from field: uint64 fork_version = 3;
+   */
+  forkVersion: bigint;
+
+  /**
+   * @generated from field: string created_by = 4;
+   */
+  createdBy: string;
+
+  /**
+   * open | merged | dropped
+   *
+   * @generated from field: string status = 5;
+   */
+  status: string;
+
+  /**
+   * HLC it was merged or dropped.
+   *
+   * @generated from field: uint64 closed_at = 6;
+   */
+  closedAt: bigint;
+
+  /**
+   * Memories written on the branch, bounded by max_writes so merge and drop fit one command.
+   *
+   * @generated from field: uint32 writes = 7;
+   */
+  writes: number;
+
+  /**
+   * @generated from field: uint32 max_writes = 8;
+   */
+  maxWrites: number;
+};
+
+/**
+ * Describes the message mindlog.v1.MemoryBranch.
+ * Use `create(MemoryBranchSchema)` to create a new message.
+ */
+export const MemoryBranchSchema: GenMessage<MemoryBranch> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 18);
+
+/**
+ * Command body 30: create a branch of a user scope at this command's version.
+ *
+ * @generated from message mindlog.v1.BranchCreate
+ */
+export type BranchCreate = Message<"mindlog.v1.BranchCreate"> & {
+  /**
+   * @generated from field: string user = 1;
+   */
+  user: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * Most memories the branch may hold.
+   *
+   * @generated from field: uint32 max_writes = 3;
+   */
+  maxWrites: number;
+};
+
+/**
+ * Describes the message mindlog.v1.BranchCreate.
+ * Use `create(BranchCreateSchema)` to create a new message.
+ */
+export const BranchCreateSchema: GenMessage<BranchCreate> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 19);
+
+/**
+ * A branch memory the merge copies into main.
+ *
+ * @generated from message mindlog.v1.BranchAdd
+ */
+export type BranchAdd = Message<"mindlog.v1.BranchAdd"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Stored quarantined because it contradicts main (policy raise).
+   *
+   * @generated from field: bool quarantine = 2;
+   */
+  quarantine: boolean;
+};
+
+/**
+ * Describes the message mindlog.v1.BranchAdd.
+ * Use `create(BranchAddSchema)` to create a new message.
+ */
+export const BranchAddSchema: GenMessage<BranchAdd> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 20);
+
+/**
+ * The merged fields of a main memory the branch changed.
+ *
+ * @generated from message mindlog.v1.RecordFields
+ */
+export type RecordFields = Message<"mindlog.v1.RecordFields"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: bool expired = 2;
+   */
+  expired: boolean;
+
+  /**
+   * @generated from field: string trust = 3;
+   */
+  trust: string;
+
+  /**
+   * @generated from field: uint64 valid_to = 4;
+   */
+  validTo: bigint;
+};
+
+/**
+ * Describes the message mindlog.v1.RecordFields.
+ * Use `create(RecordFieldsSchema)` to create a new message.
+ */
+export const RecordFieldsSchema: GenMessage<RecordFields> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 21);
+
+/**
+ * An entity edge with its merged weight and supporting memories (CRDT merge).
+ *
+ * @generated from message mindlog.v1.EdgeWeight
+ */
+export type EdgeWeight = Message<"mindlog.v1.EdgeWeight"> & {
+  /**
+   * @generated from field: string src = 1;
+   */
+  src: string;
+
+  /**
+   * @generated from field: string relation = 2;
+   */
+  relation: string;
+
+  /**
+   * @generated from field: string dst = 3;
+   */
+  dst: string;
+
+  /**
+   * @generated from field: float weight = 4;
+   */
+  weight: number;
+
+  /**
+   * @generated from field: repeated string memories = 5;
+   */
+  memories: string[];
+};
+
+/**
+ * Describes the message mindlog.v1.EdgeWeight.
+ * Use `create(EdgeWeightSchema)` to create a new message.
+ */
+export const EdgeWeightSchema: GenMessage<EdgeWeight> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 22);
+
+/**
+ * Command body 31: merge a branch into main as planned by the leader
+ * (@mindlog/branching). Apply refuses it if main moved since the plan.
+ *
+ * @generated from message mindlog.v1.BranchMerge
+ */
+export type BranchMerge = Message<"mindlog.v1.BranchMerge"> & {
+  /**
+   * @generated from field: string user = 1;
+   */
+  user: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * abort | raise | prefer_branch | prefer_main
+   *
+   * @generated from field: string policy = 3;
+   */
+  policy: string;
+
+  /**
+   * Main's generation the plan was made at.
+   *
+   * @generated from field: uint64 main_generation = 4;
+   */
+  mainGeneration: bigint;
+
+  /**
+   * @generated from field: repeated mindlog.v1.BranchAdd adds = 5;
+   */
+  adds: BranchAdd[];
+
+  /**
+   * @generated from field: repeated mindlog.v1.RecordFields records = 6;
+   */
+  records: RecordFields[];
+
+  /**
+   * @generated from field: repeated mindlog.v1.EdgeWeight edges = 7;
+   */
+  edges: EdgeWeight[];
+
+  /**
+   * @generated from field: repeated mindlog.v1.MemoryConflict conflicts = 8;
+   */
+  conflicts: MemoryConflict[];
+
+  /**
+   * @generated from field: repeated mindlog.v1.Supersede supersede = 9;
+   */
+  supersede: Supersede[];
+
+  /**
+   * Branch facts left out (prefer_main), for the merge result.
+   *
+   * @generated from field: repeated string rejected = 10;
+   */
+  rejected: string[];
+};
+
+/**
+ * Describes the message mindlog.v1.BranchMerge.
+ * Use `create(BranchMergeSchema)` to create a new message.
+ */
+export const BranchMergeSchema: GenMessage<BranchMerge> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 23);
+
+/**
+ * Command body 32: drop a branch and its memories.
+ *
+ * @generated from message mindlog.v1.BranchDrop
+ */
+export type BranchDrop = Message<"mindlog.v1.BranchDrop"> & {
+  /**
+   * @generated from field: string user = 1;
+   */
+  user: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message mindlog.v1.BranchDrop.
+ * Use `create(BranchDropSchema)` to create a new message.
+ */
+export const BranchDropSchema: GenMessage<BranchDrop> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 24);
 

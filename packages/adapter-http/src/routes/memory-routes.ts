@@ -4,7 +4,10 @@ import type { MindlogError, Result } from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
 import type { MemoryService } from '@mindlog/services';
 import {
+  branchSchema,
+  branchesSchema,
   conflictsSchema,
+  mergeSchema,
   forgetSchema,
   getMemorySchema,
   graphSchema,
@@ -35,7 +38,12 @@ type Method =
   | 'scopes'
   | 'conflicts'
   | 'resolve'
-  | 'trust';
+  | 'trust'
+  | 'branch'
+  | 'branches'
+  | 'diff'
+  | 'merge'
+  | 'drop';
 
 type Caller = Parameters<MemoryService['get']>[0];
 // Each operation's input was validated by its route schema; the service validates it again.
@@ -56,6 +64,11 @@ const CALLS: Record<
   conflicts: (m, c, i) => m.conflicts(c, i),
   resolve: (m, c, i) => m.resolve(c, i),
   trust: (m, c, i) => m.trust(c, i),
+  branch: (m, c, i) => m.createBranch(c, i),
+  branches: (m, c, i) => m.branches(c, i),
+  diff: (m, c, i) => m.diffBranch(c, i),
+  merge: (m, c, i) => m.mergeBranch(c, i),
+  drop: (m, c, i) => m.dropBranch(c, i),
 };
 
 const ROUTES: ReadonlyArray<{ op: Method; summary: string; schema: z.ZodObject }> = [
@@ -99,6 +112,11 @@ const ROUTES: ReadonlyArray<{ op: Method; summary: string; schema: z.ZodObject }
     summary: 'Set the trust of memories (release or quarantine)',
     schema: trustSchema,
   },
+  { op: 'branch', summary: 'Create a branch that reads main as of now', schema: branchSchema },
+  { op: 'branches', summary: 'Branches of a scope, open and closed', schema: branchesSchema },
+  { op: 'diff', summary: 'What a branch added, forgot and changed', schema: branchSchema },
+  { op: 'merge', summary: 'Merge a branch into main under a conflict policy', schema: mergeSchema },
+  { op: 'drop', summary: 'Drop a branch and its memories', schema: branchSchema },
 ];
 
 /** REST mirror of the memory operations (PLAN 15.3), for the dashboard and scripts. */

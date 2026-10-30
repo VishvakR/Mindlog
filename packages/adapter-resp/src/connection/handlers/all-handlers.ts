@@ -22,6 +22,13 @@ import {
   memPackCommand,
   memSearchCommand,
 } from './memory.js';
+import {
+  memBranchCommand,
+  memBranchesCommand,
+  memDiffCommand,
+  memDropCommand,
+  memMergeCommand,
+} from './branches.js';
 import { memConflictsCommand, memResolveCommand, memTrustCommand } from './review.js';
 import { quitCommand, resetCommand, selectCommand } from './session-commands.js';
 
@@ -50,6 +57,11 @@ export function createConnectionCommands(): ConnectionCommandRegistry {
     memConflictsCommand,
     memResolveCommand,
     memTrustCommand,
+    memBranchCommand,
+    memBranchesCommand,
+    memDiffCommand,
+    memMergeCommand,
+    memDropCommand,
     cacheSetCommand,
     cacheGetCommand,
     cacheDelCommand,

@@ -3,7 +3,9 @@ import { ExpiryJob, GcJob } from '@mindlog/kv';
 import type { WorkerRegistry } from '@mindlog/jobs';
 import { JobRunner } from '@mindlog/jobs';
 import type { Store } from '@mindlog/multiraft';
+import { oldestOpenFork } from '@mindlog/memory';
 import type { CommandStamper } from '@mindlog/statemachine';
+import { SpanReader, spanIntervals } from '@mindlog/statemachine';
 import type { HeldLock } from '@mindlog/txn';
 import { LockResolverJob } from '@mindlog/txn';
 import type { KvReader } from '@mindlog/storage';
@@ -72,7 +74,20 @@ export class RangeJobs {
         metrics: this.#d.metrics,
       };
       const expiry = new ExpiryJob({ ...common, store: this.#d.state, rangeId });
-      const gc = new GcJob({ ...common, appliedIndex: () => replica.appliedIndex });
+      const gc = new GcJob({
+        ...common,
+        appliedIndex: () => replica.appliedIndex,
+        // Open memory branches keep the history they read (ADR-0013).
+        pinned: async () => {
+          const reader = new SpanReader(this.#d.state, replica.descriptor);
+          let oldest: bigint | undefined;
+          for (const span of spanIntervals(replica.descriptor)) {
+            const fork = await oldestOpenFork(reader, span);
+            if (fork !== undefined && (oldest === undefined || fork < oldest)) oldest = fork;
+          }
+          return oldest;
+        },
+      });
       const resolve = this.#d.resolve;
       const locks = resolve
         ? new LockResolverJob({

@@ -3,8 +3,15 @@ import { decodeKey } from '@mindlog/core';
 import type { Adjacency, GraphReader } from '@mindlog/index-graph';
 import type { Bm25Stats, Posting, PostingReader } from '@mindlog/index-text';
 import { decodeCount, decodePosting, decodeStats } from '@mindlog/index-text';
-import type { MemoryConflict, MemoryEntity, MemoryRecord } from '@mindlog/proto';
+import type {
+  MemoryBranch,
+  MemoryConflict,
+  MemoryEdge,
+  MemoryEntity,
+  MemoryRecord,
+} from '@mindlog/proto';
 import {
+  MemoryBranchSchema,
   MemoryConflictSchema,
   MemoryEdgeSchema,
   MemoryEntitySchema,
@@ -20,9 +27,12 @@ import {
 } from '@mindlog/storage';
 import type { EdgeDirection, Root } from '../keys.js';
 import {
+  branchKey,
+  branchPrefix,
   conflictKey,
   conflictPrefix,
   dfKey,
+  edgeKey,
   edgePrefix,
   entityKey,
   entityPrefix,
@@ -30,6 +40,7 @@ import {
   mentionPrefix,
   openConflictKey,
   openConflictPrefix,
+  outEdgesPrefix,
   postingPrefix,
   recordKey,
   recordPrefix,
@@ -37,6 +48,8 @@ import {
 } from '../keys.js';
 
 const NEWEST = (1n << 64n) - 1n;
+
+const userOf = (root: Root): string => (typeof root === 'string' ? root : root.user);
 
 /** Prefix of memory nodes in the memory graph; entity ids never start with it. */
 export const MEMORY_NODE = '@';
@@ -47,12 +60,58 @@ function lastElement(key: Uint8Array): unknown {
   return decoded.ok ? decoded.value.tuple.at(-1) : undefined;
 }
 
+/** What the recall stages read: a space's memory, or a branch overlay (ADR-0013). */
+export interface ScopeReads {
+  readonly at: bigint | undefined;
+  record(id: string): Promise<MemoryRecord | undefined>;
+  records(after?: string): AsyncGenerator<MemoryRecord>;
+  entity(id: string): Promise<MemoryEntity | undefined>;
+  mentions(entityId: string, limit?: number): Promise<string[]>;
+  postings(): PostingReader;
+  graph(): GraphReader;
+  memoryGraph(mentionLimit: number): GraphReader;
+}
+
+/**
+ * The memory graph PPR walks (PLAN 11.3): entity nodes (`type:name`) and
+ * memory nodes (`@` + id). Entities link to each other by their edges and to
+ * up to `mentionLimit` memories mentioning them (weight 1); memories link to
+ * their entities and their `related` notes. Forgotten memories have no edges.
+ */
+export function memoryGraphOf(
+  reads: Pick<ScopeReads, 'graph' | 'mentions' | 'record'>,
+  mentionLimit: number,
+): GraphReader {
+  const entities = reads.graph();
+  return {
+    async *neighbors(node): AsyncGenerator<Adjacency> {
+      if (!node.startsWith(MEMORY_NODE)) {
+        yield* entities.neighbors(node);
+        for (const id of await reads.mentions(node, mentionLimit))
+          yield { relation: 'mentions', node: MEMORY_NODE + id, direction: 'in', weight: 1 };
+        return;
+      }
+      const r = await reads.record(node.slice(MEMORY_NODE.length));
+      if (!r || r.expiredAt !== 0n) return;
+      for (const e of r.entities)
+        yield { relation: 'mentions', node: e, direction: 'out', weight: 1 };
+      for (const l of r.links)
+        yield {
+          relation: l.relation,
+          node: MEMORY_NODE + l.to,
+          direction: 'out',
+          weight: l.weight,
+        };
+    },
+  };
+}
+
 /**
  * Read access to one user scope's memory in a range's applied state
  * (ADR-0031): its main space or a branch space (ADR-0013), at the latest
  * version or as of `at` (PLAN 13.3 `ASOF`).
  */
-export class MemoryReads {
+export class MemoryReads implements ScopeReads {
   readonly #mvcc: MvccReader;
   readonly #raw: KvReader;
   readonly #at: bigint | undefined;
@@ -82,6 +141,12 @@ export class MemoryReads {
 
   async generation(): Promise<number> {
     return decodeCount(await this.#get(generationKey(this.tenant, this.user)));
+  }
+
+  /** A record and the MVCC version (HLC) that wrote it. */
+  async recordVersion(id: string): Promise<{ record: MemoryRecord; version: bigint } | undefined> {
+    const v = await this.#mvcc.getVersioned(recordKey(this.tenant, this.user, id), this.#at);
+    return v && { record: fromBinary(MemoryRecordSchema, v.value), version: v.index };
   }
 
   async record(id: string): Promise<MemoryRecord | undefined> {
@@ -132,6 +197,33 @@ export class MemoryReads {
     }
   }
 
+  /** A branch of this user scope (ADR-0013). */
+  async branch(name: string): Promise<MemoryBranch | undefined> {
+    const bytes = await this.#get(branchKey(this.tenant, userOf(this.user), name));
+    return bytes ? fromBinary(MemoryBranchSchema, bytes) : undefined;
+  }
+
+  async *branches(): AsyncGenerator<MemoryBranch> {
+    for await (const { value } of this.#scan(branchPrefix(this.tenant, userOf(this.user))))
+      yield fromBinary(MemoryBranchSchema, value);
+  }
+
+  async edge(src: string, relation: string, dst: string): Promise<MemoryEdge | undefined> {
+    const bytes = await this.#get(edgeKey(this.tenant, this.user, 'out', src, relation, dst));
+    return bytes ? fromBinary(MemoryEdgeSchema, bytes) : undefined;
+  }
+
+  /** Every entity edge of the space: `(src, relation, dst)` and its row. */
+  async *edges(): AsyncGenerator<{ src: string; relation: string; dst: string; edge: MemoryEdge }> {
+    for await (const { key, value } of this.#scan(outEdgesPrefix(this.tenant, this.user))) {
+      const decoded = decodeKey(key);
+      if (!decoded.ok) continue;
+      const [src, relation, dst] = decoded.value.tuple.slice(-3);
+      if (typeof src === 'string' && typeof relation === 'string' && typeof dst === 'string')
+        yield { src, relation, dst, edge: fromBinary(MemoryEdgeSchema, value) };
+    }
+  }
+
   async entity(id: string): Promise<MemoryEntity | undefined> {
     const bytes = await this.#get(entityKey(this.tenant, this.user, id));
     return bytes ? fromBinary(MemoryEntitySchema, bytes) : undefined;
@@ -173,37 +265,9 @@ export class MemoryReads {
     };
   }
 
-  /**
-   * The memory graph PPR walks (PLAN 11.3): entity nodes (`type:name`) and
-   * memory nodes (`@` + id). Entities link to each other by their edges and to
-   * up to `mentionLimit` memories mentioning them (weight 1); memories link to
-   * their entities and their `related` notes. Forgotten memories have no edges.
-   */
+  /** The memory graph PPR walks (see `memoryGraphOf`). */
   memoryGraph(mentionLimit: number): GraphReader {
-    const entities = this.graph();
-    const mentions = (entity: string) => this.mentions(entity, mentionLimit);
-    const record = (id: string) => this.record(id);
-    return {
-      async *neighbors(node): AsyncGenerator<Adjacency> {
-        if (!node.startsWith(MEMORY_NODE)) {
-          yield* entities.neighbors(node);
-          for (const id of await mentions(node))
-            yield { relation: 'mentions', node: MEMORY_NODE + id, direction: 'in', weight: 1 };
-          return;
-        }
-        const r = await record(node.slice(MEMORY_NODE.length));
-        if (!r || r.expiredAt !== 0n) return;
-        for (const e of r.entities)
-          yield { relation: 'mentions', node: e, direction: 'out', weight: 1 };
-        for (const l of r.links)
-          yield {
-            relation: l.relation,
-            node: MEMORY_NODE + l.to,
-            direction: 'out',
-            weight: l.weight,
-          };
-      },
-    };
+    return memoryGraphOf(this, mentionLimit);
   }
 
   graph(): GraphReader {

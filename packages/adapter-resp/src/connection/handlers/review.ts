@@ -4,6 +4,8 @@ import type { KvReply } from '@mindlog/proto';
 import type { ConnectionCommand } from '../connection-command.js';
 import {
   answer,
+  branchOf,
+  leadingBranch,
   caller,
   decoder,
   integerOption,
@@ -73,7 +75,7 @@ export const memResolveCommand: ConnectionCommand = {
     }),
 };
 
-/** `MEM.TRUST <scope> verified|normal|quarantined <id> [id ...]`: how many changed. */
+/** `MEM.TRUST <scope> verified|normal|quarantined [BRANCH name] <id> [id ...]`: how many changed. */
 export const memTrustCommand: ConnectionCommand = {
   name: 'MEM.TRUST',
   execute: (ctx, argv) =>
@@ -82,7 +84,8 @@ export const memTrustCommand: ConnectionCommand = {
         await memory.trust(caller(ctx), {
           scope: scopeOf(argv[1]),
           trust: decoder.decode(argv[2]).toLowerCase() as never,
-          ids: argv.slice(3).map((a) => decoder.decode(a)),
+          ...branchOf(leadingBranch(argv, 3)[0]),
+          ids: leadingBranch(argv, 3)[1].map((a) => decoder.decode(a)),
           reason: `MEM.TRUST by ${ctx.session.principal}`,
         }),
         (r) => replies.integer(r.count),

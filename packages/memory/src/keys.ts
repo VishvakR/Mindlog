@@ -110,3 +110,15 @@ export const derivedKey = (tenant: string, user: Root, from: string, id: string)
   key(tenant, [...head(user), 'dv', from, id]);
 export const derivedPrefix = (tenant: string, user: Root, from: string): Uint8Array =>
   prefix(tenant, [...head(user), 'dv', from]);
+
+/** Branch metadata of a user scope (ADR-0013); outside the branch's own space. */
+export const branchKey = (tenant: string, user: string, name: string): Uint8Array =>
+  key(tenant, [user, 'B', name]);
+export const branchPrefix = (tenant: string, user: string): Uint8Array =>
+  prefix(tenant, [user, 'B']);
+/** Everything a branch wrote, in main's layout. */
+export const branchSpacePrefix = (tenant: string, user: string, name: string): Uint8Array =>
+  prefix(tenant, [user, 'w', name]);
+/** Every outgoing edge of a space. */
+export const outEdgesPrefix = (tenant: string, user: Root): Uint8Array =>
+  prefix(tenant, [...head(user), 'g', 'out']);

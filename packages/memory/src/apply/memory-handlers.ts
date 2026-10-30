@@ -1,13 +1,16 @@
-import { create, fromBinary } from '@bufbuild/protobuf';
+import { fromBinary } from '@bufbuild/protobuf';
 import type { LiveMemory } from '@mindlog/cache';
 import { dropDependents } from '@mindlog/cache';
 import { completeJob, enqueueJob } from '@mindlog/jobs';
-import type { CommandResult } from '@mindlog/proto';
-import { CommandResultSchema, MemoryRecordSchema } from '@mindlog/proto';
+import { countWrites, maskOnBranch, spaceOf } from './branch-handlers.js';
+import { readRecord } from './conflict-writes.js';
+import { outcome, outsideRange } from './results.js';
+import type { MemoryRecord } from '@mindlog/proto';
+import { MemoryRecordSchema } from '@mindlog/proto';
 import { decodeKey } from '@mindlog/core';
 import type { ApplyContext, ApplyHandler } from '@mindlog/statemachine';
-import { errorResult, inSpan } from '@mindlog/statemachine';
-import { derivedPrefix, recordKey, scopeKey, sourceRefPrefix } from '../keys.js';
+import { errorResult } from '@mindlog/statemachine';
+import { derivedPrefix, recordKey, sourceRefPrefix } from '../keys.js';
 import { MEMORY_KINDS } from '../types.js';
 import {
   bumpGeneration,
@@ -19,18 +22,6 @@ import {
 import { supersedeFacts, writeConflict } from './conflict-writes.js';
 
 const KINDS = new Set<string>(MEMORY_KINDS);
-
-export function outcome(ids: string[]): CommandResult {
-  return create(CommandResultSchema, {
-    outcome: { case: 'memory', value: { ids, count: ids.length } },
-  });
-}
-
-export function outsideRange(ctx: ApplyContext, user: string): CommandResult | undefined {
-  return inSpan(ctx.descriptor, scopeKey(ctx.command.tenant, user))
-    ? undefined
-    : errorResult('RANGE_MOVED', `scope is not in range ${String(ctx.descriptor.rangeId)}`);
-}
 
 /** A memory record exists and is not forgotten (for `cacheSetHandler`, ADR-0012). */
 export const liveMemory: LiveMemory = async (ctx, tenant, user, id) => {
@@ -52,19 +43,34 @@ export const memoryCommitHandler: ApplyHandler = {
     const { tenant } = ctx.command;
     const moved = outsideRange(ctx, commit.user);
     if (moved) return moved;
+    const space = await spaceOf(ctx, tenant, commit.user);
+    if (!('root' in space)) return space;
+    const { root, branch } = space;
+    if (
+      branch &&
+      (commit.conflicts.length > 0 ||
+        commit.supersede.length > 0 ||
+        commit.enqueue.length > 0 ||
+        commit.complete)
+    )
+      return errorResult('INVALID_ARGUMENT', 'a branch commit carries memories and edges only');
     for (const m of commit.memories) {
       const r = m.record;
       if (!r || r.id === '' || r.user !== commit.user || r.text === '' || !KINDS.has(r.kind))
         return errorResult('INVALID_ARGUMENT', `invalid memory ${r?.id ?? ''}`);
       if (m.vector.length % 4 !== 0)
         return errorResult('INVALID_ARGUMENT', 'vector is not float32');
-      if (await ctx.txn.get(recordKey(tenant, commit.user, r.id)))
+      if (await ctx.txn.get(recordKey(tenant, root, r.id)))
         return errorResult('ALREADY_EXISTS', `memory ${r.id} exists`);
     }
     const newIds = new Set(commit.memories.map((m) => m.record?.id));
     for (const c of commit.conflicts)
       if (c.id === '' || c.a === '' || !newIds.has(c.b))
         return errorResult('INVALID_ARGUMENT', `invalid conflict ${c.id}`);
+    if (branch) {
+      const full = countWrites(ctx, tenant, commit.user, branch, commit.memories.length);
+      if (full) return full;
+    }
     if (commit.complete) {
       const completed = await completeJob(ctx, commit.user, commit.complete);
       if (completed.outcome.case === 'error') return completed;
@@ -74,12 +80,15 @@ export const memoryCommitHandler: ApplyHandler = {
       if (failed) return failed;
     }
     const ids: string[] = [];
-    for (const m of commit.memories) ids.push(await writeMemory(ctx, tenant, commit.user, m));
-    for (const e of commit.edges) await writeEdge(ctx, tenant, commit.user, e);
+    for (const m of commit.memories) {
+      if (branch && m.record) m.record.branch = branch.name;
+      ids.push(await writeMemory(ctx, tenant, root, m));
+    }
+    for (const e of commit.edges) await writeEdge(ctx, tenant, root, e);
     await supersedeFacts(ctx, tenant, commit.user, commit.supersede);
     for (const c of commit.conflicts) writeConflict(ctx, tenant, commit.user, c);
-    await bumpGeneration(ctx, tenant, commit.user);
-    writeIndexTime(ctx, tenant, commit.user);
+    await bumpGeneration(ctx, tenant, root);
+    if (!branch) writeIndexTime(ctx, tenant, commit.user);
     return outcome(ids);
   },
 };
@@ -130,8 +139,12 @@ export const memoryForgetHandler: ApplyHandler = {
     const { tenant } = ctx.command;
     const moved = outsideRange(ctx, user);
     if (moved) return moved;
+    const space = await spaceOf(ctx, tenant, user);
+    if (!('root' in space)) return space;
+    const { root, branch } = space;
     const targets = new Set(ids);
     if (sourceRef !== '') {
+      if (branch) return errorResult('INVALID_ARGUMENT', 'forget a source on main');
       const tainted = await taintedBy(ctx, tenant, user, sourceRef, cascadeLimit);
       if (!tainted)
         return errorResult(
@@ -140,19 +153,41 @@ export const memoryForgetHandler: ApplyHandler = {
         );
       for (const id of tainted) targets.add(id);
     }
+    // Each masked main memory is a branch write; check the limit before writing anything.
+    if (branch && branch.writes + targets.size > branch.maxWrites)
+      return errorResult(
+        'PAYLOAD_TOO_LARGE',
+        `branch ${branch.name} holds at most ${String(branch.maxWrites)} memories`,
+      );
+    let masked = 0;
     const forgotten: string[] = [];
     for (const id of targets) {
-      const bytes = await ctx.txn.get(recordKey(tenant, user, id));
-      if (!bytes) continue;
-      const record = fromBinary(MemoryRecordSchema, bytes);
-      if (record.expiredAt !== 0n) continue;
-      await forgetMemory(ctx, tenant, user, record, reason);
-      forgotten.push(id);
+      const record = await readRecord(ctx, tenant, root, id);
+      const own = branch === undefined || (record && !(await readRecord(ctx, tenant, user, id)));
+      if (own) {
+        if (!record || record.expiredAt !== 0n) continue;
+        await forgetMemory(ctx, tenant, root, record, reason);
+        forgotten.push(id);
+        continue;
+      }
+      // A main memory, forgotten only as the branch sees it.
+      if (record && record.expiredAt !== 0n) continue;
+      const expire = (r: MemoryRecord) => {
+        r.expiredAt = ctx.version;
+        r.forgetReason = reason;
+      };
+      if (await maskOnBranch(ctx, tenant, user, branch.name, branch, id, expire)) {
+        forgotten.push(id);
+        masked++;
+      }
     }
+    if (branch && masked > 0) countWrites(ctx, tenant, user, branch, masked);
     if (forgotten.length > 0) {
-      await bumpGeneration(ctx, tenant, user);
-      await dropDependents(ctx, tenant, user, forgotten);
-      writeIndexTime(ctx, tenant, user);
+      await bumpGeneration(ctx, tenant, root);
+      if (!branch) {
+        await dropDependents(ctx, tenant, user, forgotten);
+        writeIndexTime(ctx, tenant, user);
+      }
     }
     return outcome(forgotten);
   },

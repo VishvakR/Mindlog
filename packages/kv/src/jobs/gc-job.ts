@@ -1,4 +1,4 @@
-import type { Clock, Counter, Logger, Metrics } from '@mindlog/core';
+import type { Clock, Counter, Hlc, Logger, Metrics } from '@mindlog/core';
 import type { CommandStamper, Proposer } from '@mindlog/statemachine';
 import { SYSTEM_TENANT, packHlc } from '@mindlog/core';
 
@@ -18,6 +18,8 @@ export interface GcJobDeps {
   readonly idleEntries?: bigint;
   /** Rows removed per GcThreshold command (default 1,000). */
   readonly limit?: number;
+  /** A version GC must keep history from, e.g. the oldest open memory branch's fork (ADR-0013). */
+  readonly pinned?: () => Promise<bigint | undefined>;
 }
 
 /**
@@ -51,9 +53,12 @@ export class GcJob {
     const retainMs = this.#deps.retainMs ?? 600_000n;
     const now = this.#deps.clock.now();
     if (now <= retainMs) return 0;
+    let belowVersion = packHlc(now - retainMs, 0n);
+    const pinned = await this.#deps.pinned?.();
+    if (pinned !== undefined && pinned < belowVersion) belowVersion = pinned as Hlc;
     const command = this.#deps.stamper.stamp(SYSTEM_TENANT, 'system:gc', {
       case: 'gcThreshold',
-      value: { belowVersion: packHlc(now - retainMs, 0n), limit },
+      value: { belowVersion, limit },
     });
     const proposed = await this.#deps.proposer.propose(command);
     if (!proposed.ok) {

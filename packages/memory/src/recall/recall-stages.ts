@@ -5,7 +5,7 @@ import { searchBm25, tokenize } from '@mindlog/index-text';
 import type { Models } from '@mindlog/models-client';
 import type { MemoryRecord } from '@mindlog/proto';
 import type { Stage } from '../pipeline/stage.js';
-import type { MemoryReads } from '../read/memory-reads.js';
+import type { ScopeReads } from '../read/memory-reads.js';
 import type { RecallItem, RecallSignals } from '../types.js';
 import type { FlatIndex } from '@mindlog/index-vector';
 import type { VectorMeta } from '../vector-cache.js';
@@ -37,7 +37,7 @@ export type IndexSource = () => Promise<FlatIndex<VectorMeta> | undefined>;
 export interface RecallPorts {
   readonly models: Models;
   readonly index: IndexSource;
-  readonly reads: MemoryReads;
+  readonly reads: ScopeReads;
   readonly clock: Clock;
   readonly ppr: PprRunner;
 }
@@ -106,7 +106,7 @@ function vectorStage(
   };
 }
 
-function lexicalStage(reads: MemoryReads, k: number): Stage<RecallDraft> {
+function lexicalStage(reads: ScopeReads, k: number): Stage<RecallDraft> {
   return {
     name: 'retrieve',
     async run(d) {
@@ -147,7 +147,7 @@ export function validAt(r: { validFrom: bigint; validTo: bigint }, t: number): b
   return r.validFrom <= at && (r.validTo === 0n || at < r.validTo);
 }
 
-function filterStage(reads: MemoryReads, clock: Clock, k: number): Stage<RecallDraft> {
+function filterStage(reads: ScopeReads, clock: Clock, k: number): Stage<RecallDraft> {
   return {
     name: 'filter',
     async run(d) {

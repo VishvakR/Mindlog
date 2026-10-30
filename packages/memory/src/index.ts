@@ -4,6 +4,13 @@
  */
 export { liveMemory, memoryCommitHandler, memoryForgetHandler } from './apply/memory-handlers.js';
 export { conflictResolveHandler, memoryTrustHandler } from './apply/review-handlers.js';
+export {
+  branchCreateHandler,
+  branchDropHandler,
+  branchMergeHandler,
+} from './apply/branch-handlers.js';
+export type { MergePolicy } from '@mindlog/branching';
+export { MERGE_POLICIES } from '@mindlog/branching';
 export type { ConflictConfig, ConflictPolicy, PairVerdict, Window } from './ingest/conflicts.js';
 export {
   CONFLICT_POLICIES,
@@ -32,7 +39,9 @@ export type { MemoryConfig, MemoryEngineDeps } from './memory-engine.js';
 export { DEFAULT_MEMORY_CONFIG, MemoryEngine } from './memory-engine.js';
 export type { Stage, StageError, StageRunContext, StagesRun } from './pipeline/stage.js';
 export { runStages } from './pipeline/stage.js';
+export type { ScopeReads } from './read/memory-reads.js';
 export { MemoryReads } from './read/memory-reads.js';
+export { oldestOpenFork } from './read/open-forks.js';
 export type { PackGroup, PackItem, Packed } from './recall/pack.js';
 export { estimateTokens, pack } from './recall/pack.js';
 export type { PprRunner } from './recall/ppr.js';

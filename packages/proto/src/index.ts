@@ -254,10 +254,16 @@ export {
 } from './gen/mindlog/v1/cache_pb.js';
 export type { CacheEntry, CacheInvalidate, CacheSet } from './gen/mindlog/v1/cache_pb.js';
 export {
+  BranchAddSchema,
+  BranchCreateSchema,
+  BranchDropSchema,
+  BranchMergeSchema,
   ConflictResolveSchema,
+  EdgeWeightSchema,
   EntityEdgeSchema,
   EntityMentionSchema,
   JobRefSchema,
+  MemoryBranchSchema,
   MemoryCommitSchema,
   MemoryConflictSchema,
   MemoryEdgeSchema,
@@ -270,15 +276,22 @@ export {
   MemoryTrustSchema,
   MemoryVectorSchema,
   NewMemorySchema,
+  RecordFieldsSchema,
   SupersedeSchema,
   TermCountSchema,
   file_mindlog_v1_memory,
 } from './gen/mindlog/v1/memory_pb.js';
 export type {
+  BranchAdd,
+  BranchCreate,
+  BranchDrop,
+  BranchMerge,
   ConflictResolve,
+  EdgeWeight,
   EntityEdge,
   EntityMention,
   JobRef,
+  MemoryBranch,
   MemoryCommit,
   MemoryConflict,
   MemoryEdge,
@@ -291,6 +304,7 @@ export type {
   MemoryTrust,
   MemoryVector,
   NewMemory,
+  RecordFields,
   Supersede,
   TermCount,
 } from './gen/mindlog/v1/memory_pb.js';

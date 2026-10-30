@@ -396,6 +396,9 @@ importers:
       '@bufbuild/protobuf':
         specifier: ^2.16.0
         version: 2.16.0
+      '@mindlog/branching':
+        specifier: workspace:*
+        version: link:../branching
       '@mindlog/cache':
         specifier: workspace:*
         version: link:../cache

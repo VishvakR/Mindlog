@@ -62,6 +62,8 @@ export interface RememberInput {
   /** World time (ms) the fact became true / stopped being true (ADR-0015). */
   readonly validFromMs?: number;
   readonly validToMs?: number;
+  /** Write on this branch instead of main (ADR-0013). */
+  readonly branch?: string;
 }
 
 /** A past state of the scope (PLAN 13.3): a log index of its range, or a time in ms. */
@@ -125,6 +127,8 @@ export interface RecallInput {
   readonly asOf?: AsOf | undefined;
   /** Only facts true at this world time (ms); default: true at the ASOF time or now. */
   readonly validAtMs?: number;
+  /** Recall the branch: its own memories over main as of its fork (ADR-0013). */
+  readonly branch?: string;
 }
 
 /** Raw retriever scores (each on its own scale) and the normalised signals of the final score. */
@@ -224,4 +228,39 @@ export interface ResolveInput {
   readonly keep: 'a' | 'b' | 'both';
   /** With `both`: world time (ms) b replaced a. */
   readonly validFromMs?: number;
+}
+
+/** A memory branch as the interfaces show it (ADR-0013). */
+export interface BranchView {
+  readonly name: string;
+  readonly status: 'open' | 'merged' | 'dropped';
+  /** Log index and physical time of the fork. */
+  readonly forkIndex: string;
+  readonly forkAtMs: number;
+  readonly createdBy: string;
+  /** Memories written on the branch. */
+  readonly writes: number;
+  readonly closedAtMs?: number;
+}
+
+/** What a branch changed relative to main at its fork. */
+export interface BranchDiff {
+  readonly added: readonly MemoryView[];
+  /** Main memories the branch forgot. */
+  readonly forgotten: readonly MemoryView[];
+  /** Main memories the branch changed otherwise (trust). */
+  readonly changed: readonly MemoryView[];
+}
+
+export interface MergeResult {
+  /** False when the `abort` policy found contradictions. */
+  readonly merged: boolean;
+  readonly added: readonly string[];
+  readonly rejected: readonly string[];
+  readonly conflicts: ReadonlyArray<{
+    readonly a: string;
+    readonly b: string;
+    readonly scores: readonly [number, number];
+    readonly resolved: boolean;
+  }>;
 }

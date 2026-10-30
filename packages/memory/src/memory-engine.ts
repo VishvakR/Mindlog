@@ -23,7 +23,8 @@ import type { IngestDraft } from './ingest/draft.js';
 import type { IngestConfig } from './ingest/ingest-stages.js';
 import { ingestStages } from './ingest/ingest-stages.js';
 import { runStages } from './pipeline/stage.js';
-import { indexTimeKey, indexTimePrefix } from './keys.js';
+import { indexTimeKey, indexTimePrefix, rootOf } from './keys.js';
+import type { ScopeReads } from './read/memory-reads.js';
 import { MemoryReads } from './read/memory-reads.js';
 import { pack } from './recall/pack.js';
 import type { PprRunner } from './recall/ppr.js';
@@ -33,10 +34,15 @@ import { DEFAULT_RECIPE, RECIPES } from './recall/recipes.js';
 import type { IndexSource, RecallConfig } from './recall/recall-stages.js';
 import { recallStages } from './recall/recall-stages.js';
 import { minTrust } from './ingest/text.js';
+import type { MergePolicy } from '@mindlog/branching';
+import { branchSources, branchView, diffBranch, openBranch, planBranchMerge } from './branches.js';
 import { listConflicts } from './review.js';
 import type {
   AsOf,
+  BranchDiff,
+  BranchView,
   CallContext,
+  MergeResult,
   ConflictView,
   ResolveInput,
   Trust,
@@ -60,6 +66,8 @@ export interface MemoryConfig extends IngestConfig, RecallConfig {
   readonly maxQueuedJobs: number;
   /** Most memories one taint cascade may forget (PLAN 13.4). */
   readonly maxCascade: number;
+  /** Most memories a branch may hold (ADR-0013). */
+  readonly branchMaxWrites: number;
 }
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
@@ -99,6 +107,7 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   tokenBudget: 1000,
   maxQueuedJobs: 1000,
   maxCascade: 1000,
+  branchMaxWrites: 1000,
 };
 
 export interface MemoryEngineDeps {
@@ -209,13 +218,19 @@ export class MemoryEngine {
       },
       context.requestId,
     );
+    if (draft.input.branch) command.branch = draft.input.branch;
     const committed = await this.#propose(range, command);
     if (!committed.ok) return committed;
     const outcome = committed.value.outcome;
     const ids = outcome.case === 'memory' ? outcome.value.ids : [];
+    const written = new MemoryReads(
+      range.reader,
+      scope.tenant,
+      rootOf(scope.user, draft.input.branch),
+    );
     const views: MemoryView[] = [];
     for (const id of ids) {
-      const record = await reads.record(id);
+      const record = await written.record(id);
       if (record) views.push(toView(record));
     }
     return ok(views);
@@ -238,10 +253,24 @@ export class MemoryEngine {
     return 0n;
   }
 
-  /** Reads of the scope's main space, at `asOf` when given. */
-  async #reads(range: MemoryRange, scope: MemoryScope, asOf?: AsOf): Promise<MemoryReads> {
-    const at = asOf ? await this.#version(range, scope, asOf) : undefined;
-    return new MemoryReads(range.reader, scope.tenant, scope.user, at);
+  /** What a read sees: main (at `asOf` when given) or a branch over main at its fork (ADR-0013). */
+  async #sources(
+    range: MemoryRange,
+    scope: MemoryScope,
+    view: { asOf?: AsOf | undefined; branch?: string | undefined },
+  ): Promise<Result<{ reads: ScopeReads; index: IndexSource }, MindlogError>> {
+    if (view.branch) {
+      if (view.asOf)
+        return err(
+          mindlogError('INVALID_ARGUMENT', 'ASOF reads main; it does not combine with a branch'),
+        );
+      const branch = await openBranch(range, scope, view.branch);
+      if (!branch.ok) return branch;
+      return ok(branchSources(range, scope, branch.value, this.#d.vectors));
+    }
+    const at = view.asOf ? await this.#version(range, scope, view.asOf) : undefined;
+    const reads = new MemoryReads(range.reader, scope.tenant, scope.user, at);
+    return ok({ reads, index: this.#indexFor(reads) });
   }
 
   /** The vector index for `reads`: the cached one when current, else built at its version. */
@@ -275,11 +304,17 @@ export class MemoryEngine {
       'memory.remember',
       { 'mindlog.tenant': input.scope.tenant },
       async () => {
+        if (input.branch && input.async)
+          return err(
+            mindlogError('INVALID_ARGUMENT', 'async remember is not available on a branch'),
+          );
         // Async: store the raw passages now (model stages forced to their fallbacks), enrich in a job.
         const run = await this.#ingest(range, input, input.async ? () => false : undefined);
         if (!run.ok) return run;
         const { draft, degraded } = run.value;
-        const enrich = input.async === true || MODEL_STAGES.some((s) => degraded.has(s));
+        // Branch memories are not enriched: the job would write to main.
+        const enrich =
+          !input.branch && (input.async === true || MODEL_STAGES.some((s) => degraded.has(s)));
         if (
           input.async &&
           (await this.#queuedJobs(range, input.scope)) >= this.#config.maxQueuedJobs
@@ -339,7 +374,9 @@ export class MemoryEngine {
       { 'mindlog.tenant': input.scope.tenant },
       async () => {
         const recipe = input.recipe ?? DEFAULT_RECIPE;
-        const reads = await this.#reads(range, input.scope, input.asOf);
+        const sources = await this.#sources(range, input.scope, input);
+        if (!sources.ok) return sources;
+        const { reads, index } = sources.value;
         const draft = emptyDraft(
           input,
           RECIPES[recipe],
@@ -347,7 +384,7 @@ export class MemoryEngine {
         );
         const ports = {
           models: this.#d.models,
-          index: this.#indexFor(reads),
+          index,
           reads,
           clock: this.#d.clock,
           ppr: this.#d.ppr ?? inlinePpr,
@@ -389,9 +426,11 @@ export class MemoryEngine {
     range: MemoryRange,
     scope: MemoryScope,
     id: string,
-    asOf?: AsOf,
+    view: { asOf?: AsOf | undefined; branch?: string | undefined } = {},
   ): Promise<Result<MemoryView | undefined, MindlogError>> {
-    const record = await (await this.#reads(range, scope, asOf)).record(id);
+    const sources = await this.#sources(range, scope, view);
+    if (!sources.ok) return sources;
+    const record = await sources.value.reads.record(id);
     return ok(record ? toView(record) : undefined);
   }
 
@@ -404,12 +443,14 @@ export class MemoryEngine {
       kind?: string;
       includeForgotten?: boolean;
       asOf?: AsOf | undefined;
+      branch?: string | undefined;
     },
   ): Promise<Result<{ memories: MemoryView[]; next?: string }, MindlogError>> {
     const memories: MemoryView[] = [];
     let next: string | undefined;
-    const reads = await this.#reads(range, scope, options.asOf);
-    for await (const r of reads.records(options.after)) {
+    const sources = await this.#sources(range, scope, options);
+    if (!sources.ok) return sources;
+    for await (const r of sources.value.reads.records(options.after)) {
       if (r.expiredAt !== 0n && !options.includeForgotten) continue;
       if (options.kind && r.kind !== options.kind) continue;
       if (r.agent !== (scope.agent ?? r.agent) || r.session !== (scope.session ?? r.session))
@@ -426,19 +467,31 @@ export class MemoryEngine {
   /** Forgets memories, and with `sourceRef` everything from that source and derived from it (PLAN 13.4). */
   async forget(
     range: MemoryRange,
-    input: { scope: MemoryScope; ids: readonly string[]; reason?: string; sourceRef?: string },
+    input: {
+      scope: MemoryScope;
+      ids: readonly string[];
+      reason?: string;
+      sourceRef?: string;
+      branch?: string;
+    },
     context: CallContext,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
-    return this.#write(range, input.scope, context, {
-      case: 'memoryForget',
-      value: {
-        user: input.scope.user,
-        ids: [...input.ids],
-        reason: input.reason ?? '',
-        sourceRef: input.sourceRef ?? '',
-        cascadeLimit: this.#config.maxCascade,
+    return this.#write(
+      range,
+      input.scope,
+      context,
+      {
+        case: 'memoryForget',
+        value: {
+          user: input.scope.user,
+          ids: [...input.ids],
+          reason: input.reason ?? '',
+          sourceRef: input.sourceRef ?? '',
+          cascadeLimit: this.#config.maxCascade,
+        },
       },
-    });
+      input.branch,
+    );
   }
 
   /** Proposes a body for a scope and returns the memory ids its apply reports. */
@@ -447,8 +500,10 @@ export class MemoryEngine {
     scope: MemoryScope,
     context: CallContext,
     body: Parameters<CommandStamper['stamp']>[2],
+    branch?: string,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     const command = this.#d.stamper.stamp(scope.tenant, context.principal, body, context.requestId);
+    if (branch) command.branch = branch;
     const done = await this.#propose(range, command);
     if (!done.ok) return done;
     const o = done.value.outcome;
@@ -491,17 +546,105 @@ export class MemoryEngine {
   /** Sets the trust of memories (review of quarantined content, PLAN 13.4). */
   setTrust(
     range: MemoryRange,
-    input: { scope: MemoryScope; ids: readonly string[]; trust: Trust; reason?: string },
+    input: {
+      scope: MemoryScope;
+      ids: readonly string[];
+      trust: Trust;
+      reason?: string;
+      branch?: string;
+    },
     context: CallContext,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
-    return this.#write(range, input.scope, context, {
-      case: 'memoryTrust',
-      value: {
-        user: input.scope.user,
-        ids: [...input.ids],
-        trust: input.trust,
-        reason: input.reason ?? '',
+    return this.#write(
+      range,
+      input.scope,
+      context,
+      {
+        case: 'memoryTrust',
+        value: {
+          user: input.scope.user,
+          ids: [...input.ids],
+          trust: input.trust,
+          reason: input.reason ?? '',
+        },
       },
+      input.branch,
+    );
+  }
+
+  /** Creates a branch of the scope that reads main as of now (ADR-0013). */
+  createBranch(
+    range: MemoryRange,
+    scope: MemoryScope,
+    name: string,
+    context: CallContext,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#write(range, scope, context, {
+      case: 'branchCreate',
+      value: { user: scope.user, name, maxWrites: this.#config.branchMaxWrites },
+    });
+  }
+
+  async branches(
+    range: MemoryRange,
+    scope: MemoryScope,
+  ): Promise<Result<BranchView[], MindlogError>> {
+    const out: BranchView[] = [];
+    for await (const b of new MemoryReads(range.reader, scope.tenant, scope.user).branches())
+      out.push(branchView(b));
+    return ok(out);
+  }
+
+  async diffBranch(
+    range: MemoryRange,
+    scope: MemoryScope,
+    name: string,
+  ): Promise<Result<BranchDiff, MindlogError>> {
+    const branch = await openBranch(range, scope, name);
+    return branch.ok ? ok(await diffBranch(range, scope, branch.value)) : branch;
+  }
+
+  /**
+   * Merges a branch into main under a policy (ADR-0013). The plan is made
+   * here and applied only if main has not moved since; if it has, it is made again.
+   */
+  async mergeBranch(
+    range: MemoryRange,
+    input: { scope: MemoryScope; name: string; policy: MergePolicy },
+    context: CallContext,
+  ): Promise<Result<MergeResult, MindlogError>> {
+    for (let attempt = 0; ; attempt++) {
+      const branch = await openBranch(range, input.scope, input.name);
+      if (!branch.ok) return branch;
+      const planned = await planBranchMerge(range, input.scope, branch.value, input.policy, {
+        models: this.#d.models,
+        vectors: this.#d.vectors,
+        config: this.#config,
+        ids: this.#d.ids,
+        nowMs: Number(this.#d.clock.now()),
+        principal: context.principal,
+      });
+      if (!planned.ok) return planned;
+      const { body, result } = planned.value;
+      if (!body) return ok(result);
+      const done = await this.#write(range, input.scope, context, {
+        case: 'branchMerge',
+        value: body,
+      });
+      if (done.ok) return ok(result);
+      if (done.error.code !== 'CONFLICT' || attempt >= 2) return done;
+    }
+  }
+
+  dropBranch(
+    range: MemoryRange,
+    scope: MemoryScope,
+    name: string,
+    context: CallContext,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#write(range, scope, context, {
+      case: 'branchDrop',
+      value: { user: scope.user, name },
     });
   }
 

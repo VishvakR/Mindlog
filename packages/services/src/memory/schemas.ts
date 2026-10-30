@@ -1,5 +1,11 @@
 import type { AsOf } from '@mindlog/memory';
-import { MEMORY_KINDS, RECIPE_NAMES, SOURCE_TYPES, TRUST_LEVELS } from '@mindlog/memory';
+import {
+  MEMORY_KINDS,
+  MERGE_POLICIES,
+  RECIPE_NAMES,
+  SOURCE_TYPES,
+  TRUST_LEVELS,
+} from '@mindlog/memory';
 import { z } from 'zod';
 
 // Memory request schemas (PLAN 15), shared by RESP, REST, MCP and node-to-node forwarding.
@@ -14,6 +20,13 @@ export const memoryScopeSchema = z.strictObject({
 });
 
 const kind = z.enum(MEMORY_KINDS);
+
+/** A memory branch (ADR-0013); `main` is the scope itself. */
+const branchName = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/);
+const onBranch = branchName
+  .optional()
+  .transform((b) => (b === 'main' ? undefined : b))
+  .describe('Work on this branch instead of main');
 
 /** A point in time: ms since the epoch, or an ISO 8601 date or date-time. */
 const time = z
@@ -51,6 +64,7 @@ export const rememberSchema = z.strictObject({
   /** World time the fact became true and stopped being true (ADR-0015). */
   validFrom: time.optional(),
   validTo: time.optional(),
+  branch: onBranch,
 });
 
 export const recallSchema = z.strictObject({
@@ -69,6 +83,7 @@ export const recallSchema = z.strictObject({
   asOf: asOf.optional(),
   /** Only facts true at this world time (default: at the ASOF time, or now). */
   validAt: time.optional(),
+  branch: onBranch,
 });
 
 const memoryId = z.string().min(1).max(64);
@@ -77,6 +92,7 @@ export const getMemorySchema = z.strictObject({
   scope: memoryScopeSchema,
   id: memoryId,
   asOf: asOf.optional(),
+  branch: onBranch,
 });
 
 export const listMemorySchema = z.strictObject({
@@ -86,6 +102,7 @@ export const listMemorySchema = z.strictObject({
   kind: kind.optional(),
   includeForgotten: z.boolean().optional(),
   asOf: asOf.optional(),
+  branch: onBranch,
 });
 
 export const forgetSchema = z
@@ -95,6 +112,7 @@ export const forgetSchema = z
     reason: z.string().max(500).optional(),
     /** Taint cascade: forget everything from this source and derived from it (PLAN 13.4). */
     source: z.string().min(1).max(512).optional(),
+    branch: onBranch,
   })
   .refine((f) => f.ids.length > 0 || f.source !== undefined, {
     message: 'give ids or a source',
@@ -160,7 +178,19 @@ export const trustSchema = z.strictObject({
   ids: z.array(memoryId).min(1).max(100),
   trust: z.enum(TRUST_LEVELS as ['verified', 'normal', 'quarantined']),
   reason: z.string().max(500).optional(),
+  branch: onBranch,
 });
+
+export const branchSchema = z.strictObject({ scope: memoryScopeSchema, name: branchName });
+
+export const mergeSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  name: branchName,
+  /** What to do with branch facts that contradict main (ADR-0013). */
+  policy: z.enum(MERGE_POLICIES).default('raise'),
+});
+
+export const branchesSchema = z.strictObject({ scope: memoryScopeSchema });
 
 export const scopesSchema = z.strictObject({ limit: z.int().min(1).max(1000).default(200) });
 
@@ -174,6 +204,9 @@ export type GraphRequest = z.input<typeof graphSchema>;
 export type ConflictsRequest = z.input<typeof conflictsSchema>;
 export type ResolveRequest = z.input<typeof resolveSchema>;
 export type TrustRequest = z.input<typeof trustSchema>;
+export type BranchRequest = z.input<typeof branchSchema>;
+export type MergeRequest = z.input<typeof mergeSchema>;
+export type BranchesRequest = z.input<typeof branchesSchema>;
 export type ScopesRequest = z.input<typeof scopesSchema>;
 export type CacheLookupRequest = z.input<typeof cacheLookupSchema>;
 export type CacheStoreRequest = z.input<typeof cacheStoreSchema>;

@@ -4,7 +4,8 @@ import { errorResult } from '@mindlog/statemachine';
 import type { Trust } from '../types.js';
 import { readConflict, readRecord, rewriteRecord, writeConflict } from './conflict-writes.js';
 import { bumpGeneration, writeIndexTime } from './index-writes.js';
-import { outcome, outsideRange } from './memory-handlers.js';
+import { countWrites, maskOnBranch, spaceOf } from './branch-handlers.js';
+import { outcome, outsideRange } from './results.js';
 
 const TRUST = new Set<string>(['verified', 'normal', 'quarantined'] satisfies Trust[]);
 
@@ -34,6 +35,8 @@ export const conflictResolveHandler: ApplyHandler = {
     const { tenant } = ctx.command;
     const moved = outsideRange(ctx, user);
     if (moved) return moved;
+    if (ctx.command.branch !== '' && ctx.command.branch !== 'main')
+      return errorResult('INVALID_ARGUMENT', 'resolve conflicts on main');
     if (keep !== 'a' && keep !== 'b' && keep !== 'both')
       return errorResult('INVALID_ARGUMENT', 'keep must be a, b or both');
     const conflict = await readConflict(ctx, tenant, user, id);
@@ -83,17 +86,41 @@ export const memoryTrustHandler: ApplyHandler = {
     const moved = outsideRange(ctx, user);
     if (moved) return moved;
     if (!TRUST.has(trust)) return errorResult('INVALID_ARGUMENT', `unknown trust ${trust}`);
+    const space = await spaceOf(ctx, tenant, user);
+    if (!('root' in space)) return space;
+    const { root, branch } = space;
+    const targets = new Set(ids);
+    if (branch && branch.writes + targets.size > branch.maxWrites)
+      return errorResult(
+        'PAYLOAD_TOO_LARGE',
+        `branch ${branch.name} holds at most ${String(branch.maxWrites)} memories`,
+      );
     const changed: string[] = [];
-    for (const id of new Set(ids)) {
-      const r = await readRecord(ctx, tenant, user, id);
-      if (!r || r.expiredAt !== 0n || r.trust === trust) continue;
-      r.trust = trust;
-      await rewriteRecord(ctx, tenant, user, r, true);
-      changed.push(id);
+    let masked = 0;
+    for (const id of targets) {
+      const r = await readRecord(ctx, tenant, root, id);
+      const own = branch === undefined || (r && !(await readRecord(ctx, tenant, user, id)));
+      if (own) {
+        if (!r || r.expiredAt !== 0n || r.trust === trust) continue;
+        r.trust = trust;
+        await rewriteRecord(ctx, tenant, root, r, true);
+        changed.push(id);
+      } else {
+        // A main memory, re-trusted only as the branch sees it (ADR-0013).
+        if (r && (r.expiredAt !== 0n || r.trust === trust)) continue;
+        const retrust = (x: MemoryRecord) => {
+          x.trust = trust;
+        };
+        if (await maskOnBranch(ctx, tenant, user, branch.name, branch, id, retrust)) {
+          changed.push(id);
+          masked++;
+        }
+      }
     }
+    if (branch && masked > 0) countWrites(ctx, tenant, user, branch, masked);
     if (changed.length > 0) {
-      await bumpGeneration(ctx, tenant, user);
-      writeIndexTime(ctx, tenant, user);
+      await bumpGeneration(ctx, tenant, root);
+      if (!branch) writeIndexTime(ctx, tenant, user);
     }
     return outcome(changed);
   },

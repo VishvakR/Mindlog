@@ -14,6 +14,21 @@ export const memoryScopeSchema = z.strictObject({
 
 const kind = z.enum(MEMORY_KINDS);
 
+/** A point in time: ms since the epoch, or an ISO 8601 date or date-time. */
+const time = z
+  .union([z.int().min(0), z.iso.datetime({ offset: true }), z.iso.date()])
+  .transform((t) => (typeof t === 'number' ? t : Date.parse(t)));
+
+/** `ASOF` (PLAN 13.3): a log index of the scope's range, or a time. */
+const asOf = z
+  .union([
+    z.strictObject({
+      index: z.union([z.int().min(0), z.string().regex(/^\d{1,20}$/)]).transform(BigInt),
+    }),
+    z.strictObject({ time }),
+  ])
+  .transform((a) => ('index' in a ? { index: a.index } : { timeMs: a.time }));
+
 export const rememberSchema = z.strictObject({
   scope: memoryScopeSchema,
   content: z
@@ -27,6 +42,9 @@ export const rememberSchema = z.strictObject({
   async: z.boolean().optional(),
   tags: z.array(z.string().min(1).max(64)).max(20).optional(),
   meta: z.record(z.string(), z.unknown()).optional(),
+  /** World time the fact became true and stopped being true (ADR-0015). */
+  validFrom: time.optional(),
+  validTo: time.optional(),
 });
 
 export const recallSchema = z.strictObject({
@@ -41,11 +59,19 @@ export const recallSchema = z.strictObject({
   recipe: z.enum(RECIPE_NAMES).optional(),
   /** Also return each retriever's ranked ids and the themes found. */
   explain: z.boolean().optional(),
+  /** Recall the scope as it was at a log index or time (system time). */
+  asOf: asOf.optional(),
+  /** Only facts true at this world time (default: at the ASOF time, or now). */
+  validAt: time.optional(),
 });
 
 const memoryId = z.string().min(1).max(64);
 
-export const getMemorySchema = z.strictObject({ scope: memoryScopeSchema, id: memoryId });
+export const getMemorySchema = z.strictObject({
+  scope: memoryScopeSchema,
+  id: memoryId,
+  asOf: asOf.optional(),
+});
 
 export const listMemorySchema = z.strictObject({
   scope: memoryScopeSchema,
@@ -53,6 +79,7 @@ export const listMemorySchema = z.strictObject({
   after: memoryId.optional(),
   kind: kind.optional(),
   includeForgotten: z.boolean().optional(),
+  asOf: asOf.optional(),
 });
 
 export const forgetSchema = z.strictObject({

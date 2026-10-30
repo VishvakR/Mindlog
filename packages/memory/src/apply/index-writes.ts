@@ -15,11 +15,13 @@ import {
   MemoryVectorSchema,
 } from '@mindlog/proto';
 import type { ApplyContext } from '@mindlog/statemachine';
+import type { Root } from '../keys.js';
 import {
   dfKey,
   edgeKey,
   entityKey,
   generationKey,
+  indexTimeKey,
   mentionKey,
   postingKey,
   recordKey,
@@ -42,7 +44,7 @@ function setCount(ctx: ApplyContext, key: Uint8Array, n: number): void {
 async function addStats(
   ctx: ApplyContext,
   tenant: string,
-  user: string,
+  user: Root,
   docs: number,
   length: number,
 ): Promise<void> {
@@ -60,7 +62,7 @@ async function addStats(
 async function addMention(
   ctx: ApplyContext,
   tenant: string,
-  user: string,
+  user: Root,
   name: string,
   type: string,
   delta: number,
@@ -84,7 +86,7 @@ async function addMention(
 export async function writeMemory(
   ctx: ApplyContext,
   tenant: string,
-  user: string,
+  user: Root,
   m: NewMemory,
 ): Promise<string> {
   const record = create(MemoryRecordSchema, m.record);
@@ -130,7 +132,7 @@ export async function writeMemory(
 export async function forgetMemory(
   ctx: ApplyContext,
   tenant: string,
-  user: string,
+  user: Root,
   record: MemoryRecord,
   reason: string,
 ): Promise<void> {
@@ -157,7 +159,7 @@ export async function forgetMemory(
 export async function writeEdge(
   ctx: ApplyContext,
   tenant: string,
-  user: string,
+  user: Root,
   e: EntityEdge,
 ): Promise<void> {
   const src = await addMention(ctx, tenant, user, e.srcName, e.srcType, 0);
@@ -181,11 +183,14 @@ export async function writeEdge(
 }
 
 /** Marks the scope changed, so cached vector indexes notice (ADR-0008). */
-export async function bumpGeneration(
-  ctx: ApplyContext,
-  tenant: string,
-  user: string,
-): Promise<void> {
+export async function bumpGeneration(ctx: ApplyContext, tenant: string, user: Root): Promise<void> {
   const key = generationKey(tenant, user);
   ctx.txn.put(key, encodeCount((await count(ctx, key)) + 1));
+}
+
+/** Records the version of this log index for `ASOF index` (PLAN 13.3). */
+export function writeIndexTime(ctx: ApplyContext, tenant: string, user: string): void {
+  const value = new Uint8Array(8);
+  new DataView(value.buffer).setBigUint64(0, ctx.version);
+  ctx.txn.put(indexTimeKey(tenant, user, ctx.index), value);
 }

@@ -94,19 +94,36 @@ const OPS = {
   remember: op({
     schema: rememberSchema,
     write: true,
-    run: ({ memory: e }, r, scope, i, c) =>
-      e.remember(r, { ...i, scope } as Parameters<MemoryEngine['remember']>[1], c),
+    run: ({ memory: e }, r, scope, { validFrom, validTo, ...i }, c) =>
+      e.remember(
+        r,
+        {
+          ...i,
+          scope,
+          ...(validFrom === undefined ? {} : { validFromMs: validFrom }),
+          ...(validTo === undefined ? {} : { validToMs: validTo }),
+        } as Parameters<MemoryEngine['remember']>[1],
+        c,
+      ),
   }),
   recall: op({
     schema: recallSchema,
     write: false,
-    run: ({ memory: e }, r, scope, i, c) =>
-      e.recall(r, { ...i, scope } as Parameters<MemoryEngine['recall']>[1], c),
+    run: ({ memory: e }, r, scope, { validAt, ...i }, c) =>
+      e.recall(
+        r,
+        {
+          ...i,
+          scope,
+          ...(validAt === undefined ? {} : { validAtMs: validAt }),
+        } as Parameters<MemoryEngine['recall']>[1],
+        c,
+      ),
   }),
   get: op({
     schema: getMemorySchema,
     write: false,
-    run: ({ memory: e }, r, scope, i) => e.get(r, scope, i.id),
+    run: ({ memory: e }, r, scope, i) => e.get(r, scope, i.id, i.asOf),
   }),
   list: op({
     schema: listMemorySchema,
@@ -117,6 +134,7 @@ const OPS = {
         ...(i.after ? { after: i.after } : {}),
         ...(i.kind ? { kind: i.kind } : {}),
         ...(i.includeForgotten ? { includeForgotten: true } : {}),
+        ...(i.asOf ? { asOf: i.asOf } : {}),
       }),
   }),
   forget: op({

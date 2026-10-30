@@ -7,7 +7,8 @@ import type { MemoryRecord } from '@mindlog/proto';
 import type { Stage } from '../pipeline/stage.js';
 import type { MemoryReads } from '../read/memory-reads.js';
 import type { RecallItem, RecallSignals } from '../types.js';
-import type { VectorCache } from '../vector-cache.js';
+import type { FlatIndex } from '@mindlog/index-vector';
+import type { VectorMeta } from '../vector-cache.js';
 import { toView } from '../view.js';
 import { mmr, similarity } from './mmr.js';
 import type { PprConfig, PprRunner } from './ppr.js';
@@ -30,9 +31,12 @@ export interface RecallConfig extends PprConfig, ThemeConfig {
   readonly modelTimeoutMs: number;
 }
 
+/** The vector index recall searches: the scope's cached one, or one built for `ASOF` or a branch. */
+export type IndexSource = () => Promise<FlatIndex<VectorMeta> | undefined>;
+
 export interface RecallPorts {
   readonly models: Models;
-  readonly vectors: VectorCache;
+  readonly index: IndexSource;
   readonly reads: MemoryReads;
   readonly clock: Clock;
   readonly ppr: PprRunner;
@@ -64,7 +68,7 @@ function parseStage(models: Models, config: RecallConfig): Stage<RecallDraft> {
 
 function vectorStage(
   models: Models,
-  vectors: VectorCache,
+  source: IndexSource,
   config: RecallConfig,
 ): Stage<RecallDraft> {
   const timeoutMs = config.modelTimeoutMs;
@@ -74,7 +78,7 @@ function vectorStage(
     timeoutMs,
     async run(d) {
       const { scope, inherit = false, kinds, includeQuarantined = false } = d.input;
-      const index = await vectors.index(scope.tenant, scope.user);
+      const index = await source();
       if (!index || index.size === 0) return ok({ ...d, lists: withList(d, 'vector', []) });
       const r = await models.embed([d.input.query], 'query', { timeoutMs });
       if (!r.ok) return err({ kind: 'skippable', error: r.error });
@@ -137,18 +141,26 @@ function lexicalStage(reads: MemoryReads, k: number): Stage<RecallDraft> {
   };
 }
 
-function filterStage(reads: MemoryReads, k: number): Stage<RecallDraft> {
+/** Whether a fact's world-time window `[validFrom, validTo)` holds at `t` ms (0 = open). */
+export function validAt(r: { validFrom: bigint; validTo: bigint }, t: number): boolean {
+  const at = BigInt(Math.floor(t));
+  return r.validFrom <= at && (r.validTo === 0n || at < r.validTo);
+}
+
+function filterStage(reads: MemoryReads, clock: Clock, k: number): Stage<RecallDraft> {
   return {
     name: 'filter',
     async run(d) {
       const { scope, inherit = false, kinds, includeQuarantined = false } = d.input;
+      // Facts true at VALID_AT, else at the ASOF time, else now (ADR-0015).
+      const t = d.input.validAtMs ?? d.asOfMs ?? Number(clock.now());
       const ranked = [...d.fused]
         .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
         .slice(0, 2 * k);
       const records: MemoryRecord[] = [];
       for (const [id] of ranked) {
         const r = await reads.record(id);
-        if (!r || r.expiredAt !== 0n) continue;
+        if (!r || r.expiredAt !== 0n || !validAt(r, t)) continue;
         if (!includeQuarantined && r.trust === 'quarantined') continue;
         if (kinds && !kinds.includes(r.kind as never)) continue;
         if (!matchesScope(r, scope, inherit)) continue;
@@ -192,12 +204,11 @@ function scoreStage(clock: Clock): Stage<RecallDraft> {
   };
 }
 
-function diversifyStage(vectors: VectorCache): Stage<RecallDraft> {
+function diversifyStage(source: IndexSource): Stage<RecallDraft> {
   return {
     name: 'diversify',
     async run(d) {
-      const { tenant, user } = d.input.scope;
-      const index = await vectors.index(tenant, user);
+      const index = await source();
       // Min-max scores, so relevance spans 0..1 like the similarity it is traded against:
       // the recency/importance/retention floor would otherwise let near-duplicates lose to noise.
       const scaled = minMax(new Map(d.ranked.map((item) => [item.memory.id, item.score])));
@@ -223,7 +234,7 @@ export function recallStages(
   config: RecallConfig,
   d: RecallDraft,
 ): Stage<RecallDraft>[] {
-  const { models, vectors, reads, clock } = ports;
+  const { models, index, reads, clock } = ports;
   const uses = new Set(d.recipe.retrievers);
   const k = config.retrieveK;
   const stages: Stage<RecallDraft>[] = [];
@@ -233,7 +244,7 @@ export function recallStages(
     name: 'route',
     run: (x) => Promise.resolve(ok({ ...x, route: classifyQuery(x.input.query, x.entityNames) })),
   });
-  if (uses.has('vector')) stages.push(vectorStage(models, vectors, config));
+  if (uses.has('vector')) stages.push(vectorStage(models, index, config));
   if (uses.has('keyword') || uses.has('entity')) stages.push(lexicalStage(reads, k));
   if (uses.has('ppr')) stages.push(pprStage(reads, ports.ppr, config));
   if (uses.has('theme')) stages.push(themeStage(reads, config));
@@ -242,10 +253,10 @@ export function recallStages(
       name: 'fuse',
       run: (x) => Promise.resolve(ok({ ...x, fused: rrf(x.lists, routeWeights(x.route)) })),
     },
-    filterStage(reads, k),
+    filterStage(reads, clock, k),
   );
   if (d.recipe.rerank) stages.push(rerankStage(models, config));
   stages.push(scoreStage(clock));
-  if (d.recipe.mmr) stages.push(diversifyStage(vectors));
+  if (d.recipe.mmr) stages.push(diversifyStage(index));
   return stages;
 }

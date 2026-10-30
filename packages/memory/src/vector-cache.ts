@@ -7,6 +7,7 @@ import type { MemoryVector } from '@mindlog/proto';
 import { MemoryVectorSchema } from '@mindlog/proto';
 import type { KvReader } from '@mindlog/storage';
 import { MvccReader } from '@mindlog/storage';
+import type { Root } from './keys.js';
 import { vectorKey, vectorPrefix } from './keys.js';
 import { MemoryReads } from './read/memory-reads.js';
 
@@ -99,6 +100,28 @@ export class VectorCache {
     if (vector.length === entry.index.dims) entry.index.upsert(id, vector, meta(row));
   }
 
+  async #load(entry: Entry, tenant: string, user: Root, at?: bigint): Promise<void> {
+    const options = at === undefined ? {} : { at };
+    for await (const { key, value } of this.#mvcc.scan(vectorPrefix(tenant, user), options)) {
+      const decoded = decodeKey(key);
+      const id = decoded.ok ? decoded.value.tuple.at(-1) : undefined;
+      if (typeof id === 'string') this.#upsert(entry, id, fromBinary(MemoryVectorSchema, value));
+    }
+  }
+
+  /**
+   * An uncached index of the vectors in `spaces`, each read at its own version
+   * (`ASOF` and branch overlays, ADR-0013). Later spaces override earlier ones.
+   */
+  async indexOf(
+    tenant: string,
+    spaces: ReadonlyArray<{ readonly root: Root; readonly at?: bigint | undefined }>,
+  ): Promise<FlatIndex<VectorMeta> | undefined> {
+    const entry: Entry = { index: undefined, generation: 0, pending: Promise.resolve() };
+    for (const s of spaces) await this.#load(entry, tenant, s.root, s.at);
+    return entry.index;
+  }
+
   /** The scope's index as of its current generation; undefined when it has no vectors. */
   async index(tenant: string, user: string): Promise<FlatIndex<VectorMeta> | undefined> {
     const name = `${tenant}\u0000${user}`;
@@ -122,11 +145,7 @@ export class VectorCache {
       })
       .inc();
     const entry: Entry = { index: undefined, generation, pending: Promise.resolve() };
-    for await (const { key, value } of this.#mvcc.scan(vectorPrefix(tenant, user))) {
-      const decoded = decodeKey(key);
-      const id = decoded.ok ? decoded.value.tuple.at(-1) : undefined;
-      if (typeof id === 'string') this.#upsert(entry, id, fromBinary(MemoryVectorSchema, value));
-    }
+    await this.#load(entry, tenant, user);
     this.#entries.set(name, entry);
     while (this.#entries.size > this.#o.maxScopes) {
       const oldest = this.#entries.keys().next().value;

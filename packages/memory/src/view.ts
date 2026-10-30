@@ -26,5 +26,7 @@ export function toView(r: MemoryRecord): MemoryView {
     createdAtMs: hlcMs(r.createdAt),
     ...(r.expiredAt !== 0n ? { expiredAtMs: hlcMs(r.expiredAt) } : {}),
     ...(r.forgetReason ? { forgetReason: r.forgetReason } : {}),
+    ...(r.validFrom !== 0n ? { validFromMs: Number(r.validFrom) } : {}),
+    ...(r.validTo !== 0n ? { validToMs: Number(r.validTo) } : {}),
   };
 }

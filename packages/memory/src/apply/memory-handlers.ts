@@ -8,7 +8,13 @@ import type { ApplyContext, ApplyHandler } from '@mindlog/statemachine';
 import { errorResult, inSpan } from '@mindlog/statemachine';
 import { recordKey, scopeKey } from '../keys.js';
 import { MEMORY_KINDS } from '../types.js';
-import { bumpGeneration, forgetMemory, writeEdge, writeMemory } from './index-writes.js';
+import {
+  bumpGeneration,
+  forgetMemory,
+  writeEdge,
+  writeIndexTime,
+  writeMemory,
+} from './index-writes.js';
 
 const KINDS = new Set<string>(MEMORY_KINDS);
 
@@ -64,6 +70,7 @@ export const memoryCommitHandler: ApplyHandler = {
     for (const m of commit.memories) ids.push(await writeMemory(ctx, tenant, commit.user, m));
     for (const e of commit.edges) await writeEdge(ctx, tenant, commit.user, e);
     await bumpGeneration(ctx, tenant, commit.user);
+    writeIndexTime(ctx, tenant, commit.user);
     return outcome(ids);
   },
 };
@@ -93,6 +100,7 @@ export const memoryForgetHandler: ApplyHandler = {
     if (forgotten.length > 0) {
       await bumpGeneration(ctx, tenant, user);
       await dropDependents(ctx, tenant, user, forgotten);
+      writeIndexTime(ctx, tenant, user);
     }
     return outcome(forgotten);
   },

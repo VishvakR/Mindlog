@@ -11,6 +11,8 @@
       { "name": "text", "type": "string" },
       { "name": "kind", "type": "string", "token": "KIND", "optional": true },
       { "name": "source", "type": "string", "token": "SOURCE", "optional": true },
+      { "name": "valid_from", "type": "string", "token": "VALID_FROM", "optional": true },
+      { "name": "valid_to", "type": "string", "token": "VALID_TO", "optional": true },
       { "name": "async", "type": "pure-token", "token": "ASYNC", "optional": true }
     ]
   },
@@ -27,7 +29,9 @@
       { "name": "k", "type": "integer", "token": "K", "optional": true },
       { "name": "budget", "type": "integer", "token": "BUDGET", "optional": true },
       { "name": "inherit", "type": "pure-token", "token": "INHERIT", "optional": true },
-      { "name": "recipe", "type": "string", "token": "RECIPE", "optional": true }
+      { "name": "recipe", "type": "string", "token": "RECIPE", "optional": true },
+      { "name": "asof", "type": "string", "token": "ASOF", "optional": true },
+      { "name": "valid_at", "type": "string", "token": "VALID_AT", "optional": true }
     ]
   },
   "MEM.PACK": {
@@ -42,7 +46,9 @@
       { "name": "query", "type": "string" },
       { "name": "budget", "type": "integer", "token": "BUDGET", "optional": true },
       { "name": "inherit", "type": "pure-token", "token": "INHERIT", "optional": true },
-      { "name": "recipe", "type": "string", "token": "RECIPE", "optional": true }
+      { "name": "recipe", "type": "string", "token": "RECIPE", "optional": true },
+      { "name": "asof", "type": "string", "token": "ASOF", "optional": true },
+      { "name": "valid_at", "type": "string", "token": "VALID_AT", "optional": true }
     ]
   },
   "MEM.GET": {
@@ -50,11 +56,12 @@
     "complexity": "O(1)",
     "group": "memory",
     "since": "0.5.0",
-    "arity": 3,
+    "arity": -3,
     "command_flags": ["READONLY"],
     "arguments": [
       { "name": "scope", "type": "string" },
-      { "name": "id", "type": "string" }
+      { "name": "id", "type": "string" },
+      { "name": "asof", "type": "string", "token": "ASOF", "optional": true }
     ]
   },
   "MEM.FORGET": {

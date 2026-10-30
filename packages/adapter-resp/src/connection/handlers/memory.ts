@@ -46,6 +46,12 @@ function memoryReply(m: MemoryView): KvReply {
     [text('entities'), replies.array(m.entities.map(text))],
     [text('created_at'), replies.integer(m.createdAtMs)],
     [text('expired'), flag(m.expiredAtMs !== undefined)],
+    ...(m.validFromMs === undefined
+      ? []
+      : [[text('valid_from'), replies.integer(m.validFromMs)] as const]),
+    ...(m.validToMs === undefined
+      ? []
+      : [[text('valid_to'), replies.integer(m.validToMs)] as const]),
   ]);
 }
 
@@ -79,12 +85,22 @@ function integerOption(value: string | true | undefined): number | undefined | K
 const isReply = (x: unknown): x is KvReply =>
   typeof x === 'object' && x !== null && '$typeName' in x;
 
-/** `MEM.ADD <scope> <text> [KIND kind] [SOURCE type] [ASYNC]`. */
+/** A time argument: ms since the epoch or ISO 8601 (the service validates it). */
+const timeOf = (v: string): number | string => (/^\d+$/.test(v) ? Number(v) : v);
+
+/** `ASOF <log index>` or `ASOF <ISO time>` (PLAN 13.3). */
+const asOfOf = (v: string | true | undefined) =>
+  typeof v !== 'string' ? {} : { asOf: /^\d+$/.test(v) ? { index: v } : { time: v } };
+
+const timeOption = (name: string, v: string | true | undefined) =>
+  typeof v === 'string' ? { [name]: timeOf(v) } : {};
+
+/** `MEM.ADD <scope> <text> [KIND kind] [SOURCE type] [VALID_FROM t] [VALID_TO t] [ASYNC]`. */
 export const memAddCommand: ConnectionCommand = {
   name: 'MEM.ADD',
   execute: (ctx, argv) =>
     withMemory(ctx, async (memory) => {
-      const o = options(argv, 3, ['KIND', 'SOURCE'], ['ASYNC']);
+      const o = options(argv, 3, ['KIND', 'SOURCE', 'VALID_FROM', 'VALID_TO'], ['ASYNC']);
       if (isReply(o)) return o;
       const result = await memory.remember(caller(ctx), {
         scope: scopeOf(argv[1]),
@@ -94,6 +110,8 @@ export const memAddCommand: ConnectionCommand = {
           ? { source: { type: o.SOURCE.toLowerCase() as never } }
           : {}),
         ...(o.ASYNC ? { async: true } : {}),
+        ...timeOption('validFrom', o.VALID_FROM),
+        ...timeOption('validTo', o.VALID_TO),
       });
       return answer(result, (r) =>
         replies.map([
@@ -109,7 +127,7 @@ export const memAddCommand: ConnectionCommand = {
 function recallRequest(
   argv: readonly Uint8Array[],
 ): Parameters<MemoryService['recall']>[1] | KvReply {
-  const o = options(argv, 3, ['K', 'BUDGET', 'RECIPE'], ['INHERIT']);
+  const o = options(argv, 3, ['K', 'BUDGET', 'RECIPE', 'ASOF', 'VALID_AT'], ['INHERIT']);
   if (isReply(o)) return o;
   const k = integerOption(o.K);
   const budget = integerOption(o.BUDGET);
@@ -122,10 +140,12 @@ function recallRequest(
     ...(budget !== undefined ? { tokenBudget: budget } : {}),
     ...(o.INHERIT ? { inherit: true } : {}),
     ...(typeof o.RECIPE === 'string' ? { recipe: o.RECIPE.toLowerCase() as never } : {}),
+    ...asOfOf(o.ASOF),
+    ...timeOption('validAt', o.VALID_AT),
   };
 }
 
-/** `MEM.SEARCH <scope> <query> [K n] [BUDGET tokens] [INHERIT] [RECIPE name]`. */
+/** `MEM.SEARCH <scope> <query> [K n] [BUDGET tokens] [INHERIT] [RECIPE name] [ASOF index|time] [VALID_AT t]`. */
 export const memSearchCommand: ConnectionCommand = {
   name: 'MEM.SEARCH',
   execute: (ctx, argv) =>
@@ -168,16 +188,22 @@ export const memPackCommand: ConnectionCommand = {
     }),
 };
 
-/** `MEM.GET <scope> <id>`. */
+/** `MEM.GET <scope> <id> [ASOF index|time]`. */
 export const memGetCommand: ConnectionCommand = {
   name: 'MEM.GET',
   execute: (ctx, argv) =>
-    withMemory(ctx, async (memory) =>
-      answer(
-        await memory.get(caller(ctx), { scope: scopeOf(argv[1]), id: decoder.decode(argv[2]) }),
+    withMemory(ctx, async (memory) => {
+      const o = options(argv, 3, ['ASOF'], []);
+      if (isReply(o)) return o;
+      return answer(
+        await memory.get(caller(ctx), {
+          scope: scopeOf(argv[1]),
+          id: decoder.decode(argv[2]),
+          ...asOfOf(o.ASOF),
+        }),
         (m) => (m ? memoryReply(m) : replies.nil()),
-      ),
-    ),
+      );
+    }),
 };
 
 /** `MEM.FORGET <scope> <id> [id ...]`. */

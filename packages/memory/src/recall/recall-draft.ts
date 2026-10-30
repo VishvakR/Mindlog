@@ -10,6 +10,8 @@ export type Signals = Partial<Record<RetrieverName | 'rerank', number>>;
 export interface RecallDraft {
   readonly input: RecallInput;
   readonly recipe: Recipe;
+  /** Physical time of the `ASOF` version, when reading the past. */
+  readonly asOfMs?: number | undefined;
   /** Candidate entity ids of the query's entities. */
   readonly queryEntities: readonly string[];
   /** Distinct entity names recognised in the query. */
@@ -25,10 +27,11 @@ export interface RecallDraft {
   readonly ranked: readonly RecallItem[];
 }
 
-export function emptyDraft(input: RecallInput, recipe: Recipe): RecallDraft {
+export function emptyDraft(input: RecallInput, recipe: Recipe, asOfMs?: number): RecallDraft {
   return {
     input,
     recipe,
+    asOfMs,
     queryEntities: [],
     entityNames: 0,
     route: 'specific',

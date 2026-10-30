@@ -13,7 +13,7 @@ import {
   parseVersionedKey,
   versionedKey,
 } from '@mindlog/storage';
-import type { EdgeDirection } from '../keys.js';
+import type { EdgeDirection, Root } from '../keys.js';
 import {
   dfKey,
   edgePrefix,
@@ -38,33 +38,52 @@ function lastElement(key: Uint8Array): unknown {
   return decoded.ok ? decoded.value.tuple.at(-1) : undefined;
 }
 
-/** Read access to one user scope's memory in a range's applied state (ADR-0031). */
+/**
+ * Read access to one user scope's memory in a range's applied state
+ * (ADR-0031): its main space or a branch space (ADR-0013), at the latest
+ * version or as of `at` (PLAN 13.3 `ASOF`).
+ */
 export class MemoryReads {
   readonly #mvcc: MvccReader;
   readonly #raw: KvReader;
+  readonly #at: bigint | undefined;
   readonly tenant: string;
-  readonly user: string;
+  readonly user: Root;
 
-  constructor(reader: KvReader, tenant: string, user: string) {
+  constructor(reader: KvReader, tenant: string, user: Root, at?: bigint) {
     this.#raw = reader;
     this.#mvcc = new MvccReader(reader);
+    this.#at = at;
     this.tenant = tenant;
     this.user = user;
   }
 
+  /** The version this reads at; undefined for the latest. */
+  get at(): bigint | undefined {
+    return this.#at;
+  }
+
+  #get(key: Uint8Array): Promise<Uint8Array | undefined> {
+    return this.#mvcc.get(key, this.#at);
+  }
+
+  #scan(prefix: Uint8Array, options: { after?: Uint8Array; limit?: number } = {}) {
+    return this.#mvcc.scan(prefix, this.#at === undefined ? options : { ...options, at: this.#at });
+  }
+
   async generation(): Promise<number> {
-    return decodeCount(await this.#mvcc.get(generationKey(this.tenant, this.user)));
+    return decodeCount(await this.#get(generationKey(this.tenant, this.user)));
   }
 
   async record(id: string): Promise<MemoryRecord | undefined> {
-    const bytes = await this.#mvcc.get(recordKey(this.tenant, this.user, id));
+    const bytes = await this.#get(recordKey(this.tenant, this.user, id));
     return bytes ? fromBinary(MemoryRecordSchema, bytes) : undefined;
   }
 
   /** Records in id order (ULIDs, so creation order), after `after`. */
   async *records(after?: string): AsyncGenerator<MemoryRecord> {
     const options = after ? { after: recordKey(this.tenant, this.user, after) } : {};
-    for await (const { value } of this.#mvcc.scan(recordPrefix(this.tenant, this.user), options))
+    for await (const { value } of this.#scan(recordPrefix(this.tenant, this.user), options))
       yield fromBinary(MemoryRecordSchema, value);
   }
 
@@ -83,13 +102,13 @@ export class MemoryReads {
   }
 
   async entity(id: string): Promise<MemoryEntity | undefined> {
-    const bytes = await this.#mvcc.get(entityKey(this.tenant, this.user, id));
+    const bytes = await this.#get(entityKey(this.tenant, this.user, id));
     return bytes ? fromBinary(MemoryEntitySchema, bytes) : undefined;
   }
 
   /** Entities in id order (`type:name`). */
   async *entities(): AsyncGenerator<{ id: string; entity: MemoryEntity }> {
-    for await (const { key, value } of this.#mvcc.scan(entityPrefix(this.tenant, this.user))) {
+    for await (const { key, value } of this.#scan(entityPrefix(this.tenant, this.user))) {
       const id = lastElement(key);
       if (typeof id === 'string') yield { id, entity: fromBinary(MemoryEntitySchema, value) };
     }
@@ -98,7 +117,7 @@ export class MemoryReads {
   /** Ids of the memories that mention an entity. */
   async mentions(entityId: string, limit = 1000): Promise<string[]> {
     const out: string[] = [];
-    for await (const { key } of this.#mvcc.scan(mentionPrefix(this.tenant, this.user, entityId), {
+    for await (const { key } of this.#scan(mentionPrefix(this.tenant, this.user, entityId), {
       limit,
     })) {
       const id = lastElement(key);
@@ -109,12 +128,13 @@ export class MemoryReads {
 
   postings(): PostingReader {
     const { tenant, user } = this;
-    const mvcc = this.#mvcc;
+    const get = (k: Uint8Array) => this.#get(k);
+    const scan = (p: Uint8Array) => this.#scan(p);
     return {
-      stats: async (): Promise<Bm25Stats> => decodeStats(await mvcc.get(statsKey(tenant, user))),
-      df: async (term) => decodeCount(await mvcc.get(dfKey(tenant, user, term))),
+      stats: async (): Promise<Bm25Stats> => decodeStats(await get(statsKey(tenant, user))),
+      df: async (term) => decodeCount(await get(dfKey(tenant, user, term))),
       async *postings(term): AsyncGenerator<Posting & { id: string }> {
-        for await (const { key, value } of mvcc.scan(postingPrefix(tenant, user, term))) {
+        for await (const { key, value } of scan(postingPrefix(tenant, user, term))) {
           const id = lastElement(key);
           if (typeof id === 'string') yield { id, ...decodePosting(value) };
         }
@@ -157,14 +177,14 @@ export class MemoryReads {
 
   graph(): GraphReader {
     const { tenant, user } = this;
-    const mvcc = this.#mvcc;
+    const scan = (p: Uint8Array) => this.#scan(p);
     return {
       async *neighbors(node): AsyncGenerator<Adjacency> {
         for (const direction of ['out', 'in'] as EdgeDirection[]) {
-          for await (const { key, value } of mvcc.scan(edgePrefix(tenant, user, direction, node))) {
+          for await (const { key, value } of scan(edgePrefix(tenant, user, direction, node))) {
             const decoded = decodeKey(key);
             if (!decoded.ok) continue;
-            const [, , , , relation, other] = decoded.value.tuple;
+            const [relation, other] = decoded.value.tuple.slice(-2);
             if (typeof relation !== 'string' || typeof other !== 'string') continue;
             const weight = fromBinary(MemoryEdgeSchema, value).weight;
             yield { relation, node: other, direction, weight };

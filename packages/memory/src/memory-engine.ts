@@ -7,7 +7,7 @@ import type {
   Result,
   Tracer,
 } from '@mindlog/core';
-import { ERROR_CODES, err, mindlogError, ok } from '@mindlog/core';
+import { ERROR_CODES, err, mindlogError, ok, packHlc } from '@mindlog/core';
 import { normalizeName, walk } from '@mindlog/index-graph';
 import type { LeasedJob, Worker } from '@mindlog/jobs';
 import { jobPrefix } from '@mindlog/jobs';
@@ -22,15 +22,17 @@ import { ENRICH, assemble, enrichJob } from './ingest/assemble.js';
 import type { IngestConfig, IngestDraft } from './ingest/ingest-stages.js';
 import { ingestStages } from './ingest/ingest-stages.js';
 import { runStages } from './pipeline/stage.js';
+import { indexTimeKey, indexTimePrefix } from './keys.js';
 import { MemoryReads } from './read/memory-reads.js';
 import { pack } from './recall/pack.js';
 import type { PprRunner } from './recall/ppr.js';
 import { inlinePpr } from './recall/ppr.js';
 import { emptyDraft } from './recall/recall-draft.js';
 import { DEFAULT_RECIPE, RECIPES } from './recall/recipes.js';
-import type { RecallConfig } from './recall/recall-stages.js';
+import type { IndexSource, RecallConfig } from './recall/recall-stages.js';
 import { recallStages } from './recall/recall-stages.js';
 import type {
+  AsOf,
   CallContext,
   GraphView,
   HistoryEntry,
@@ -191,6 +193,38 @@ export class MemoryEngine {
     return ok(views);
   }
 
+  /**
+   * The MVCC version of an `ASOF` (PLAN 13.3): a time is a version (ADR-0027);
+   * a log index maps through the index-time table to the version of the last
+   * memory command at or before it (0 before any).
+   */
+  async #version(range: MemoryRange, scope: MemoryScope, asOf: AsOf): Promise<bigint> {
+    if ('timeMs' in asOf) return packHlc(BigInt(Math.floor(asOf.timeMs)), 0xffffn);
+    const { tenant, user } = scope;
+    for await (const { value } of new MvccReader(range.reader).scan(indexTimePrefix(tenant, user), {
+      reverse: true,
+      before: indexTimeKey(tenant, user, asOf.index + 1n),
+      limit: 1,
+    }))
+      return new DataView(value.buffer, value.byteOffset, 8).getBigUint64(0);
+    return 0n;
+  }
+
+  /** Reads of the scope's main space, at `asOf` when given. */
+  async #reads(range: MemoryRange, scope: MemoryScope, asOf?: AsOf): Promise<MemoryReads> {
+    const at = asOf ? await this.#version(range, scope, asOf) : undefined;
+    return new MemoryReads(range.reader, scope.tenant, scope.user, at);
+  }
+
+  /** The vector index for `reads`: the cached one when current, else built at its version. */
+  #indexFor(reads: MemoryReads): IndexSource {
+    const { tenant, user, at } = reads;
+    if (at === undefined && typeof user === 'string')
+      return () => this.#d.vectors.index(tenant, user);
+    let built: ReturnType<IndexSource> | undefined;
+    return () => (built ??= this.#d.vectors.indexOf(tenant, [{ root: user, at }]));
+  }
+
   /** Queued and leased jobs of a user scope, counted up to the limit (dead ones stay for the dashboard). */
   async #queuedJobs(range: MemoryRange, scope: MemoryScope): Promise<number> {
     let n = 0;
@@ -276,13 +310,17 @@ export class MemoryEngine {
       'memory.recall',
       { 'mindlog.tenant': input.scope.tenant },
       async () => {
-        const { tenant, user } = input.scope;
         const recipe = input.recipe ?? DEFAULT_RECIPE;
-        const draft = emptyDraft(input, RECIPES[recipe]);
+        const reads = await this.#reads(range, input.scope, input.asOf);
+        const draft = emptyDraft(
+          input,
+          RECIPES[recipe],
+          reads.at === undefined ? undefined : hlcMs(reads.at),
+        );
         const ports = {
           models: this.#d.models,
-          vectors: this.#d.vectors,
-          reads: new MemoryReads(range.reader, tenant, user),
+          index: this.#indexFor(reads),
+          reads,
           clock: this.#d.clock,
           ppr: this.#d.ppr ?? inlinePpr,
         };
@@ -323,8 +361,9 @@ export class MemoryEngine {
     range: MemoryRange,
     scope: MemoryScope,
     id: string,
+    asOf?: AsOf,
   ): Promise<Result<MemoryView | undefined, MindlogError>> {
-    const record = await new MemoryReads(range.reader, scope.tenant, scope.user).record(id);
+    const record = await (await this.#reads(range, scope, asOf)).record(id);
     return ok(record ? toView(record) : undefined);
   }
 
@@ -336,13 +375,13 @@ export class MemoryEngine {
       after?: string | undefined;
       kind?: string;
       includeForgotten?: boolean;
+      asOf?: AsOf;
     },
   ): Promise<Result<{ memories: MemoryView[]; next?: string }, MindlogError>> {
     const memories: MemoryView[] = [];
     let next: string | undefined;
-    for await (const r of new MemoryReads(range.reader, scope.tenant, scope.user).records(
-      options.after,
-    )) {
+    const reads = await this.#reads(range, scope, options.asOf);
+    for await (const r of reads.records(options.after)) {
       if (r.expiredAt !== 0n && !options.includeForgotten) continue;
       if (options.kind && r.kind !== options.kind) continue;
       if (r.agent !== (scope.agent ?? r.agent) || r.session !== (scope.session ?? r.session))

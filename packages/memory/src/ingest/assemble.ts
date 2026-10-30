@@ -35,7 +35,7 @@ export function assemble(
   nextId: () => string,
   derivedFrom: readonly string[] = [],
 ): Assembled {
-  const { scope, source, tags = [], meta } = draft.input;
+  const { scope, source, tags = [], meta, validFromMs, validToMs } = draft.input;
   const memories: NewMemory[] = [];
   const edges: EntityEdge[] = [];
   for (const fact of draft.facts) {
@@ -66,6 +66,8 @@ export function assemble(
           version: 1,
           embeddingModel: fact.vector ? draft.embeddingModel : '',
           branch: 'main',
+          validFrom: BigInt(validFromMs ?? 0),
+          validTo: BigInt(validToMs ?? 0),
           metaJson: meta ? JSON.stringify(meta) : '',
           terms: [...terms].map(([term, count]) => ({ term, count })),
           termLength: length,

@@ -59,7 +59,13 @@ export interface RememberInput {
   readonly async?: boolean;
   readonly tags?: readonly string[];
   readonly meta?: Readonly<Record<string, unknown>>;
+  /** World time (ms) the fact became true / stopped being true (ADR-0015). */
+  readonly validFromMs?: number;
+  readonly validToMs?: number;
 }
+
+/** A past state of the scope (PLAN 13.3): a log index of its range, or a time in ms. */
+export type AsOf = { readonly index: bigint } | { readonly timeMs: number };
 
 export interface MemoryLinkView {
   readonly to: string;
@@ -85,6 +91,9 @@ export interface MemoryView {
   readonly createdAtMs: number;
   /** Set once forgotten. */
   readonly expiredAtMs?: number;
+  /** World-time validity window (ms), when known. */
+  readonly validFromMs?: number;
+  readonly validToMs?: number;
   readonly forgetReason?: string;
 }
 
@@ -112,6 +121,10 @@ export interface RecallInput {
   readonly recipe?: RecipeName;
   /** Also return each retriever's ranked ids and the route (PLAN 12.4 stage 11). */
   readonly explain?: boolean;
+  /** Recall the scope as it was then (system time). */
+  readonly asOf?: AsOf;
+  /** Only facts true at this world time (ms); default: true at the ASOF time or now. */
+  readonly validAtMs?: number;
 }
 
 /** Raw retriever scores (each on its own scale) and the normalised signals of the final score. */

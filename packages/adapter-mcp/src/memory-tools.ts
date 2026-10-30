@@ -24,6 +24,12 @@ export type McpMemory = Pick<
 const MAX_ITEMS = 20;
 const RECENT = 20;
 
+const when = z
+  .string()
+  .min(4)
+  .max(40)
+  .describe('ISO 8601 date or date-time, e.g. 2026-03-01 or 2026-03-01T12:00:00Z');
+
 const scopeFields = {
   user: z
     .string()
@@ -110,6 +116,8 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
           .optional()
           .describe('Where it came from; web content is quarantined'),
         async: z.boolean().optional().describe('Acknowledge at once and enrich in the background'),
+        valid_from: when.optional().describe('When the fact became true, if known'),
+        valid_to: when.optional().describe('When the fact stopped being true, if known'),
         ...scopeFields,
       }),
       outputSchema: z.object({
@@ -128,6 +136,8 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
             ...(args.kind ? { kind: args.kind } : {}),
             ...(args.source ? { source: { type: args.source } } : {}),
             ...(args.async ? { async: true } : {}),
+            ...(args.valid_from ? { validFrom: args.valid_from } : {}),
+            ...(args.valid_to ? { validTo: args.valid_to } : {}),
           }),
         (r) => ({
           text: `Remembered ${String(r.ids.length)} memor${r.ids.length === 1 ? 'y' : 'ies'}${r.degraded ? ' (models unavailable: stored raw, enrichment queued)' : ''}.`,
@@ -171,6 +181,10 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
           .describe(
             'Retrieval recipe (default full: vector, keyword, entity, graph, themes, rerank)',
           ),
+        as_of: when
+          .optional()
+          .describe('Recall what was stored as of this time (time travel), not what is stored now'),
+        valid_at: when.optional().describe('Only facts that were true at this time'),
         ...scopeFields,
       }),
       outputSchema: z.object({
@@ -194,6 +208,8 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
             ...(args.inherit ? { inherit: true } : {}),
             ...(args.include_quarantined ? { includeQuarantined: true } : {}),
             ...(args.recipe ? { recipe: args.recipe } : {}),
+            ...(args.as_of ? { asOf: { time: args.as_of } } : {}),
+            ...(args.valid_at ? { validAt: args.valid_at } : {}),
           }),
         (r) => ({
           text: r.context === '' ? 'Nothing relevant is remembered.' : r.context,

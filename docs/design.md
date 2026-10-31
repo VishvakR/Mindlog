@@ -436,12 +436,12 @@ The memory engine is a set of small components behind ports. It knows nothing ab
 flowchart LR
   n["Normalize"] --> r["Redact (PII, optional)"] --> ch["Chunk"] --> ex["ExtractFacts<br/>(local LLM, JSON schema,<br/>add-only)"]
   ex --> ner["RecognizeEntities<br/>(GLiNER)"] --> le["LinkEntities"] --> em["Embed"] --> imp["ScoreImportance"]
-  imp --> ln["LinkNotes<br/>(top-5 ≥ 0.75)"] --> dc["DetectConflicts<br/>(NLI)"] --> tr["ClassifyTrust"] --> as["AssembleCommit"] --> pr["Propose"]
+  imp --> ln["LinkNotes<br/>(top-5 ≥ 0.75)"] --> tr["ClassifyTrust"] --> dc["DetectConflicts<br/>(NLI)"] --> as["AssembleCommit"] --> pr["Propose"]
 ```
 
 - Stages declare `needsModel`, `optional`, `timeoutMs` and `batchSize`, and return `Result<O, StageError>`. A **retryable** error is retried, a **skippable** one falls back to the stage's declared output, and a **fatal** one aborts.
 - All outputs (facts, vectors, entities, links, conflicts) go into **one `MemoryCommit` command**, so followers never re-run models.
-- Phase 5 builds stages 1, 3–9 and 11–13 (Redact and DetectConflicts come later). Without the model service (or with `async: true`) the raw passages are stored as `episodic` with a `memory.enrich` job, and the reply says `degraded`.
+- Every stage but Redact is built; DetectConflicts arrived in phase 7 (ADR-0015). Without the model service (or with `async: true`) the raw passages are stored as `episodic` with a `memory.enrich` job, and the reply says `degraded`.
 - A node that does not lead a user's range forwards the whole memory request to the leader, which runs the models before proposing (ADR-0016).
 - Long work runs as **durable jobs** (`queued → leased → done | failed → dead`). Jobs live in the scope's range, leases are replicated commands held by the range leader with an epoch that fences stale workers, there are at most 5 retries, then the dead-letter queue, and queue depth limits return `BUSY`.
 
@@ -501,11 +501,11 @@ These follow directly from the replicated log. Prior art exists for each one on 
 
 | Feature | Design |
 |---|---|
-| **Branches** | Metadata `{forkIndex, forkHlc, parent, status}`. Branch writes use `branch = name`; reads overlay branch keys on `main@forkIndex`. A merge runs on the leader: CRDT rules for structured fields (OR-set, PN-counter, LWW by HLC) and NLI conflict checks for text facts, with policy `abort / raise / prefer_branch / prefer_main` |
-| **Conflict detection** | For each new fact, compare against the top-5 similar facts and facts sharing entities. Run NLI both ways. `p_contradict ≥ 0.80` → conflict record + new fact quarantined (default policy). `p_entail ≥ 0.90` → duplicate. Non-overlapping validity windows are history, not conflict. Resolution sets `validTo`, never deletes |
-| **Point-in-time recall** | `ASOF index` is an MVCC read. `ASOF time` maps HLC → index through a per-second index-time table. Vector search over-fetches and then filters to records that existed at that version. `VALID_AT` filters on world time independently |
-| **Provenance and quarantine** | Every record has `source` and `principal`, and derived records have `derived_from`. Untrusted sources are quarantined and passed to models only as quoted data. `FORGET SOURCE` cascades through derivations |
-| **Change streams** | Every applied command yields `{rangeId, index, hlc, principal, keys, op}`. Subscribers (SSE, MCP, SDK, cache invalidator) resume from `(rangeId, index)`. A subscriber that fell behind compaction gets `ResyncRequired` |
+| **Branches** (ADR-0013) | Metadata `m/(user,'B',name)` = `{forkIndex, forkVersion, status, writes}`. A branch writes its own space `m/(user,'w',name,…)` in main's layout (a changed main memory gets a masking copy there); reads overlay that space on main at `forkVersion`. A merge is planned on the leader by the pure `@mindlog/branching` planner: three-way field merges with LWW by HLC, edge weights as PN-counters, supporting memories as OR-sets, and NLI checks of new facts with policy `abort / raise / prefer_branch / prefer_main`; apply refuses a plan made against an older main. Open branches pin MVCC history from GC |
+| **Conflict detection** (ADR-0015) | For each new semantic fact, compare against the top-5 similar facts and facts sharing entities whose cosine is ≥ 0.5. Run NLI both ways. Contradiction ≥ 0.95 → conflict record + new fact quarantined (default policy). Entailment ≥ 0.90 → duplicate. Non-overlapping validity windows are history, and a later fact supersedes an open-ended one. Resolution sets `validTo`, never deletes. Tuned on a 320-pair set (`docs/evals/phase-7.md`): end-to-end F1 0.92 |
+| **Point-in-time recall** | `ASOF time` is an MVCC read at that HLC (versions are HLCs, ADR-0027); `ASOF index` maps through a per-scope index-time table. Recall builds a vector index from the vectors at that version. Reads beyond GC retention lose history. `VALID_AT` filters on world time independently |
+| **Provenance and quarantine** | Every record has `source` and `principal`, and derived records have `derived_from`. Tools off the allow-list and web or document sources from untrusted domains are quarantined; derived records keep the lowest trust of their inputs; the extractor quotes its input. `FORGET SOURCE` walks the source and derived-from indexes in one command |
+| **Change streams** | Each applied memory command yields events `{cursor: rangeId:index, type, user, branch?, ids, principal}`. RESP `MEM.WATCH` (push messages), SSE `/api/realtime` and MCP `subscriptions/listen` (resource updates) resume from a cursor out of a 1,000-event tail per range; an older cursor gets `resync` |
 | **Semantic cache** | Two-stage lookup (cosine candidate, then a pluggable evaluator), with an L1 per-node exact-prompt map and L2 entries replicated in the user scope's range. Entries record the memories they depend on; the apply that forgets a memory drops its entries in the same batch, and a store naming a forgotten memory is refused (ADR-0012) |
 | **Token-budget packing** | Greedy by score per token with an MMR penalty and one improvement pass; per-group caps (facts, episodes, themes, procedures) |
 | **Embedded replicas** | The SDK keeps a local LevelDB of subscribed scopes: a snapshot plus the change stream, session consistency, and an offline write queue with request ids |
@@ -517,7 +517,7 @@ These follow directly from the replicated log. Prior art exists for each one on 
 | Interface | Shape | Notes |
 |---|---|---|
 | RESP3 | Redis commands plus `MEM.*`, `CACHE.*`, `IDX.*` | Command table generated from Valkey-shaped JSON specs (arity, flags, key specs, ACL categories). `HELLO` negotiation, RESP2 downgrade, push frames for invalidation |
-| MCP | Tools: remember, recall, improve, forget, branch, resolve, cache_store … | `@modelcontextprotocol/server` over Streamable HTTP (:8765) and stdio. Zod v4 schemas shared with REST. Structured content plus a short text summary, with size-bounded outputs |
+| MCP | Tools: remember, recall, forget, history, graph_query, cache_lookup, cache_store, conflicts, resolve_conflict, branch_create, branch_diff, branch_merge, branch_drop; `memory://{user}/recent` subscriptions | `@modelcontextprotocol/server` over Streamable HTTP (:8765) and stdio. Zod v4 schemas shared with REST. Structured content plus a short text summary, with size-bounded outputs |
 | REST + SSE | `/api/…`, `/api/realtime` | Fastify. OpenAPI generated from the same Zod schemas. RFC 9457 problem details |
 | gRPC | Public services + SDKs | Protobuf in `proto/`, checked by buf lint and breaking-change detection |
 | Dashboard | React + shadcn/ui static app at `/_/` (ADR-0023) | Uses only the public API, with the same authorization and audit as any client. No CDN calls |
@@ -607,7 +607,7 @@ Every new failure path gets a simulator scenario.
 | Compatibility, fuzzing, chaos, load | Redis client suites, parser fuzzers, Docker + `tc`/iptables, redis-benchmark/memtier | Nightly / weekly / per release |
 | AI evaluation | LongMemEval, LoCoMo, ablations, conflict F1, cache hit/false-hit | Per change to the memory engine |
 
-### 18.2 What exists today (phase 5)
+### 18.2 What exists today (phase 7)
 
 | Area | Status |
 |---|---|
@@ -625,20 +625,22 @@ Every new failure path gets a simulator scenario.
 | `@mindlog/models-client` | Model ports (embed, NER, NLI, rerank, extract, health), the gRPC adapter to the model service, a circuit breaker per capability, `NoModels` (degraded), `FakeModels` and `serveModels` |
 | `@mindlog/index-vector`, `index-text`, `index-graph` | Exact flat vector index; tokenizer, Porter stemmer and BM25; entity ids and bounded graph walks |
 | `@mindlog/jobs` | Durable jobs in the scope's range (ADR-0017): replicated leases fenced by attempt, backoff, dead letters, the leader-only runner |
-| `@mindlog/memory` | Memory engine: `MemoryCommit`/`MemoryForget` apply with indexes, ingestion and recall pipelines, vector cache, degraded mode, the enrich worker |
-| `@mindlog/adapter-mcp` | MCP over Streamable HTTP on :8765 (API keys, Host checks) and a stdio relay: `remember`, `recall`, `forget`, `history`, `graph_query`, resources, `recall-context` |
+| `@mindlog/memory` | Memory engine: apply with indexes, ingestion and recall pipelines (recipes, PPR, rerank, MMR, packing), vector cache, degraded mode, the enrich worker; conflict detection and review, trust policy and taint cascade, `ASOF`/`VALID_AT`, branches with overlay reads and planned merges |
+| `@mindlog/branching` | State-based CRDTs (LWW register, PN-counter, add-wins OR-set) and the pure branch merge planner |
+| `@mindlog/cache` | Semantic cache in the scope's range, dependencies dropped inside apply (ADR-0012) |
+| `@mindlog/adapter-mcp` | MCP over Streamable HTTP on :8765 (API keys, Host checks) and a stdio relay: memory, cache, conflict and branch tools, resources with listen subscriptions, `recall-context` |
 | `@mindlog/transport` | `ConnectTransport`: Raft messages and snapshot chunks over Connect gRPC on HTTP/2 (ADR-0025); `KvForwarder` and `KvForwardService` for calls forwarded to a range's leader |
 | `@mindlog/kv` | 100 Redis commands over generations (strings, keys, expiry, hashes, lists, sets, sorted sets, JSON subset), `SET … IFEQ`, SCAN cursors, replicated expiry and GC jobs (leader only) |
-| `@mindlog/services` | `KvService`: sessions, static AUTH, reads behind the `ReadBarrier`, writes through the Proposer or, with a router, `RoutedKv` (fan-out, scatter, cross-range transactions); MULTI/EXEC/WATCH, spans and metrics. `ClusterDirectory`: PD's cluster view and operator actions for the dashboard. `ClusterService`: `CLUSTER.*` admin commands. `MemoryService`: memory requests routed to each user scope's leader, shared Zod schemas. `ApiKeyService`: hashed API keys for agents. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
-| `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server, `resp.command` spans, `MEM.ADD`/`SEARCH`/`GET`/`FORGET`/`HISTORY`, preauthenticated connections for the console |
-| `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, `/api/memory/*`, `/api/admin/api-keys`, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
-| `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, cluster (nodes, ranges, placement decisions), memory explorer, recall playground, knowledge graph, data browser with typed editors, console, settings |
+| `@mindlog/services` | `KvService`: sessions, static AUTH, reads behind the `ReadBarrier`, writes through the Proposer or, with a router, `RoutedKv` (fan-out, scatter, cross-range transactions); MULTI/EXEC/WATCH, spans and metrics. `ClusterDirectory`: PD's cluster view and operator actions for the dashboard. `ClusterService`: `CLUSTER.*` admin commands. `MemoryService`: memory requests routed to each user scope's leader, shared Zod schemas. `ChangeFeed`: the memory change stream. `ApiKeyService`: hashed API keys for agents. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
+| `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server, `resp.command` spans, `MEM.*` (incl. review, branches and `MEM.WATCH` push messages) and `CACHE.*`, preauthenticated connections for the console |
+| `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, `/api/memory/*`, `/api/realtime` (SSE), `/api/admin/api-keys`, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
+| `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, cluster (nodes, ranges, placement decisions), memory explorer (with quarantine review), recall playground, knowledge graph, conflicts inbox, branches, time travel, live feed, data browser with typed editors, console, settings |
 | `@mindlog/server` | Composition root: `mindlog-server` as a one-voter range (`--single-node`) or a cluster member (`cluster.peers`), `superuser upsert`, `apikey create|list|revoke`, `mcp` (stdio relay), graceful shutdown, `mindlog-maelstrom` node binary |
-| Python | `model_service`: gRPC `ModelsService` on ONNX Runtime (MiniLM embeddings and reranker, DeBERTa NLI, GLiNER), micro-batching, admission control, models only from `models/` (ADR-0020); `demo_agents` (two-session MCP demo); redis-py compatibility suite |
+| Python | `model_service`: gRPC `ModelsService` on ONNX Runtime (MiniLM embeddings and reranker, DeBERTa NLI, GLiNER), micro-batching, admission control, models only from `models/` (ADR-0020); `demo_agents` (two-session MCP demo, the phase 7 multi-agent demo); `evals` (LongMemEval, LoCoMo, cache, conflict set); redis-py compatibility suite |
 | Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger; `chaos`: 3-node cluster; `cluster` and `cluster-join`: 3 nodes that also run the placement driver, plus a fourth; `offline`: node, model service and demo agent on a network with no route out), `scripts/chaos/`, `scripts/load-and-rebalance.sh` (kill the leader, partition a node), Grafana dashboard in `deploy/grafana/` |
-| Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`; faults: splits, merges, leader transfers, membership, clock skew; `SIM_PD=1` placement driver, `SIM_BANK=1` bank transfers across ranges, `SIM_MEM=1` memory workload), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts`, `test/integration/degraded.test.ts`, `test/bench/recall.test.ts` |
+| Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`; faults: splits, merges, leader transfers, membership, clock skew; `SIM_PD=1` placement driver, `SIM_BANK=1` bank transfers across ranges, `SIM_MEM=1` memory workload, `SIM_BRANCH=1` branches), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts`, `test/integration/degraded.test.ts`, `test/bench/recall.test.ts` |
 | CI | Lint, typecheck, tests (TS, web, Python), protobuf drift and breaking checks, Conventional Commits, gate job (redis-py, kill -9 durability, redis-benchmark, 3-node failover), 1,000 simulator seeds; nightly Maelstrom and 100,000 seeds |
-| Gates | Phases 0 to 5 (`docs/phases/phase-N.md`) |
+| Gates | Phases 0 to 7 (`docs/phases/phase-N.md`) |
 
 Everything else in this document is designed but not built yet; it arrives phase by phase (PLAN 24).
 

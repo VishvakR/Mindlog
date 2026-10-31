@@ -10,7 +10,7 @@ RESP2/RESP3 protocol adapter (PLAN 15.1, layer `interfaces`): parser, writer, co
 | `RespWriter` | Serialises `KvReply` as RESP3 or downgrades to RESP2; batches a pipeline's replies |
 | `loadCommandSpecs`, `CommandTable` | Validated JSON specs (`commands/*.json`) and `COMMAND` / `COMMAND INFO|DOCS|COUNT|LIST` |
 | `Connection`, `ConnectionLimits`, `CloseReason` | One client: ordered pipelining, connection commands, output and pipeline limits |
-| `ConnectionCommand`, `ConnectionCommandRegistry`, `createConnectionCommands()` | Commands the adapter answers itself: `HELLO` `SELECT` `QUIT` `RESET` `CLIENT` `INFO` `CONFIG GET` `COMMAND`, `CLUSTER.*` and `MEM.ADD` `MEM.SEARCH` `MEM.GET` `MEM.FORGET` `MEM.HISTORY` (through `ServerContext.memory`) |
+| `ConnectionCommand`, `ConnectionCommandRegistry`, `createConnectionCommands()` | Commands the adapter answers itself: `HELLO` `SELECT` `QUIT` `RESET` `CLIENT` `INFO` `CONFIG GET` `COMMAND`, `CLUSTER.*` and the `MEM.*` and `CACHE.*` commands (through `ServerContext.memory`), including `MEM.CONFLICTS` `MEM.RESOLVE` `MEM.TRUST`, `MEM.BRANCH` `MEM.BRANCHES` `MEM.DIFF` `MEM.MERGE` `MEM.DROP`, the `ASOF`, `VALID_AT` and `BRANCH` options, and `MEM.WATCH`, which follows `ServerContext.changes` with push messages (RESP3 `>`, arrays in RESP2) until the connection closes or resets |
 | `ClientRegistry`, `ClientState` | Open connections for `CLIENT LIST`, `INFO` and `maxClients` |
 | `RespServer` | `net` listener: `maxClients`, idle timeout, metrics, graceful `close()` |
 

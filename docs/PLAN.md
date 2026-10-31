@@ -865,13 +865,13 @@ Worker rules: bounded concurrency per node, per-tenant budget of model-seconds p
 
 **Prior art and what is different.** Letta Code keeps each agent's memory as files in a git repository ("MemFS"), runs reflection ("dream") work in isolated git worktrees, and has a repair worker for git merge conflicts (`src/agent/memory-worktree.ts`, `memory-conflict-repair.ts`). Neon and Dolt branch whole databases. Mindlog branches **records inside a replicated database**: branches are created and merged through Raft so all replicas agree, merges are checked for **semantic** contradictions (NLI) rather than textual conflicts, structured fields merge as CRDTs, and many agents can branch the same scope concurrently.
 
-**Model.** A branch is metadata `s/branch/(scope, name)` = `{ forkIndex, forkHlc, createdBy, status: 'open'|'merged'|'dropped', parent: 'main' }`.
+**Model** (ADR-0013). A branch is metadata `m/(user, 'B', name)` = `{ forkIndex, forkVersion, createdBy, status: 'open'|'merged'|'dropped', writes, maxWrites }`, in the user scope's range.
 
-**Writes on a branch** go to keys with `branch = name`. **Reads on a branch** use an overlay iterator: branch keys first, then `main` at version ≤ `forkIndex` for keys the branch has not touched. Deletions on a branch write branch tombstones.
+**Writes on a branch** are the ordinary memory commands with `Command.branch = name`; they write the branch's own space `m/(user, 'w', name, …)`, which has main's key layout. A main memory forgotten or re-trusted on a branch gets a changed copy of its record there, which masks it. **Reads on a branch** overlay the branch space on main read at `forkVersion` (an MVCC read, versions being HLCs).
 
-**Indexes for branches**: small branch-local brute-force vector set + branch-local BM25 postings; searched together with main-at-forkIndex and merged by RRF.
+**Indexes for branches**: the branch space has its own vector rows and BM25 postings (same layout as main); recall builds one vector index from main at the fork plus the branch, and adds up postings and counts, so the normal recall stages run on the overlay.
 
-**Merge algorithm** (`BranchMerge` command, computed on the leader, applied deterministically):
+**Merge algorithm** (`BranchMerge` command, planned on the leader by the pure `@mindlog/branching` planner and applied as data; apply refuses a plan made against an older main generation, and the leader plans again):
 1. Collect branch changes (adds, evolves, forgets) in log order.
 2. For each change, find main's changes to the same memory or the same entity since `forkIndex`.
 3. Structured fields (tags, importance, counters, entity lists, link sets) merge with CRDT rules via Automerge-compatible semantics: sets = add-wins OR-set, counters = PN-counter, registers = last-writer-wins by HLC.
@@ -890,7 +890,7 @@ Worker rules: bounded concurrency per node, per-tenant budget of model-seconds p
 **Algorithm**:
 1. For each new fact, retrieve candidates: top 5 by vector similarity within the scope (and inherited scopes) restricted to `semantic` kind, plus facts sharing ≥ 1 entity with the same relation type.
 2. Run the NLI classifier on (existing, new) and (new, existing); take the max contradiction probability.
-3. If `p_contradict ≥ θ_c` (default 0.80) → conflict. If `p_entail ≥ 0.90` → duplicate (link `supports`, lower importance of the new one). Else → independent.
+3. Candidates whose embedding cosine to the new fact is below 0.5 are skipped (the NLI model calls unrelated facts about one person contradictions). If `p_contradict ≥ θ_c` (default 0.95, tuned in phase 7; ADR-0015) → conflict. If `p_entail ≥ 0.90` → duplicate (link `supports`, lower importance of the new one). Else → independent.
 4. A conflict creates `s/conflict/(scope, conflictId)` = `{ a, b, scores, detectedAt, status: 'open', policy }` and the new fact is stored with `trust = quarantined` (unless the tenant policy is `newest_wins`).
 
 **Resolution** (`MEM.RESOLVE id KEEP a|b|both [VALID_FROM t]`): `both` with validity windows models a real change ("user was vegetarian until 2026-03"); the losing fact gets `validTo`, never deletion.
@@ -901,9 +901,9 @@ Worker rules: bounded concurrency per node, per-tenant budget of model-seconds p
 
 ### 13.3 Point-in-time recall (`ASOF`)
 
-- `ASOF index` → MVCC read at that index.
 - `ASOF time` → read at that HLC (versions are HLC timestamps, 10.2 / ADR-0027).
-- Indexes: HNSW is current-state only, so `ASOF` recall runs vector search on current index with `k × 4`, then reads each candidate at the `ASOF` version and drops those that did not exist then; for old timestamps beyond index coverage it falls back to scanning BM25 + entity retrievers over the version-filtered records. Document the accuracy trade-off.
+- `ASOF index` → the version of the scope's last memory command at or before that log index, from a per-scope index-time table `m/(user, 'ix', index)`.
+- Indexes: postings, entities and edges are MVCC keys, so the retrievers read them at the version; the vector index is built from the vector rows at that version (exact, brute force). History older than MVCC GC retention is gone.
 - Bitemporal queries: `VALID_AT t` filters on world-time `validFrom/validTo` (Graphiti-style), independent of `ASOF` (system time).
 
 ### 13.4 Provenance and quarantine
@@ -917,8 +917,8 @@ Worker rules: bounded concurrency per node, per-tenant budget of model-seconds p
 ### 13.5 Change streams (watch)
 
 - `MEM.WATCH scope [FROM index]`, MCP resource subscriptions, SSE `/api/realtime`, SDK `subscribe()`.
-- Cursor = `(rangeId, index)`; resumable; filtered by the subscriber's permissions.
-- Event types: `memory.added`, `memory.evolved`, `memory.forgotten`, `conflict.raised`, `conflict.resolved`, `branch.merged`, `record.created|updated|deleted`, `cache.invalidated`.
+- Cursor = `rangeId:index`; resumable from a bounded per-range tail (an older cursor gets `resync`); filtered by the subscriber's tenant and user scope. MCP subscriptions are `subscriptions/listen` streams that receive `memory://{user}/recent` updates.
+- Event types: `memory.added`, `memory.evolved`, `memory.forgotten`, `conflict.raised`, `conflict.resolved`, `branch.created`, `branch.merged`, `branch.dropped`; later `record.created|updated|deleted`, `cache.invalidated`.
 
 ### 13.6 Token-budget recall (`MEM.PACK`)
 
@@ -1747,9 +1747,9 @@ References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly]
 | 010 | Placement driver as its own Raft group with a TSO |
 | 011 | Retrieval fusion (weighted RRF), query routing, scoring formula and recall recipes |
 | 012 | Semantic cache dependency-tracking invalidation, done inside apply in the dependency's range (changes 13.9's event-driven invalidator) |
-| 013 | Branches as overlays at a fork index, not copies |
+| 013 | Branches as overlays at a fork version in their own key space, merged by a planned command (not copies) |
 | 014 | Encryption at rest: values encrypted, keys in plaintext |
-| 015 | Conflict policy defaults (quarantine new) |
+| 015 | Conflict detection before commit and policy defaults (quarantine new; θ_c 0.95 with a 0.5 similarity gate) |
 | 016 | Model calls only on the leader; results embedded in commands |
 | 017 | Durable jobs stored in the scope's range |
 | 018 | Rule language compatible with PocketBase filter syntax |

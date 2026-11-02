@@ -1138,8 +1138,8 @@ export type BranchMerge = Message<"mindlog.v1.BranchMerge"> & {
   rejected: string[];
 
   /**
-   * The branch's generation the plan was made at; apply refuses the plan if the
-   * branch was written since. 0 skips the check (proposers before cluster version 8).
+   * The branch's generation the plan was made at, plus one; apply refuses the plan
+   * if the branch was written since. 0 skips the check (before cluster version 8).
    *
    * @generated from field: uint64 branch_generation = 11;
    */

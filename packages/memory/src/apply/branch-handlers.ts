@@ -264,7 +264,7 @@ export const branchMergeHandler: ApplyHandler = {
     // A branch write after planning would be lost by this plan (found by the phase 8 simulator).
     if (m.branchGeneration !== 0n) {
       const own = decodeCount(await ctx.txn.get(generationKey(tenant, { user, branch: name })));
-      if (BigInt(own) !== m.branchGeneration)
+      if (BigInt(own) + 1n !== m.branchGeneration)
         return errorResult(
           'CONFLICT',
           'the branch changed since the merge was planned; plan it again',

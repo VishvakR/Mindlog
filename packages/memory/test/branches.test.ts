@@ -197,7 +197,7 @@ describe('merging', () => {
       name: 'plan',
       policy: 'raise',
       mainGeneration: BigInt(await reads.generation()),
-      branchGeneration: BigInt(await own.generation()),
+      branchGeneration: BigInt(await own.generation()) + 1n,
       adds: [{ id: first, quarantine: false }],
     };
     const late = await remember(n, 'Ana will rent a flat.', { branch: 'plan' });
@@ -208,6 +208,21 @@ describe('merging', () => {
     // The engine plans again, so both writes reach main.
     const merged = await merge(n, 'raise');
     expect([...merged.added].sort()).toEqual([first, late].sort());
+
+    // A plan made while the branch was still untouched (generation 0) is fenced too.
+    await branch(n, 'empty');
+    const empty = {
+      user: 'u1',
+      name: 'empty',
+      policy: 'abort',
+      mainGeneration: BigInt(await reads.generation()),
+      branchGeneration: 1n,
+    };
+    await n.engine.forget(n.range, { scope: scope(), ids: [first], branch: 'empty' }, ctx);
+    const stale2 = await n.propose(
+      n.stamper.stamp(TENANT, 'agent:test', { case: 'branchMerge', value: empty }),
+    );
+    expect(stale2.outcome.case === 'error' && stale2.outcome.value.code).toBe('CONFLICT');
   });
 
   test('entity edges add up: main weight plus the branch’s', async () => {

@@ -153,7 +153,8 @@ export async function planBranchMerge(
   const own = new MemoryReads(range.reader, tenant, { user, branch: branch.name });
   const mvcc = new MvccReader(range.reader);
   const generation = await main.generation();
-  const branchGeneration = deps.fenceBranch ? await own.generation() : 0;
+  // Plus one: 0 means unfenced, and an untouched branch is at generation 0.
+  const branchGeneration = deps.fenceBranch ? (await own.generation()) + 1 : 0;
   const records: ChangedRecord[] = [];
   const added: MemoryRecord[] = [];
   for await (const r of own.records()) {

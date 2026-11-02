@@ -293,8 +293,8 @@ message BranchMerge {
   repeated Supersede supersede = 9;
   // Branch facts left out (prefer_main), for the merge result.
   repeated string rejected = 10;
-  // The branch's generation the plan was made at; apply refuses the plan if the
-  // branch was written since. 0 skips the check (proposers before cluster version 8).
+  // The branch's generation the plan was made at, plus one; apply refuses the plan
+  // if the branch was written since. 0 skips the check (before cluster version 8).
   uint64 branch_generation = 11;
 }
 

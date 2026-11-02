@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import { Search, Snowflake } from 'lucide-react';
 import { useState } from 'react';
 import { ScopePicker } from '@/components/memory/scope-picker';
 import { Badge } from '@/components/ui/badge';
@@ -76,6 +76,7 @@ export function RecallPage() {
   const [k, setK] = useState('10');
   const [budget, setBudget] = useState('1000');
   const [inherit, setInherit] = useState(false);
+  const [includeCold, setIncludeCold] = useState(false);
   const [recipe, setRecipe] = useState<RecipeName>('full');
   const recall = useMutation({
     mutationFn: () =>
@@ -84,6 +85,7 @@ export function RecallPage() {
         tokenBudget: Number(budget) || 1000,
         inherit,
         recipe,
+        includeCold,
       }),
   });
   const r = recall.data;
@@ -164,6 +166,9 @@ export function RecallPage() {
               <Toggle variant="outline" pressed={inherit} onPressedChange={setInherit}>
                 Include parent scopes
               </Toggle>
+              <Toggle variant="outline" pressed={includeCold} onPressedChange={setIncludeCold}>
+                <Snowflake /> Include cold
+              </Toggle>
               <Button type="submit" disabled={!query.trim() || recall.isPending}>
                 <Search /> Recall
               </Button>
@@ -213,7 +218,14 @@ export function RecallPage() {
                     <TableRow key={item.memory.id}>
                       <TableCell className="max-w-xs xl:max-w-md">
                         <div className="truncate">{item.memory.text}</div>
-                        <div className="text-xs text-muted-foreground">{item.memory.kind}</div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          {item.memory.kind}
+                          {item.memory.tier === 'cold' && (
+                            <span className="inline-flex items-center gap-0.5 text-sky-600 dark:text-sky-400">
+                              <Snowflake className="size-3" /> cold
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       {signals.map((key) => (
                         <TableCell key={key} className="text-right">

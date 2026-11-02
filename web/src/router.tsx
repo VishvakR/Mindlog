@@ -7,6 +7,7 @@ import { ConflictsPage } from '@/pages/conflicts-page';
 import { ConsolePage } from '@/pages/console-page';
 import { DataPage } from '@/pages/data-page';
 import { GraphPage } from '@/pages/graph-page';
+import { JobsPage } from '@/pages/jobs-page';
 import { LivePage } from '@/pages/live-page';
 import { LoginPage } from '@/pages/login-page';
 import { MemoryPage } from '@/pages/memory-page';
@@ -38,6 +39,7 @@ export const router = createBrowserRouter(
             { path: 'branches', element: <BranchesPage /> },
             { path: 'time-travel', element: <TimeTravelPage /> },
             { path: 'live', element: <LivePage /> },
+            { path: 'jobs', element: <JobsPage /> },
             { path: 'data', element: <DataPage /> },
             { path: 'console', element: <ConsolePage /> },
             { path: 'settings', element: <SettingsPage /> },

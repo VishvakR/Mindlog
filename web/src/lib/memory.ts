@@ -24,6 +24,14 @@ export interface MemoryView {
   forgetReason?: string;
   validFromMs?: number;
   validToMs?: number;
+  /** Lifecycle (ADR-0033). */
+  tier: 'hot' | 'cold';
+  pinned: boolean;
+  version: number;
+  strength: number;
+  recallCount: number;
+  lastRecalledAtMs?: number;
+  meta?: Record<string, unknown>;
 }
 
 export interface RecallSignals {
@@ -113,9 +121,81 @@ export interface GraphResult {
 }
 
 export interface HistoryEntry {
+  /** MVCC version; '' when only the kept copy of an older revision remains. */
   version: string;
+  revision: number;
   atMs: number;
   memory: MemoryView;
+}
+
+/** A durable job (PLAN 12.7). */
+export interface JobView {
+  id: string;
+  kind: string;
+  state: 'queued' | 'leased' | 'dead';
+  attempts: number;
+  deferrals: number;
+  runAtMs: number;
+  leaseUntilMs?: number;
+  error?: string;
+  createdAtMs: number;
+  why?: string;
+}
+
+/** A scope's lifecycle counts (ADR-0033). */
+export interface LifecycleView {
+  hot: number;
+  cold: number;
+  writesSinceSleep: number;
+  writesSinceEvolve: number;
+  graphSize: number;
+  graphSizeAtTheme: number;
+  embedModel: string;
+  reembed: boolean;
+  lastWriteMs?: number;
+  lastRunMs: Record<string, number>;
+  tickAtMs?: number;
+  coldTier: boolean;
+}
+
+export const WORKERS = [
+  'sleep',
+  'evolve',
+  'dedup',
+  'themes',
+  'entities',
+  'forget',
+  'reembed',
+  'cache',
+] as const;
+
+/** What changed between two versions of a memory, as `field: before → after` lines. */
+export function versionChanges(before: MemoryView, after: MemoryView): string[] {
+  const out: string[] = [];
+  const show = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v));
+  const fields: Array<keyof MemoryView> = [
+    'text',
+    'trust',
+    'tier',
+    'pinned',
+    'importance',
+    'tags',
+    'validToMs',
+  ];
+  for (const f of fields)
+    if (show(before[f]) !== show(after[f]))
+      out.push(`${f}: ${show(before[f]) ?? '—'} → ${show(after[f]) ?? '—'}`);
+  const metaBefore = before.meta ?? {};
+  const metaAfter = after.meta ?? {};
+  for (const k of new Set([...Object.keys(metaBefore), ...Object.keys(metaAfter)]))
+    if (show(metaBefore[k]) !== show(metaAfter[k]))
+      out.push(`meta.${k}: ${show(metaBefore[k]) ?? '—'} → ${show(metaAfter[k]) ?? '—'}`);
+  if (!before.expiredAtMs && after.expiredAtMs)
+    out.push(`forgotten${after.forgetReason ? `: ${after.forgetReason}` : ''}`);
+  const linksBefore = new Set(before.links.map((l) => `${l.relation}:${l.to}`));
+  for (const l of after.links)
+    if (!linksBefore.has(`${l.relation}:${l.to}`)) out.push(`link + ${l.relation} → ${l.to}`);
+  return out;
 }
 
 export const MEMORY_KINDS = [

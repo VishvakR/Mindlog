@@ -7,6 +7,7 @@ import {
   presentSignals,
   radialLayout,
   retrieverColumns,
+  versionChanges,
 } from '@/lib/memory';
 
 describe('scopes', () => {
@@ -67,6 +68,11 @@ describe('recall explain helpers', () => {
       importance: 0.5,
       tags: [],
       createdAtMs: 0,
+      tier: 'hot',
+      pinned: false,
+      version: 1,
+      strength: 1,
+      recallCount: 0,
     },
     score: 0.5,
     signals: { fused: 1, recency: 1, importance: 0.5, retention: 1, ...signals },
@@ -105,5 +111,43 @@ describe('parseSse', () => {
     expect(parseSse(rest + 'ta: {}\n\n').events).toEqual([
       { event: 'message', id: '1:5', data: '{}' },
     ]);
+  });
+});
+
+describe('versionChanges', () => {
+  const base = {
+    id: 'm',
+    user: 'u',
+    kind: 'semantic',
+    text: 'Ana likes tea.',
+    entities: [],
+    links: [],
+    source: { type: 'user', principal: 'p' },
+    trust: 'normal',
+    importance: 0.5,
+    tags: [],
+    createdAtMs: 0,
+    tier: 'hot' as const,
+    pinned: false,
+    version: 1,
+    strength: 1,
+    recallCount: 0,
+  };
+
+  test('lists the fields, meta keys and links that changed', () => {
+    const after = {
+      ...base,
+      tags: ['tea'],
+      tier: 'cold' as const,
+      meta: { context: 'drinks' },
+      links: [{ to: 'x', relation: 'supersedes', weight: 1 }],
+    };
+    expect(versionChanges(base, after)).toEqual([
+      'tier: hot → cold',
+      'tags: [] → ["tea"]',
+      'meta.context: — → drinks',
+      'link + supersedes → x',
+    ]);
+    expect(versionChanges(base, { ...base, recallCount: 3 })).toEqual([]);
   });
 });

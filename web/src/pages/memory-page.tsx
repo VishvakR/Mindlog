@@ -1,8 +1,9 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Brain } from 'lucide-react';
+import { Brain, Pin, Snowflake } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ScopePicker } from '@/components/memory/scope-picker';
+import { VersionHistory } from '@/components/memory/version-history';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,6 +100,17 @@ export function MemoryPage() {
     },
     onError: (e) => toast.error(e.message),
   });
+  const pin = useMutation({
+    mutationFn: (m: MemoryView) => api.memoryPin(scope.tenant, { user: m.user }, m.id, !m.pinned),
+    onSuccess: (_r, m) => {
+      toast.success(
+        m.pinned ? 'Unpinned: it can fade to the cold tier again.' : 'Pinned: it stays hot.',
+      );
+      setOpen(undefined);
+      void client.invalidateQueries({ queryKey: ['memories'] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
   const memories = (list.data?.pages.flatMap((p) => p.memories) ?? []).filter(
     (m) => !quarantinedOnly || (m.trust === 'quarantined' && !m.expiredAtMs),
   );
@@ -181,8 +193,14 @@ export function MemoryPage() {
                       >
                         {m.text}
                       </div>
-                      <div className="font-mono text-xs text-muted-foreground">
-                        {formatScope(m)} · {m.id}
+                      <div className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+                        {m.tier === 'cold' && (
+                          <Snowflake className="size-3 text-sky-500" aria-label="cold tier" />
+                        )}
+                        {m.pinned && <Pin className="size-3" aria-label="pinned" />}
+                        <span className="truncate">
+                          {formatScope(m)} · {m.id}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -238,6 +256,16 @@ export function MemoryPage() {
                   <Badge variant={trustVariant(open.trust)}>{open.trust}</Badge>
                   <Badge variant="outline">source: {open.source.type}</Badge>
                   {open.expiredAtMs && <Badge variant="destructive">forgotten</Badge>}
+                  {open.tier === 'cold' && (
+                    <Badge variant="secondary">
+                      <Snowflake /> cold tier
+                    </Badge>
+                  )}
+                  {open.pinned && (
+                    <Badge variant="outline">
+                      <Pin /> pinned
+                    </Badge>
+                  )}
                 </div>
                 <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1.5">
                   <dt className="text-muted-foreground">Created</dt>
@@ -246,6 +274,13 @@ export function MemoryPage() {
                   <dd className="font-mono text-xs">{open.source.principal}</dd>
                   <dt className="text-muted-foreground">Importance</dt>
                   <dd className="tabular-nums">{open.importance.toFixed(2)}</dd>
+                  <dt className="text-muted-foreground">Strength</dt>
+                  <dd className="tabular-nums">
+                    {open.strength.toFixed(1)} days · recalled {open.recallCount}×
+                    {open.lastRecalledAtMs ? `, last ${when(open.lastRecalledAtMs)}` : ''}
+                  </dd>
+                  <dt className="text-muted-foreground">Version</dt>
+                  <dd className="tabular-nums">{open.version}</dd>
                   {open.expiredAtMs && (
                     <>
                       <dt className="text-muted-foreground">Forgotten</dt>
@@ -279,19 +314,15 @@ export function MemoryPage() {
                     ))}
                   </ul>
                 </section>
+                {open.tier === 'cold' && (
+                  <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+                    Faded to the cold tier: this is its stub. Recall with “Include cold” brings it
+                    back, and recalling it makes it hot again.
+                  </p>
+                )}
                 <section>
-                  <h3 className="mb-1.5 font-medium">History</h3>
-                  {history.isPending && <Skeleton className="h-10" />}
-                  <ol className="flex flex-col gap-1.5">
-                    {(history.data ?? []).map((h) => (
-                      <li key={h.version} className="rounded-md border p-2 text-xs">
-                        <div className="text-muted-foreground">
-                          {when(h.atMs)} {h.memory.expiredAtMs ? '· forgotten' : '· written'}
-                        </div>
-                        <div>{h.memory.text}</div>
-                      </li>
-                    ))}
-                  </ol>
+                  <h3 className="mb-1.5 font-medium">Version history</h3>
+                  <VersionHistory entries={history.data} pending={history.isPending} />
                 </section>
                 {!open.expiredAtMs && (
                   <div className="flex flex-wrap gap-2">
@@ -308,6 +339,9 @@ export function MemoryPage() {
                         Mark verified
                       </Button>
                     )}
+                    <Button variant="outline" onClick={() => pin.mutate(open)}>
+                      <Pin /> {open.pinned ? 'Unpin' : 'Pin'}
+                    </Button>
                     <Button variant="destructive" onClick={() => setForgetting(open)}>
                       {open.trust === 'quarantined' ? 'Reject (forget)' : 'Forget'}
                     </Button>

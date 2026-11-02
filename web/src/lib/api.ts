@@ -6,6 +6,8 @@ import type {
   ConflictView,
   GraphResult,
   HistoryEntry,
+  JobView,
+  LifecycleView,
   MemoryScope,
   MemoryView,
   MergePolicy,
@@ -227,7 +229,13 @@ export const api = {
     tenant: string,
     scope: MemoryScope,
     query: string,
-    options: { k: number; tokenBudget: number; inherit: boolean; recipe: RecipeName },
+    options: {
+      k: number;
+      tokenBudget: number;
+      inherit: boolean;
+      recipe: RecipeName;
+      includeCold?: boolean;
+    },
   ) =>
     request<RecallResult>('POST', '/memory/recall', {
       tenant,
@@ -283,6 +291,37 @@ export const api = {
     request<MergeResult>('POST', '/memory/merge', { tenant, scope, name, policy }),
   memoryDrop: (tenant: string, scope: MemoryScope, name: string) =>
     request<{ count: number }>('POST', '/memory/drop', { tenant, scope, name }),
+  memoryPin: (tenant: string, scope: MemoryScope, id: string, pinned: boolean) =>
+    request<{ count: number }>('POST', '/memory/pin', { tenant, scope, ids: [id], pinned }),
+  memoryJobs: (tenant: string, scope: MemoryScope, state?: JobView['state']) =>
+    request<{ jobs: JobView[]; lifecycle: LifecycleView; next?: string }>('POST', '/memory/jobs', {
+      tenant,
+      scope,
+      limit: 200,
+      ...(state ? { state } : {}),
+    }),
+  memoryConsolidate: (tenant: string, scope: MemoryScope, workers?: string[]) =>
+    request<{ enqueued: string[] }>('POST', '/memory/consolidate', {
+      tenant,
+      scope,
+      ...(workers ? { workers } : {}),
+    }),
+  memoryExport: (tenant: string, scope: MemoryScope) =>
+    request<{ data: string; bytes: number }>('POST', '/memory/export', { tenant, scope }),
+  memoryImport: (
+    tenant: string,
+    scope: MemoryScope,
+    data: string,
+    format: 'mcube' | 'cogx',
+    name: string,
+  ) =>
+    request<{ imported: number; skipped: number }>('POST', '/memory/import', {
+      tenant,
+      scope,
+      data,
+      format,
+      name,
+    }),
 };
 
 /**

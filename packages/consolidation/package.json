@@ -1,0 +1,38 @@
+{
+  "name": "@mindlog/consolidation",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Memory consolidation and lifecycle workers: the scope tick, sleep-time on branches, evolution, dedup, themes, entity summaries, forgetting with the cold tier, re-embedding and the cache janitor (PLAN 12.6, ADR-0033)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/consolidation/"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@mindlog/blob": "workspace:*",
+    "@mindlog/cache": "workspace:*",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/index-graph": "workspace:*",
+    "@mindlog/jobs": "workspace:*",
+    "@mindlog/memory": "workspace:*",
+    "@mindlog/models-client": "workspace:*",
+    "@mindlog/proto": "workspace:*",
+    "@mindlog/storage": "workspace:*"
+  },
+  "devDependencies": {
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/multiraft": "workspace:*",
+    "@mindlog/statemachine": "workspace:*"
+  }
+}

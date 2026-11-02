@@ -71,15 +71,18 @@ export function enqueueJob(
 
 /**
  * Finishes lease `ref.attempt` of a job: done when `error` is empty, otherwise
- * requeued with backoff, or dead after `MAX_ATTEMPTS`. A stale attempt (the
- * lease expired and was granted again) is a `CONFLICT` and changes nothing.
- * Returns the job outcome, or the error result (check `outcome.case`).
+ * requeued with backoff, or dead after `MAX_ATTEMPTS`. With `deferUntilMs` and
+ * no error it is requeued for then, and that lease does not count toward dead
+ * (a worker out of budget, ADR-0033). A stale attempt (the lease expired and
+ * was granted again) is a `CONFLICT` and changes nothing. Returns the job
+ * outcome, or the error result (check `outcome.case`).
  */
 export async function completeJob(
   ctx: ApplyContext,
   user: string,
   ref: Pick<JobRef, 'id' | 'attempt'>,
   error = '',
+  deferUntilMs = 0n,
 ): Promise<CommandResult> {
   const moved = inRange(ctx, user, ref.id);
   if (moved) return moved;
@@ -88,10 +91,14 @@ export async function completeJob(
   if (job.state !== JobState.LEASED || job.attempts !== ref.attempt)
     return errorResult('CONFLICT', `lease ${String(ref.attempt)} of job ${ref.id} is not current`);
   const before = dueAt(job);
-  if (error === '') job.state = JobState.DONE;
+  if (error === '' && deferUntilMs > 0n) {
+    job.state = JobState.QUEUED;
+    job.deferrals++;
+    job.runAtMs = deferUntilMs;
+  } else if (error === '') job.state = JobState.DONE;
   else {
     job.error = error;
-    if (job.attempts >= MAX_ATTEMPTS) job.state = JobState.DEAD;
+    if (job.attempts - job.deferrals >= MAX_ATTEMPTS) job.state = JobState.DEAD;
     else {
       job.state = JobState.QUEUED;
       job.runAtMs = ctx.nowMs + backoffMs(job.attempts);
@@ -130,7 +137,7 @@ export const jobCompleteHandler: ApplyHandler = {
   async apply(ctx) {
     if (ctx.command.body.case !== 'jobComplete')
       throw new Error('jobComplete handler got another body');
-    const { user, id, attempt, error } = ctx.command.body.value;
-    return completeJob(ctx, user, { id, attempt }, error);
+    const { user, id, attempt, error, deferUntilMs } = ctx.command.body.value;
+    return completeJob(ctx, user, { id, attempt }, error, deferUntilMs);
   },
 };

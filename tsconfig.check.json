@@ -107,6 +107,12 @@
       "path": "packages/models-client/test"
     },
     {
+      "path": "packages/blob"
+    },
+    {
+      "path": "packages/blob/test"
+    },
+    {
       "path": "packages/index-vector"
     },
     {
@@ -147,6 +153,12 @@
     },
     {
       "path": "packages/memory/test"
+    },
+    {
+      "path": "packages/consolidation"
+    },
+    {
+      "path": "packages/consolidation/test"
     },
     {
       "path": "packages/adapter-mcp"

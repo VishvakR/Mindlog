@@ -10,6 +10,7 @@ const SECRET_KEYS = [
   'cookie',
   'joinToken',
   'privateKey',
+  'secretAccessKey',
 ];
 
 /** pino redact paths: each secret key at the top level and one or two levels down. */

@@ -86,6 +86,28 @@ describe('job apply', () => {
     expect(await queueDepth(n.store, 1n, 100)).toBe(0);
   });
 
+  test('a deferred lease requeues the job without counting toward dead', async () => {
+    const n = await jobNode();
+    await n.enqueue('u1', { id: 'j1' });
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS + 2; attempt++) {
+      await n.propose(lease('j1'));
+      const until = n.clock.now() + 5000n;
+      await n.propose({
+        case: 'jobComplete',
+        value: { user: 'u1', id: 'j1', attempt, error: '', deferUntilMs: until },
+      });
+      expect(await n.job('u1', 'j1')).toMatchObject({
+        state: JobState.QUEUED,
+        deferrals: attempt,
+        runAtMs: until,
+      });
+      n.clock.setWall(until);
+    }
+    await n.propose(lease('j1'));
+    await n.propose(complete('j1', MAX_ATTEMPTS + 3, 'boom'));
+    expect((await n.job('u1', 'j1'))?.state).toBe(JobState.QUEUED);
+  });
+
   test('a commit can complete its own job atomically', async () => {
     const n = await jobNode();
     await n.enqueue('u1', { id: 'j1' });

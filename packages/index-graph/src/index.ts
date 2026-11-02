@@ -1,4 +1,5 @@
 export { communities } from './communities.js';
+export { louvain } from './louvain.js';
 export type { Csr } from './csr.js';
 export { toCsr } from './csr.js';
 export type { Adjacency, GraphReader, WalkOptions, WalkResult } from './graph.js';

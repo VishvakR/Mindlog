@@ -17,7 +17,13 @@
       "path": "../adapter-resp"
     },
     {
+      "path": "../blob"
+    },
+    {
       "path": "../cache"
+    },
+    {
+      "path": "../consolidation"
     },
     {
       "path": "../core"

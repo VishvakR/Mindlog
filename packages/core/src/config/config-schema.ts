@@ -105,6 +105,67 @@ export const configSchema = z.strictObject({
           domains: z.array(z.string().min(1)).default([]),
         })
         .prefault({}),
+      // Consolidation workers and their per-scope tick (PLAN 12.6, ADR-0033).
+      consolidation: z
+        .strictObject({
+          enabled: z.boolean().default(true),
+          // Between ticks of a scope with work left; the first tick waits `idleMs` after a write.
+          tickMs: z
+            .number()
+            .int()
+            .min(1000)
+            .default(15 * 60_000),
+          idleMs: z
+            .number()
+            .int()
+            .min(0)
+            .default(10 * 60_000),
+          // Sleep-time: after this many new memories once idle, or every `sleepEveryMs`.
+          sleepAfter: z.number().int().min(1).default(20),
+          sleepEveryMs: z
+            .number()
+            .int()
+            .min(1)
+            .default(24 * 3_600_000),
+          // A sleep branch raising more conflicts than this is dropped, not merged.
+          maxConflicts: z.number().int().min(0).default(3),
+          // Model time each tenant's workers may use per hour (node-local budget).
+          modelSecondsPerHour: z.number().min(0).default(600),
+        })
+        .prefault({}),
+      // Forgetting curve (PLAN 13.7): retention below `coldBelow` moves to the cold tier.
+      forgetting: z
+        .strictObject({
+          coldBelow: z.number().min(0).max(1).default(0.2),
+          // Tenants that allow deleting (forgetting) memories with retention below `deleteBelow`.
+          hardForgetTenants: z.array(z.string().min(1)).default([]),
+          deleteBelow: z.number().min(0).max(1).default(0.02),
+        })
+        .prefault({}),
+    })
+    .prefault({}),
+  // Cold memory tier (PLAN 10.4) on the default blob store.
+  storage: z
+    .strictObject({
+      coldTier: z.strictObject({ enabled: z.boolean().default(true) }).prefault({}),
+    })
+    .prefault({}),
+  blob: z
+    .strictObject({
+      default: z
+        .discriminatedUnion('type', [
+          // Relative paths are under node.dataDir.
+          z.strictObject({ type: z.literal('local'), path: z.string().min(1).default('blobs') }),
+          z.strictObject({
+            type: z.literal('s3'),
+            endpoint: z.url(),
+            bucket: z.string().min(1),
+            region: z.string().min(1).default('us-east-1'),
+            accessKeyId: z.string().min(1),
+            secretAccessKey: z.string().min(1),
+          }),
+        ])
+        .default({ type: 'local', path: 'blobs' }),
     })
     .prefault({}),
   features: z

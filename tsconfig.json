@@ -53,6 +53,9 @@
       "path": "packages/models-client"
     },
     {
+      "path": "packages/blob"
+    },
+    {
       "path": "packages/index-vector"
     },
     {
@@ -72,6 +75,9 @@
     },
     {
       "path": "packages/memory"
+    },
+    {
+      "path": "packages/consolidation"
     },
     {
       "path": "packages/adapter-mcp"

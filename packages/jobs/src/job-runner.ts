@@ -21,11 +21,17 @@ export interface LeasedJob {
 /**
  * Runs one kind of job. Must be idempotent: a lease can expire mid-run and the
  * job run again. `completed: true` means the worker already completed the job
- * in its own command (e.g. a `MemoryCommit` with `complete`).
+ * in its own command (e.g. a `MemoryCommit` with `complete`); `deferUntilMs`
+ * runs it again then without counting the attempt (out of budget).
  */
 export interface Worker {
   readonly kind: string;
-  run(job: LeasedJob): Promise<Result<{ readonly completed: boolean }, MindlogError>>;
+  run(job: LeasedJob): Promise<Result<WorkerOutcome, MindlogError>>;
+}
+
+export interface WorkerOutcome {
+  readonly completed: boolean;
+  readonly deferUntilMs?: bigint;
 }
 
 export class WorkerRegistry {
@@ -124,10 +130,11 @@ export class JobRunner {
     if (result.ok && result.value.completed) return true;
     const error = result.ok ? '' : `${result.error.code}: ${result.error.message}`;
     if (error) logger.warn('job failed', { tenant, user, job: id, kind: job.kind, attempt, error });
+    const deferUntilMs = result.ok ? (result.value.deferUntilMs ?? 0n) : 0n;
     const completed = await proposer.propose(
       stamper.stamp(tenant, PRINCIPAL, {
         case: 'jobComplete',
-        value: { user, id, attempt, error },
+        value: { user, id, attempt, error, deferUntilMs },
       }),
     );
     if (!completed.ok)

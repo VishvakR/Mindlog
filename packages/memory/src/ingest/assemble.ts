@@ -10,7 +10,8 @@ import {
 } from '@mindlog/proto';
 import type { CallContext, Trust } from '../types.js';
 import type { IngestDraft } from './draft.js';
-import { initialStrength, minTrust } from './text.js';
+import { initialStrength } from '../lifecycle.js';
+import { minTrust } from './text.js';
 
 /** Relation of entities named in the same memory when no relation was extracted. */
 export const CO_MENTION = 'mentioned_with';
@@ -24,7 +25,9 @@ export interface Assembled {
   readonly supersede: Supersede[];
 }
 
-function vectorBytes(v: Float32Array): Uint8Array {
+/** float32 little-endian bytes of a vector; empty for none. */
+export function vectorBytes(v: Float32Array | undefined): Uint8Array {
+  if (!v) return new Uint8Array();
   const out = new Uint8Array(v.length * 4);
   const view = new DataView(out.buffer);
   v.forEach((x, i) => {
@@ -61,6 +64,7 @@ export function assemble(
           text: fact.text,
           links: [
             ...fact.links,
+            ...(draft.input.links ?? []),
             ...derivedFrom.map((to) => ({ to, relation: 'derived_from', weight: 1 })),
           ],
           source: {

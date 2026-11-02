@@ -1,37 +1,46 @@
-import type {
-  Clock,
-  Logger,
-  MindlogError,
-  MindlogErrorCode,
-  Metrics,
-  Result,
-  Tracer,
-} from '@mindlog/core';
+import type { MindlogError, MindlogErrorCode, Result } from '@mindlog/core';
 import { ERROR_CODES, err, mindlogError, ok, packHlc } from '@mindlog/core';
 import { normalizeName, walk } from '@mindlog/index-graph';
 import type { LeasedJob, Worker } from '@mindlog/jobs';
 import { jobPrefix } from '@mindlog/jobs';
 import { MvccReader } from '@mindlog/storage';
-import { fromBinary } from '@bufbuild/protobuf';
-import { JobSchema, JobState } from '@mindlog/proto';
-import type { Capability, Models } from '@mindlog/models-client';
-import type { Command, CommandResult, JobSpec } from '@mindlog/proto';
+import type { MessageInitShape } from '@bufbuild/protobuf';
+import { create, fromBinary } from '@bufbuild/protobuf';
+import { JobSchema, JobSpecSchema, JobState } from '@mindlog/proto';
+import type { MemoryMaintainSchema } from '@mindlog/proto';
+import type { Capability } from '@mindlog/models-client';
+import type {
+  Command,
+  CommandResult,
+  Job,
+  JobSpec,
+  MemoryRecord,
+  ScopeLifecycle,
+} from '@mindlog/proto';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { EnrichPayload } from './ingest/assemble.js';
 import { ENRICH, assemble, enrichJob } from './ingest/assemble.js';
 import type { IngestDraft } from './ingest/draft.js';
-import type { IngestConfig } from './ingest/ingest-stages.js';
 import { ingestStages } from './ingest/ingest-stages.js';
 import { runStages } from './pipeline/stage.js';
 import { indexTimeKey, indexTimePrefix, rootOf } from './keys.js';
+import type { LifecycleJob } from './lifecycle.js';
+import { LIFECYCLE_JOBS } from './lifecycle.js';
+import { ColdReads } from './read/cold-reads.js';
+import { RecallStats } from './recall/recall-stats.js';
+import type { EngineCore } from './lifecycle-ops.js';
+import { LifecycleOps } from './lifecycle-ops.js';
+import { CubeOps } from './cube/cube-ops.js';
+import { fromToolTrace } from './ingest/tool-trace.js';
 import type { ScopeReads } from './read/memory-reads.js';
 import { MemoryReads } from './read/memory-reads.js';
+import type { MemoryConfig, MemoryEngineDeps } from './engine-config.js';
+import { DEFAULT_MEMORY_CONFIG } from './engine-config.js';
 import { pack } from './recall/pack.js';
-import type { PprRunner } from './recall/ppr.js';
 import { inlinePpr } from './recall/ppr.js';
 import { emptyDraft } from './recall/recall-draft.js';
 import { DEFAULT_RECIPE, RECIPES } from './recall/recipes.js';
-import type { IndexSource, RecallConfig } from './recall/recall-stages.js';
+import type { IndexSource } from './recall/recall-stages.js';
 import { recallStages } from './recall/recall-stages.js';
 import { minTrust } from './ingest/text.js';
 import type { MergePolicy } from '@mindlog/branching';
@@ -56,78 +65,7 @@ import type {
   RememberInput,
   RememberOutput,
 } from './types.js';
-import type { VectorCache } from './vector-cache.js';
 import { hlcMs, toView } from './view.js';
-
-export interface MemoryConfig extends IngestConfig, RecallConfig {
-  /** Default token budget of recall's packed context. */
-  readonly tokenBudget: number;
-  /** Jobs a user scope may hold before async remember answers BUSY (PLAN 12.7, ADR-0017). */
-  readonly maxQueuedJobs: number;
-  /** Most memories one taint cascade may forget (PLAN 13.4). */
-  readonly maxCascade: number;
-  /** Most memories a branch may hold (ADR-0013). */
-  readonly branchMaxWrites: number;
-}
-
-export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
-  maxTextBytes: 32 * 1024,
-  entityLabels: [
-    'person',
-    'organization',
-    'place',
-    'product',
-    'project',
-    // No 'preference' label: preferences are facts; as a label it tags verbs like "prefer".
-    'date',
-    'event',
-  ],
-  linkThreshold: 0.75,
-  linkTopK: 5,
-  retrieveK: 50,
-  rerankK: 50,
-  // PPR (PLAN 11.3, ADR-0011): HippoRAG's damping, linking_top_k and passage_node_weight.
-  damping: 0.5,
-  maxIterations: 30,
-  tolerance: 1e-6,
-  pprMaxNodes: 5000,
-  pprMentionLimit: 50,
-  pprEntitySeeds: 5,
-  pprMemorySeedWeight: 0.05,
-  themeMaxNodes: 2000,
-  themeCount: 2,
-  modelTimeoutMs: 2000,
-  // ADR-0015, tuned on the phase 7 conflict set (docs/evals/phase-7.md).
-  conflictThreshold: 0.95,
-  conflictMinSimilarity: 0.5,
-  duplicateThreshold: 0.9,
-  conflictPolicy: 'quarantine_new',
-  conflictCandidates: 5,
-  trustedTools: [],
-  trustedDomains: [],
-  tokenBudget: 1000,
-  maxQueuedJobs: 1000,
-  maxCascade: 1000,
-  branchMaxWrites: 1000,
-};
-
-export interface MemoryEngineDeps {
-  readonly models: Models;
-  /** Whether calls for a capability currently reach the model service (`GuardedModels.available`). */
-  readonly available?: (capability: Capability) => boolean;
-  readonly stamper: CommandStamper;
-  readonly ids: { next(): string };
-  readonly clock: Clock;
-  readonly metrics: Metrics;
-  readonly logger: Logger;
-  readonly tracer: Tracer;
-  readonly vectors: VectorCache;
-  /** Where PPR iterations run; inline by default, a worker pool in the server. */
-  readonly ppr?: PprRunner;
-  /** This node's replica of a range, for jobs (the enrich worker). */
-  readonly ranges: (rangeId: bigint) => MemoryRange | undefined;
-  readonly config?: Partial<MemoryConfig>;
-}
 
 const CODES = new Set(Object.keys(ERROR_CODES));
 const known = (code: string): MindlogErrorCode =>
@@ -143,14 +81,62 @@ const encoder = new TextEncoder();
 export class MemoryEngine {
   readonly #d: MemoryEngineDeps;
   readonly #config: MemoryConfig;
+  readonly #cold: ColdReads | undefined;
+  readonly #stats: RecallStats;
+  readonly #ops: LifecycleOps;
+  readonly #cubes: CubeOps;
 
   constructor(deps: MemoryEngineDeps) {
     this.#d = deps;
     this.#config = { ...DEFAULT_MEMORY_CONFIG, ...deps.config };
+    this.#cold = deps.cold ? new ColdReads(deps.cold) : undefined;
+    const core: EngineCore = {
+      deps,
+      config: this.#config,
+      cold: this.#cold,
+      write: (range, scope, context, body) => this.#write(range, scope, context, body),
+      version: (range, scope, asOf) => this.#version(range, scope, asOf),
+      remember: (range, input, context) => this.remember(range, input, context),
+      lifecycleOn: () => this.#lifecycleOn(),
+    };
+    this.#ops = new LifecycleOps(core);
+    this.#cubes = new CubeOps(core, this.#ops);
+    this.#stats = new RecallStats({
+      flush: (p) => this.#ops.flushStats(p),
+      maxIds: this.#config.maxPendingRecalls,
+      onDropped: (n) => {
+        deps.metrics
+          .counter({
+            name: 'mindlog_memory_recall_stats_dropped_total',
+            help: 'Recalled ids not recorded because a scope had too many waiting',
+          })
+          .inc(n);
+      },
+    });
+    if (this.#config.recallStatsMs > 0) this.#stats.start(this.#config.recallStatsMs);
   }
 
   get config(): MemoryConfig {
     return this.#config;
+  }
+
+  /** Whether the cold tier is configured. */
+  get coldTier(): boolean {
+    return this.#cold !== undefined;
+  }
+
+  #lifecycleOn(): boolean {
+    return this.#d.lifecycle?.() ?? true;
+  }
+
+  /** Proposes the recalled ids waiting, now (tests and shutdown; normally every 2 s). */
+  flushRecallStats(): Promise<void> {
+    return this.#stats.flush();
+  }
+
+  /** Stops the recall-stats timer after proposing what waits. */
+  close(): Promise<void> {
+    return this.#stats.stop();
   }
 
   #context(pipeline: string, available = this.#d.available ?? (() => true)) {
@@ -186,6 +172,7 @@ export class MemoryEngine {
       derivedFrom?: readonly string[];
       enqueue?: JobSpec[];
       complete?: { id: string; attempt: number };
+      reembed?: boolean;
     },
   ): Promise<Result<MemoryView[], MindlogError>> {
     const { scope } = draft.input;
@@ -215,6 +202,8 @@ export class MemoryEngine {
           supersede,
           enqueue: extra.enqueue ?? [],
           ...(extra.complete ? { complete: extra.complete } : {}),
+          ...(draft.input.branch ? {} : this.#tick()),
+          ...(extra.reembed ? { reembed: true } : {}),
         },
       },
       context.requestId,
@@ -235,6 +224,18 @@ export class MemoryEngine {
       if (record) views.push(toView(record));
     }
     return ok(views);
+  }
+
+  /** The scope's consolidation tick for a main commit; apply keeps it only if none is scheduled. */
+  #tick(): { tick?: JobSpec } {
+    if (this.#config.tickDelayMs <= 0 || !this.#lifecycleOn()) return {};
+    return {
+      tick: create(JobSpecSchema, {
+        id: `tick-${this.#d.ids.next()}`,
+        kind: LIFECYCLE_JOBS.tick,
+        runAtMs: this.#d.clock.now() + BigInt(this.#config.tickDelayMs),
+      }),
+    };
   }
 
   /**
@@ -283,13 +284,15 @@ export class MemoryEngine {
     return () => (built ??= this.#d.vectors.indexOf(tenant, [{ root: user, at }]));
   }
 
-  /** Queued and leased jobs of a user scope, counted up to the limit (dead ones stay for the dashboard). */
+  /** Queued and leased enrich jobs of a user scope, counted up to the limit (dead ones stay for the dashboard). */
   async #queuedJobs(range: MemoryRange, scope: MemoryScope): Promise<number> {
     let n = 0;
     for await (const { value } of new MvccReader(range.reader).scan(
       jobPrefix(scope.tenant, scope.user),
     )) {
-      if (fromBinary(JobSchema, value).state !== JobState.DEAD) n++;
+      const job = fromBinary(JobSchema, value);
+      // Consolidation jobs are the scope's own background work, not callers' backlog.
+      if (job.state !== JobState.DEAD && !job.kind.startsWith('consolidation.')) n++;
       if (n >= this.#config.maxQueuedJobs) break;
     }
     return n;
@@ -298,9 +301,10 @@ export class MemoryEngine {
   /** PLAN 12.3: remember synchronously, asynchronously, or degraded when models are down. */
   remember(
     range: MemoryRange,
-    input: RememberInput,
+    given: RememberInput,
     context: CallContext,
   ): Promise<Result<RememberOutput, MindlogError>> {
+    const input = fromToolTrace(given);
     return this.#d.tracer.withSpan(
       'memory.remember',
       { 'mindlog.tenant': input.scope.tenant },
@@ -342,8 +346,9 @@ export class MemoryEngine {
                     ...(input.tags ? { tags: input.tags } : {}),
                   }),
                 ],
+                ...(input.derivedFrom ? { derivedFrom: input.derivedFrom } : {}),
               }
-            : { ids },
+            : { ids, ...(input.derivedFrom ? { derivedFrom: input.derivedFrom } : {}) },
         );
         if (!views.ok) return views;
         if (!input.async && degraded.size > 0)
@@ -383,12 +388,26 @@ export class MemoryEngine {
           RECIPES[recipe],
           reads.at === undefined ? undefined : hlcMs(reads.at),
         );
+        const cold = this.#cold;
         const ports = {
           models: this.#d.models,
           index,
           reads,
           clock: this.#d.clock,
           ppr: this.#d.ppr ?? inlinePpr,
+          ...(cold
+            ? {
+                coldText: async (stub: MemoryRecord) => {
+                  const e = await cold.entry(stub);
+                  if (!e.ok)
+                    this.#d.logger.warn('cold memory unreadable', {
+                      id: stub.id,
+                      error: e.error.message,
+                    });
+                  return e.ok ? e.value.record.text : undefined;
+                },
+              }
+            : {}),
         };
         const run = await runStages(
           recallStages(ports, this.#config, draft),
@@ -397,6 +416,15 @@ export class MemoryEngine {
         );
         if (!run.ok) return run;
         const { ranked, route, lists, themes } = run.value.draft;
+        const returned = ranked.slice(0, input.k ?? 10);
+        // Recalls strengthen what they return (PLAN 13.7); reading the past or a branch does not.
+        if (!input.asOf && !input.branch && this.#lifecycleOn())
+          this.#stats.add(
+            range,
+            input.scope,
+            returned.map((it) => it.memory.id),
+            returned.filter((it) => it.memory.tier === 'cold').map((it) => it.memory.id),
+          );
         const packed = pack(
           ranked.map((it) => ({
             id: it.memory.id,
@@ -407,7 +435,7 @@ export class MemoryEngine {
           input.tokenBudget ?? this.#config.tokenBudget,
         );
         return ok({
-          items: ranked.slice(0, input.k ?? 10),
+          items: returned,
           context: packed.context,
           tokens: packed.tokens,
           budget: packed.budget,
@@ -611,7 +639,7 @@ export class MemoryEngine {
    */
   async mergeBranch(
     range: MemoryRange,
-    input: { scope: MemoryScope; name: string; policy: MergePolicy },
+    input: { scope: MemoryScope; name: string; policy: MergePolicy; dryRun?: boolean },
     context: CallContext,
   ): Promise<Result<MergeResult, MindlogError>> {
     for (let attempt = 0; ; attempt++) {
@@ -624,10 +652,11 @@ export class MemoryEngine {
         ids: this.#d.ids,
         nowMs: Number(this.#d.clock.now()),
         principal: context.principal,
+        fenceBranch: this.#lifecycleOn(),
       });
       if (!planned.ok) return planned;
       const { body, result } = planned.value;
-      if (!body) return ok(result);
+      if (!body || input.dryRun) return ok(result);
       const done = await this.#write(range, input.scope, context, {
         case: 'branchMerge',
         value: body,
@@ -649,19 +678,42 @@ export class MemoryEngine {
     });
   }
 
+  /**
+   * A record's versions, newest first (PLAN 17.2 version history): one entry per
+   * revision, from MVCC history within retention and the kept earlier
+   * versions beyond it (ADR-0033).
+   */
   async history(
     range: MemoryRange,
     scope: MemoryScope,
     id: string,
   ): Promise<Result<HistoryEntry[], MindlogError>> {
-    const versions = await new MemoryReads(range.reader, scope.tenant, scope.user).history(id);
-    return ok(
-      versions.map((v) => ({
-        version: String(v.version),
-        atMs: hlcMs(v.version),
-        memory: toView(v.record),
-      })),
-    );
+    const reads = new MemoryReads(range.reader, scope.tenant, scope.user);
+    // One entry per visible state: recall stats rewrite records without changing what they say.
+    const stateOf = (r: MemoryRecord) =>
+      `${String(r.version)}|${String(r.expiredAt)}|${r.tier}|${r.trust}|${String(r.pinned)}`;
+    const byRevision = new Map<string, HistoryEntry>();
+    const revisions = new Set<number>();
+    for (const v of await reads.history(id)) {
+      const key = stateOf(v.record);
+      revisions.add(v.record.version);
+      if (!byRevision.has(key))
+        byRevision.set(key, {
+          version: String(v.version),
+          revision: v.record.version,
+          atMs: hlcMs(v.version),
+          memory: toView(v.record),
+        });
+    }
+    for (const r of await reads.versions(id))
+      if (!revisions.has(r.version))
+        byRevision.set(stateOf(r), {
+          version: '',
+          revision: r.version,
+          atMs: hlcMs(r.createdAt),
+          memory: toView(r),
+        });
+    return ok([...byRevision.values()].sort((a, b) => b.revision - a.revision || b.atMs - a.atMs));
   }
 
   /** An entity (by name or `type:name` id), its 1–2 hop neighbourhood and the memories mentioning it. */
@@ -701,6 +753,95 @@ export class MemoryEngine {
       memories: await reads.mentions(id, 100),
       truncated: walked.truncated,
     });
+  }
+
+  /** Moves cold memories back to the hot tier (ADR-0033). */
+  promote(
+    range: MemoryRange,
+    scope: MemoryScope,
+    ids: readonly string[],
+    context: CallContext,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#ops.promote(range, scope, ids, context);
+  }
+
+  /** Proposes lifecycle changes of one scope (`MemoryMaintain`, ADR-0033). */
+  maintain(
+    range: MemoryRange,
+    scope: MemoryScope,
+    body: MessageInitShape<typeof MemoryMaintainSchema>,
+    context: CallContext,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#ops.maintain(range, scope, body, context);
+  }
+
+  /** Pins or unpins memories: pinned ones never go cold or are hard-forgotten (PLAN 13.7). */
+  pin(
+    range: MemoryRange,
+    scope: MemoryScope,
+    ids: readonly string[],
+    pinned: boolean,
+    context: CallContext,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#ops.pin(range, scope, ids, pinned, context);
+  }
+
+  /** The scope's lifecycle state (ADR-0033); empty before its first commit. */
+  lifecycle(range: MemoryRange, scope: MemoryScope): Promise<ScopeLifecycle> {
+    return this.#ops.lifecycle(range, scope);
+  }
+
+  /** A page of the scope's jobs in id order, all states but done. */
+  jobs(
+    range: MemoryRange,
+    scope: MemoryScope,
+    options: { limit: number; state?: JobState; after?: string | undefined },
+  ): Promise<{ jobs: Job[]; next?: string }> {
+    return this.#ops.jobs(range, scope, options);
+  }
+
+  /** Enqueues consolidation workers now (`MEM.CONSOLIDATE`, ADR-0033). */
+  consolidate(
+    range: MemoryRange,
+    scope: MemoryScope,
+    kinds: readonly LifecycleJob[] | undefined,
+    context: CallContext,
+  ): Promise<Result<{ enqueued: string[] }, MindlogError>> {
+    return this.#ops.consolidate(range, scope, kinds, context);
+  }
+
+  /** Drops semantic-cache entries of the scope (the cache janitor's expired ones, ADR-0012). */
+  invalidateCache(
+    range: MemoryRange,
+    scope: MemoryScope,
+    ids: readonly string[],
+    context: CallContext,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#ops.invalidateCache(range, scope, ids, context);
+  }
+
+  /** The scope as a `.mcube` (PLAN 13.11), at `asOf` or now. */
+  exportCube(
+    range: MemoryRange,
+    scope: MemoryScope,
+    asOf?: AsOf,
+  ): Promise<Result<Uint8Array, MindlogError>> {
+    return this.#cubes.exportCube(range, scope, asOf);
+  }
+
+  /** Imports a `.mcube` or COGX archive into the scope (PLAN 13.11). */
+  importCube(
+    range: MemoryRange,
+    scope: MemoryScope,
+    input: { bytes: Uint8Array; format: 'mcube' | 'cogx'; name: string },
+    context: CallContext,
+  ): Promise<Result<{ imported: number; skipped: number; ids: string[] }, MindlogError>> {
+    return this.#cubes.importCube(range, scope, input, context);
+  }
+
+  /** The scope's vector index as recall sees it (dedup reads it). */
+  vectorIndex(scope: MemoryScope) {
+    return this.#d.vectors.index(scope.tenant, scope.user);
   }
 
   /** The `memory.enrich` worker (PLAN 12.2): derives facts from an episodic memory once models work. */

@@ -122,3 +122,12 @@ export const branchSpacePrefix = (tenant: string, user: string, name: string): U
 /** Every outgoing edge of a space. */
 export const outEdgesPrefix = (tenant: string, user: Root): Uint8Array =>
   prefix(tenant, [...head(user), 'g', 'out']);
+
+/** Lifecycle state of a user scope (ADR-0033); main only. */
+export const lifecycleKey = (tenant: string, user: string): Uint8Array => key(tenant, [user, 'cs']);
+
+/** Earlier versions of an evolved record, by version number (ADR-0033). */
+export const versionKey = (tenant: string, user: string, id: string, version: number): Uint8Array =>
+  key(tenant, [user, 'rv', id, version]);
+export const versionPrefix = (tenant: string, user: string, id: string): Uint8Array =>
+  prefix(tenant, [user, 'rv', id]);

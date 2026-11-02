@@ -1,3 +1,4 @@
+import type { BlobStore } from '@mindlog/blob';
 import type { Command } from '@mindlog/proto';
 import {
   HybridLogicalClock,
@@ -25,6 +26,8 @@ import {
   branchCreateHandler,
   branchMergeHandler,
   branchDropHandler,
+  memoryMaintainHandler,
+  memoryRecallStatsHandler,
 } from '@mindlog/memory';
 import { FakeModels } from '@mindlog/models-client';
 import { startSingleNode } from '@mindlog/multiraft';
@@ -43,7 +46,12 @@ export const TENANT = 'acme';
 
 /** A one-voter range with the memory and job handlers, and an engine over FakeModels. */
 export async function memoryNode(
-  options: { seed?: bigint; config?: Partial<MemoryConfig>; ppr?: PprRunner } = {},
+  options: {
+    seed?: bigint;
+    config?: Partial<MemoryConfig>;
+    ppr?: PprRunner;
+    cold?: BlobStore;
+  } = {},
 ) {
   const clock = new ManualClock(START);
   const logger = new MemoryLogger();
@@ -57,6 +65,8 @@ export async function memoryNode(
     branchCreateHandler,
     branchMergeHandler,
     branchDropHandler,
+    memoryMaintainHandler,
+    memoryRecallStatsHandler,
     jobLeaseHandler,
     jobCompleteHandler,
     cacheSetHandler(liveMemory),
@@ -106,8 +116,10 @@ export async function memoryNode(
     tracer: new OtelTracer(),
     vectors,
     ranges: (id) => (id === 1n ? range : undefined),
-    ...(options.config ? { config: options.config } : {}),
+    // Recall stats wait for flushRecallStats(), so tests see them when they choose.
+    config: { recallStatsMs: 0, ...options.config },
     ...(options.ppr ? { ppr: options.ppr } : {}),
+    ...(options.cold ? { cold: options.cold } : {}),
   });
   const propose = async (command: Command) => {
     const proposed = await replica.propose(command);

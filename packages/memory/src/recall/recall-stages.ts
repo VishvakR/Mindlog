@@ -3,7 +3,9 @@ import { err, ok } from '@mindlog/core';
 import { normalizeName } from '@mindlog/index-graph';
 import { searchBm25, tokenize } from '@mindlog/index-text';
 import type { Models } from '@mindlog/models-client';
+import { create } from '@bufbuild/protobuf';
 import type { MemoryRecord } from '@mindlog/proto';
+import { MemoryRecordSchema } from '@mindlog/proto';
 import type { Stage } from '../pipeline/stage.js';
 import type { ScopeReads } from '../read/memory-reads.js';
 import type { RecallItem, RecallSignals } from '../types.js';
@@ -40,6 +42,8 @@ export interface RecallPorts {
   readonly reads: ScopeReads;
   readonly clock: Clock;
   readonly ppr: PprRunner;
+  /** The full text of a cold stub (PLAN 10.4); absent without a blob store. */
+  readonly coldText?: (stub: MemoryRecord) => Promise<string | undefined>;
 }
 
 const HOUR_MS = 3_600_000;
@@ -147,11 +151,13 @@ export function validAt(r: { validFrom: bigint; validTo: bigint }, t: number): b
   return r.validFrom <= at && (r.validTo === 0n || at < r.validTo);
 }
 
-function filterStage(reads: ScopeReads, clock: Clock, k: number): Stage<RecallDraft> {
+function filterStage(ports: RecallPorts, k: number): Stage<RecallDraft> {
+  const { reads, clock, coldText } = ports;
   return {
     name: 'filter',
     async run(d) {
       const { scope, inherit = false, kinds, includeQuarantined = false } = d.input;
+      const includeCold = d.input.includeCold === true && coldText !== undefined;
       // Facts true at VALID_AT, else at the ASOF time, else now (ADR-0015).
       const t = d.input.validAtMs ?? d.asOfMs ?? Number(clock.now());
       const ranked = [...d.fused]
@@ -164,6 +170,14 @@ function filterStage(reads: ScopeReads, clock: Clock, k: number): Stage<RecallDr
         if (!includeQuarantined && r.trust === 'quarantined') continue;
         if (kinds && !kinds.includes(r.kind as never)) continue;
         if (!matchesScope(r, scope, inherit)) continue;
+        if (r.tier === 'cold') {
+          if (!includeCold) continue;
+          // The stub's current trust, validity and strength, with the text it had (ADR-0033).
+          const text = await coldText(r);
+          if (text === undefined) continue;
+          records.push(create(MemoryRecordSchema, { ...r, text }));
+          continue;
+        }
         records.push(r);
       }
       return ok({ ...d, records });
@@ -253,7 +267,7 @@ export function recallStages(
       name: 'fuse',
       run: (x) => Promise.resolve(ok({ ...x, fused: rrf(x.lists, routeWeights(x.route)) })),
     },
-    filterStage(reads, clock, k),
+    filterStage(ports, k),
   );
   if (d.recipe.rerank) stages.push(rerankStage(models, config));
   stages.push(scoreStage(clock));

@@ -4,11 +4,11 @@ import { decodeKey } from '@mindlog/core';
 import type { EventBus, Unsubscribe } from '@mindlog/eventbus';
 import { FlatIndex } from '@mindlog/index-vector';
 import type { MemoryVector } from '@mindlog/proto';
-import { MemoryVectorSchema } from '@mindlog/proto';
+import { MemoryVectorSchema, ScopeLifecycleSchema } from '@mindlog/proto';
 import type { KvReader } from '@mindlog/storage';
 import { MvccReader } from '@mindlog/storage';
 import type { Root } from './keys.js';
-import { vectorKey, vectorPrefix } from './keys.js';
+import { lifecycleKey, vectorKey, vectorPrefix } from './keys.js';
 import { MemoryReads } from './read/memory-reads.js';
 
 /** What recall filters vectors by, copied into each vector row. */
@@ -22,6 +22,8 @@ export interface VectorMeta {
 interface Entry {
   index: FlatIndex<VectorMeta> | undefined;
   generation: number;
+  /** The scope's current embedding model; vectors of others wait for re-embedding (ADR-0033). */
+  model: string;
   /** Updates from applied commands, chained so they land in apply order. */
   pending: Promise<void>;
 }
@@ -73,9 +75,10 @@ export class VectorCache {
       if (
         body.case === 'memoryTrust' ||
         body.case === 'conflictResolve' ||
-        body.case === 'branchMerge'
+        body.case === 'branchMerge' ||
+        body.case === 'memoryMaintain'
       ) {
-        // Trust is copied into vector rows; rebuild on next use rather than track which changed.
+        // Trust, tiers and models change vector rows; rebuild on next use rather than track which.
         this.#entries.delete(`${command.tenant}\u0000${body.value.user}`);
         return;
       }
@@ -93,26 +96,40 @@ export class VectorCache {
   }
 
   async #update(entry: Entry, tenant: string, user: string, ids: readonly string[]): Promise<void> {
+    let stale = false;
     for (const id of ids) {
       const bytes = await this.#mvcc.get(vectorKey(tenant, user, id));
       if (!bytes) {
         entry.index?.remove(id);
         continue;
       }
-      this.#upsert(entry, id, fromBinary(MemoryVectorSchema, bytes));
+      // A vector of a new model: the scope switched models, so rebuild around it.
+      if (!this.#upsert(entry, id, fromBinary(MemoryVectorSchema, bytes))) stale = true;
     }
-    entry.generation = await new MemoryReads(this.#o.state, tenant, user).generation();
+    entry.generation = stale ? -1 : await new MemoryReads(this.#o.state, tenant, user).generation();
   }
 
-  #upsert(entry: Entry, id: string, row: MemoryVector): void {
+  /** Adds a row; false when it is of another model than the index (ADR-0033). */
+  #upsert(entry: Entry, id: string, row: MemoryVector): boolean {
+    if (entry.model !== '' && row.modelId !== entry.model) return false;
     const vector = decodeVector(row);
     entry.index ??= new FlatIndex<VectorMeta>(vector.length);
     // A vector of another model's size waits for re-embedding (PLAN 14.5).
     if (vector.length === entry.index.dims) entry.index.upsert(id, vector, meta(row));
+    return true;
+  }
+
+  async #model(tenant: string, user: Root): Promise<string> {
+    const bytes = await this.#mvcc.get(
+      lifecycleKey(tenant, typeof user === 'string' ? user : user.user),
+    );
+    return bytes ? fromBinary(ScopeLifecycleSchema, bytes).embedModel : '';
   }
 
   async #load(entry: Entry, tenant: string, user: Root, at?: bigint): Promise<void> {
     const options = at === undefined ? {} : { at };
+    entry.model ||= await this.#model(tenant, user);
+    // shortcut: a branch or ASOF index uses the scope's current model; fine until models change mid-branch.
     for await (const { key, value } of this.#mvcc.scan(vectorPrefix(tenant, user), options)) {
       const decoded = decodeKey(key);
       const id = decoded.ok ? decoded.value.tuple.at(-1) : undefined;
@@ -128,7 +145,7 @@ export class VectorCache {
     tenant: string,
     spaces: ReadonlyArray<{ readonly root: Root; readonly at?: bigint | undefined }>,
   ): Promise<FlatIndex<VectorMeta> | undefined> {
-    const entry: Entry = { index: undefined, generation: 0, pending: Promise.resolve() };
+    const entry: Entry = { index: undefined, generation: 0, model: '', pending: Promise.resolve() };
     for (const s of spaces) await this.#load(entry, tenant, s.root, s.at);
     return entry.index;
   }
@@ -155,7 +172,7 @@ export class VectorCache {
         help: 'Vector indexes rebuilt from storage',
       })
       .inc();
-    const entry: Entry = { index: undefined, generation, pending: Promise.resolve() };
+    const entry: Entry = { index: undefined, generation, model: '', pending: Promise.resolve() };
     await this.#load(entry, tenant, user);
     this.#entries.set(name, entry);
     while (this.#entries.size > this.#o.maxScopes) {

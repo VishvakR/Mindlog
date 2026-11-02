@@ -4,6 +4,14 @@
  */
 export { liveMemory, memoryCommitHandler, memoryForgetHandler } from './apply/memory-handlers.js';
 export { conflictResolveHandler, memoryTrustHandler } from './apply/review-handlers.js';
+export { memoryMaintainHandler, memoryRecallStatsHandler } from './apply/lifecycle-handlers.js';
+export type { ColdEntry, EncodedSegment } from './cold-segment.js';
+export { STUB_CHARS, decodeSegment, encodeSegment, segmentKey, stubText } from './cold-segment.js';
+export { traceText } from './ingest/tool-trace.js';
+export { vectorBytes } from './ingest/assemble.js';
+export { decodeVector } from './vector-cache.js';
+export type { LifecycleJob } from './lifecycle.js';
+export { LIFECYCLE_JOBS, initialStrength, retentionAt, strengthAfterRecall } from './lifecycle.js';
 export {
   branchCreateHandler,
   branchDropHandler,
@@ -24,6 +32,7 @@ export {
   edgeKey,
   entityKey,
   generationKey,
+  lifecycleKey,
   mentionKey,
   postingKey,
   recordKey,
@@ -31,12 +40,15 @@ export {
   scopeKey,
   statsKey,
   vectorKey,
+  versionKey,
+  versionPrefix,
 } from './keys.js';
 export type { Root } from './keys.js';
 export type { EnrichPayload } from './ingest/assemble.js';
 export { ENRICH } from './ingest/assemble.js';
-export type { MemoryConfig, MemoryEngineDeps } from './memory-engine.js';
-export { DEFAULT_MEMORY_CONFIG, MemoryEngine } from './memory-engine.js';
+export type { MemoryConfig, MemoryEngineDeps } from './engine-config.js';
+export { DEFAULT_MEMORY_CONFIG } from './engine-config.js';
+export { MemoryEngine } from './memory-engine.js';
 export type { Stage, StageError, StageRunContext, StagesRun } from './pipeline/stage.js';
 export { runStages } from './pipeline/stage.js';
 export type { ScopeReads } from './read/memory-reads.js';
@@ -60,4 +72,6 @@ export { VectorCache } from './vector-cache.js';
 export type { TrustPolicy } from './ingest/text.js';
 export { trustOf } from './ingest/text.js';
 export { TRUST_LEVELS } from './review.js';
-export { hlcMs, toView } from './view.js';
+export { hlcMs, toJobView, toLifecycleView, toView } from './view.js';
+export type { CubeManifest, ImportItem } from './cube/mcube.js';
+export { CUBE_FORMAT, IMPORT_LIMITS } from './cube/mcube.js';

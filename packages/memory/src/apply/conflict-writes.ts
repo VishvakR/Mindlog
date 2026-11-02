@@ -3,7 +3,7 @@ import type { MemoryConflict, MemoryRecord, Supersede } from '@mindlog/proto';
 import { MemoryConflictSchema, MemoryRecordSchema, MemoryVectorSchema } from '@mindlog/proto';
 import type { ApplyContext } from '@mindlog/statemachine';
 import type { Root } from '../keys.js';
-import { conflictKey, openConflictKey, recordKey, vectorKey } from '../keys.js';
+import { conflictKey, openConflictKey, recordKey, vectorKey, versionKey } from '../keys.js';
 
 // Writes of conflict detection and review (ADR-0015), inside a memory command's apply.
 
@@ -25,6 +25,11 @@ export async function rewriteRecord(
   record: MemoryRecord,
   trustChanged: boolean,
 ): Promise<void> {
+  // Main keeps every earlier version for the history view (ADR-0033); branches are short-lived.
+  if (typeof user === 'string') {
+    const before = await ctx.txn.get(recordKey(tenant, user, record.id));
+    if (before) ctx.txn.put(versionKey(tenant, user, record.id, record.version), before);
+  }
   record.version += 1;
   ctx.txn.put(recordKey(tenant, user, record.id), toBinary(MemoryRecordSchema, record));
   if (!trustChanged) return;

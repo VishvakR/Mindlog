@@ -30,6 +30,7 @@ import {
   statsKey,
   vectorKey,
 } from '../keys.js';
+import { updateLifecycle } from '../lifecycle.js';
 
 const EMPTY = new Uint8Array();
 
@@ -135,6 +136,10 @@ export async function writeMemory(
     setCount(ctx, dfKey(tenant, user, term), (await count(ctx, dfKey(tenant, user, term))) + 1);
   }
   await addStats(ctx, tenant, user, 1, record.termLength);
+  if (typeof user === 'string')
+    await updateLifecycle(ctx, tenant, user, (s) => {
+      s.hot++;
+    });
   return record.id;
 }
 
@@ -163,6 +168,11 @@ export async function forgetMemory(
     entity.mentionCount = Math.max(0, entity.mentionCount - 1);
     ctx.txn.put(entityKey(tenant, user, id), toBinary(MemoryEntitySchema, entity));
   }
+  if (typeof user === 'string')
+    await updateLifecycle(ctx, tenant, user, (s) => {
+      if (record.tier === 'cold') s.cold = Math.max(0, s.cold - 1);
+      else s.hot = Math.max(0, s.hot - 1);
+    });
 }
 
 /** An entity relation, stored in both directions; repeated statements add weight. */

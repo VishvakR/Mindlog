@@ -5,13 +5,14 @@ import { completeJob, enqueueJob } from '@mindlog/jobs';
 import { countWrites, maskOnBranch, spaceOf } from './branch-handlers.js';
 import { readRecord } from './conflict-writes.js';
 import { outcome, outsideRange } from './results.js';
-import type { MemoryRecord } from '@mindlog/proto';
+import type { JobSpec, MemoryCommit, MemoryRecord } from '@mindlog/proto';
 import { MemoryRecordSchema } from '@mindlog/proto';
 import { decodeKey } from '@mindlog/core';
 import type { ApplyContext, ApplyHandler } from '@mindlog/statemachine';
 import { errorResult } from '@mindlog/statemachine';
 import { derivedPrefix, recordKey, sourceRefPrefix } from '../keys.js';
 import { MEMORY_KINDS } from '../types.js';
+import { LIFECYCLE_JOBS, updateLifecycle } from '../lifecycle.js';
 import {
   bumpGeneration,
   forgetMemory,
@@ -51,7 +52,9 @@ export const memoryCommitHandler: ApplyHandler = {
       (commit.conflicts.length > 0 ||
         commit.supersede.length > 0 ||
         commit.enqueue.length > 0 ||
-        commit.complete)
+        commit.complete ||
+        commit.tick ||
+        commit.reembed)
     )
       return errorResult('INVALID_ARGUMENT', 'a branch commit carries memories and edges only');
     for (const m of commit.memories) {
@@ -88,10 +91,47 @@ export const memoryCommitHandler: ApplyHandler = {
     await supersedeFacts(ctx, tenant, commit.user, commit.supersede);
     for (const c of commit.conflicts) writeConflict(ctx, tenant, commit.user, c);
     await bumpGeneration(ctx, tenant, root);
-    if (!branch) writeIndexTime(ctx, tenant, commit.user);
+    if (!branch) {
+      writeIndexTime(ctx, tenant, commit.user);
+      await noteCommit(ctx, commit);
+    }
     return outcome(ids);
   },
 };
+
+/** Lifecycle state after a main commit (ADR-0033): trigger counts, the embed model, the tick. */
+async function noteCommit(ctx: ApplyContext, commit: MemoryCommit): Promise<void> {
+  const { tenant } = ctx.command;
+  let tick: JobSpec | undefined;
+  // What consolidation wrote (themes, learned context) must not trigger consolidation again.
+  const organic = commit.memories.filter((m) => m.record?.source?.type !== 'consolidation');
+  const organicIds = new Set(organic.map((m) => m.record?.id));
+  await updateLifecycle(ctx, tenant, commit.user, (s) => {
+    const n = organic.length;
+    if (n > 0) s.lastWriteMs = ctx.nowMs;
+    // Graph size counts entity mentions and edge statements of organic memories.
+    s.graphSize +=
+      organic.reduce((sum, m) => sum + m.mentions.length, 0) +
+      commit.edges.filter((e) => organicIds.has(e.memoryId)).length;
+    // The daily sleep-time run counts from the scope's first commit, not from the epoch.
+    if (!(LIFECYCLE_JOBS.sleep in s.lastRunMs)) s.lastRunMs[LIFECYCLE_JOBS.sleep] = ctx.nowMs;
+    s.writesSinceSleep += n;
+    s.writesSinceEvolve += n;
+    for (const m of commit.memories) {
+      const model = m.vector.length > 0 ? (m.record?.embeddingModel ?? '') : '';
+      if (model === '' || model === s.embedModel) continue;
+      if (s.embedModel !== '') s.reembed = true;
+      s.embedModel = model;
+    }
+    if (commit.reembed) s.reembed = true;
+    if (commit.tick && s.tickAtMs === 0n) {
+      tick = commit.tick;
+      s.tickAtMs = tick.runAtMs === 0n ? ctx.nowMs : tick.runAtMs;
+    }
+  });
+  // In range: the commit's scope key was checked, and the job lives in the same scope.
+  if (tick) enqueueJob(ctx, commit.user, tick);
+}
 
 /** Ids under a key prefix whose last element is the id. */
 async function* idsUnder(ctx: ApplyContext, prefix: Uint8Array): AsyncGenerator<string> {

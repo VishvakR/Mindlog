@@ -130,6 +130,8 @@ export interface MergeDeps {
   readonly ids: { next(): string };
   readonly nowMs: number;
   readonly principal: string;
+  /** Fence the plan on the branch's generation too (cluster version 8, ADR-0033). */
+  readonly fenceBranch?: boolean;
 }
 
 /**
@@ -151,6 +153,7 @@ export async function planBranchMerge(
   const own = new MemoryReads(range.reader, tenant, { user, branch: branch.name });
   const mvcc = new MvccReader(range.reader);
   const generation = await main.generation();
+  const branchGeneration = deps.fenceBranch ? await own.generation() : 0;
   const records: ChangedRecord[] = [];
   const added: MemoryRecord[] = [];
   for await (const r of own.records()) {
@@ -230,6 +233,7 @@ export async function planBranchMerge(
     name: branch.name,
     policy,
     mainGeneration: BigInt(generation),
+    branchGeneration: BigInt(branchGeneration),
     adds: plan.adds.map((a) => ({ $typeName: 'mindlog.v1.BranchAdd', ...a })),
     records: plan.records.map((r) => ({
       $typeName: 'mindlog.v1.RecordFields',

@@ -9,6 +9,7 @@ import type {
   MemoryEdge,
   MemoryEntity,
   MemoryRecord,
+  MemoryVector,
 } from '@mindlog/proto';
 import {
   MemoryBranchSchema,
@@ -16,6 +17,7 @@ import {
   MemoryEdgeSchema,
   MemoryEntitySchema,
   MemoryRecordSchema,
+  MemoryVectorSchema,
 } from '@mindlog/proto';
 import type { KvReader } from '@mindlog/storage';
 import {
@@ -45,6 +47,8 @@ import {
   recordKey,
   recordPrefix,
   statsKey,
+  vectorKey,
+  versionPrefix,
 } from '../keys.js';
 
 const NEWEST = (1n << 64n) - 1n;
@@ -149,6 +153,12 @@ export class MemoryReads implements ScopeReads {
     return v && { record: fromBinary(MemoryRecordSchema, v.value), version: v.index };
   }
 
+  /** A memory's vector row (none for cold memories or degraded writes). */
+  async vector(id: string): Promise<MemoryVector | undefined> {
+    const bytes = await this.#get(vectorKey(this.tenant, this.user, id));
+    return bytes ? fromBinary(MemoryVectorSchema, bytes) : undefined;
+  }
+
   async record(id: string): Promise<MemoryRecord | undefined> {
     const bytes = await this.#get(recordKey(this.tenant, this.user, id));
     return bytes ? fromBinary(MemoryRecordSchema, bytes) : undefined;
@@ -172,6 +182,15 @@ export class MemoryReads implements ScopeReads {
       if (parsed && value)
         out.push({ version: parsed.index, record: fromBinary(MemoryRecordSchema, value) });
     }
+    return out;
+  }
+
+  /** Earlier versions of a record kept by evolution and review (ADR-0033), oldest first. */
+  async versions(id: string): Promise<MemoryRecord[]> {
+    const out: MemoryRecord[] = [];
+    if (typeof this.user !== 'string') return out;
+    for await (const { value } of this.#scan(versionPrefix(this.tenant, this.user, id)))
+      out.push(fromBinary(MemoryRecordSchema, value));
     return out;
   }
 

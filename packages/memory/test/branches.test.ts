@@ -186,6 +186,30 @@ describe('merging', () => {
     expect(r.outcome.case === 'error' && r.outcome.value.code).toBe('CONFLICT');
   });
 
+  test('a merge planned before a branch write is refused, so the write is not lost', async () => {
+    const n = await node();
+    await branch(n);
+    const first = await remember(n, 'Ana will move to Porto.', { branch: 'plan' });
+    const reads = new MemoryReads(n.range.reader, TENANT, 'u1');
+    const own = new MemoryReads(n.range.reader, TENANT, { user: 'u1', branch: 'plan' });
+    const plan = {
+      user: 'u1',
+      name: 'plan',
+      policy: 'raise',
+      mainGeneration: BigInt(await reads.generation()),
+      branchGeneration: BigInt(await own.generation()),
+      adds: [{ id: first, quarantine: false }],
+    };
+    const late = await remember(n, 'Ana will rent a flat.', { branch: 'plan' });
+    const stale = await n.propose(
+      n.stamper.stamp(TENANT, 'agent:test', { case: 'branchMerge', value: plan }),
+    );
+    expect(stale.outcome.case === 'error' && stale.outcome.value.code).toBe('CONFLICT');
+    // The engine plans again, so both writes reach main.
+    const merged = await merge(n, 'raise');
+    expect([...merged.added].sort()).toEqual([first, late].sort());
+  });
+
   test('entity edges add up: main weight plus the branch’s', async () => {
     const n = await node();
     await remember(n, 'Ana and Bruno met at Acme.');

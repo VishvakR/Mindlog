@@ -64,6 +64,19 @@ export interface RememberInput {
   readonly validToMs?: number;
   /** Write on this branch instead of main (ADR-0013). */
   readonly branch?: string;
+  /** A tool call to remember as a procedural trace (PLAN 13.11); replaces `content`. */
+  readonly toolTrace?: ToolTrace;
+  /** Workers only: memories this one is derived from, and extra links (ADR-0033). */
+  readonly derivedFrom?: readonly string[];
+  readonly links?: readonly MemoryLinkView[];
+}
+
+/** A tool call an agent made (PLAN 13.11 tool traces). */
+export interface ToolTrace {
+  readonly tool: string;
+  readonly args?: unknown;
+  readonly result?: unknown;
+  readonly success: boolean;
 }
 
 /** A past state of the scope (PLAN 13.3): a log index of its range, or a time in ms. */
@@ -97,6 +110,15 @@ export interface MemoryView {
   readonly validFromMs?: number;
   readonly validToMs?: number;
   readonly forgetReason?: string;
+  /** Lifecycle (PLAN 13.7, ADR-0033): tier, pin, version, forgetting-curve strength and recalls. */
+  readonly tier: 'hot' | 'cold';
+  readonly pinned: boolean;
+  readonly version: number;
+  readonly strength: number;
+  readonly recallCount: number;
+  readonly lastRecalledAtMs?: number;
+  /** Extra fields (evolution context, duplicate marks). */
+  readonly meta?: Readonly<Record<string, unknown>>;
 }
 
 export interface RememberOutput {
@@ -119,6 +141,8 @@ export interface RecallInput {
   readonly inherit?: boolean;
   readonly kinds?: readonly MemoryKind[];
   readonly includeQuarantined?: boolean;
+  /** Also return cold-tier memories, loaded from the blob store (PLAN 10.4; slower). */
+  readonly includeCold?: boolean;
   /** Named recall configuration (ADR-0011); default `full`. */
   readonly recipe?: RecipeName;
   /** Also return each retriever's ranked ids and the route (PLAN 12.4 stage 11). */
@@ -199,8 +223,10 @@ export interface GraphView {
 }
 
 export interface HistoryEntry {
-  /** MVCC version (HLC) of this state of the record. */
+  /** MVCC version (HLC) of this state of the record; '' when only the kept copy remains. */
   readonly version: string;
+  /** The record's version number (evolution, review). */
+  readonly revision: number;
   readonly atMs: number;
   readonly memory: MemoryView;
 }
@@ -263,4 +289,36 @@ export interface MergeResult {
     readonly scores: readonly [number, number];
     readonly resolved: boolean;
   }>;
+}
+
+/** A durable job as the dashboard shows it (PLAN 12.7, 17.2 Jobs page). */
+export interface JobView {
+  readonly id: string;
+  readonly kind: string;
+  readonly state: 'queued' | 'leased' | 'dead';
+  readonly attempts: number;
+  readonly deferrals: number;
+  readonly runAtMs: number;
+  readonly leaseUntilMs?: number;
+  readonly error?: string;
+  readonly createdAtMs: number;
+  /** Why it was enqueued, for consolidation jobs. */
+  readonly why?: string;
+}
+
+/** A scope's lifecycle state (ADR-0033). */
+export interface LifecycleView {
+  readonly hot: number;
+  readonly cold: number;
+  readonly writesSinceSleep: number;
+  readonly writesSinceEvolve: number;
+  readonly graphSize: number;
+  readonly graphSizeAtTheme: number;
+  readonly embedModel: string;
+  readonly reembed: boolean;
+  readonly lastWriteMs?: number;
+  /** When each worker kind was last enqueued. */
+  readonly lastRunMs: Readonly<Record<string, number>>;
+  readonly tickAtMs?: number;
+  readonly coldTier: boolean;
 }

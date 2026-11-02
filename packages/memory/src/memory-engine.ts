@@ -639,7 +639,14 @@ export class MemoryEngine {
    */
   async mergeBranch(
     range: MemoryRange,
-    input: { scope: MemoryScope; name: string; policy: MergePolicy; dryRun?: boolean },
+    input: {
+      scope: MemoryScope;
+      name: string;
+      policy: MergePolicy;
+      dryRun?: boolean;
+      /** NLI deadline for the merge's conflict check; background merges allow longer. */
+      timeoutMs?: number;
+    },
     context: CallContext,
   ): Promise<Result<MergeResult, MindlogError>> {
     for (let attempt = 0; ; attempt++) {
@@ -648,7 +655,9 @@ export class MemoryEngine {
       const planned = await planBranchMerge(range, input.scope, branch.value, input.policy, {
         models: this.#d.models,
         vectors: this.#d.vectors,
-        config: this.#config,
+        config: input.timeoutMs
+          ? { ...this.#config, modelTimeoutMs: input.timeoutMs }
+          : this.#config,
         ids: this.#d.ids,
         nowMs: Number(this.#d.clock.now()),
         principal: context.principal,

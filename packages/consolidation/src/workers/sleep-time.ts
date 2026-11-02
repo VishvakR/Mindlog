@@ -109,7 +109,13 @@ async function onBranch(
       );
       if (!r.ok) return r;
     }
-    const input = { scope: run.scope, name: branch, policy: 'raise' as const };
+    const input = {
+      scope: run.scope,
+      name: branch,
+      policy: 'raise' as const,
+      // A sleep branch checks many facts at once; the interactive model deadline is too short.
+      timeoutMs: d.config.modelTimeoutMs,
+    };
     const plan = await engine.mergeBranch(
       run.range,
       { ...input, dryRun: true },

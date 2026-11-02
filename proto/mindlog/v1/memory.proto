@@ -63,6 +63,14 @@ message MemoryRecord {
   // BM25 terms and length as indexed, so forgetting removes exactly these postings.
   repeated TermCount terms = 26;
   uint32 term_length = 27;
+  // hot | cold (PLAN 10.4, ADR-0033); '' is hot. A cold record is a stub: its text
+  // is a summary and its vector is gone; the full record lives in the blob segment.
+  string tier = 28;
+  // Exempt from tiering and hard forgetting.
+  bool pinned = 29;
+  // Blob key and sha256 (hex) of the cold segment holding the full record.
+  string cold_segment = 30;
+  string cold_sha256 = 31;
 }
 
 // Stored at m/(user, 'v', id).
@@ -124,6 +132,10 @@ message MemoryCommit {
   repeated MemoryConflict conflicts = 6;
   // Older facts whose validity ends because a new one replaces them over time.
   repeated Supersede supersede = 7;
+  // The scope's consolidation tick (ADR-0033), enqueued only if none is scheduled.
+  JobSpec tick = 8;
+  // Some memories carry no vector of the current model (an import); re-embed the scope.
+  bool reembed = 9;
 }
 
 // A contradiction between an existing memory (a) and a new one (b), stored at
@@ -196,6 +208,10 @@ message MemoryEntity {
   string type = 2;
   uint32 mention_count = 3;
   uint64 created_at = 4;
+  // Summary of what the scope's memories say about it (EntitySummarizer, PLAN 12.6).
+  string summary = 5;
+  // Mention count when the summary was written.
+  uint32 summary_mentions = 6;
 }
 
 // Stored at m/(user, 'g', 'out' | 'in', src, relation, dst).
@@ -277,10 +293,114 @@ message BranchMerge {
   repeated Supersede supersede = 9;
   // Branch facts left out (prefer_main), for the merge result.
   repeated string rejected = 10;
+  // The branch's generation the plan was made at; apply refuses the plan if the
+  // branch was written since. 0 skips the check (proposers before cluster version 8).
+  uint64 branch_generation = 11;
 }
 
 // Command body 32: drop a branch and its memories.
 message BranchDrop {
   string user = 1;
   string name = 2;
+}
+
+// Lifecycle state of a user scope, stored at m/(user, 'cs') (ADR-0033). Apply
+// keeps it current; the consolidation tick reads it to decide what is due.
+message ScopeLifecycle {
+  // World time (ms) of the last main commit.
+  uint64 last_write_ms = 1;
+  // Memories committed since sleep-time consolidation was last enqueued.
+  uint32 writes_since_sleep = 2;
+  // Entities and entity edges created, and that count when themes were last enqueued.
+  uint32 graph_size = 3;
+  uint32 graph_size_at_theme = 4;
+  // Model of the newest vectors, and whether vectors of another model (or none) remain.
+  string embed_model = 5;
+  bool reembed = 6;
+  // When each worker kind was last enqueued (ms).
+  map<string, uint64> last_run_ms = 7;
+  // Per worker kind: where its last batch stopped (an id).
+  map<string, string> checkpoints = 8;
+  // Run time of the scheduled tick; 0 when none is.
+  uint64 tick_at_ms = 9;
+  // Current memories per tier.
+  uint32 hot = 10;
+  uint32 cold = 11;
+  // Memories committed since evolution was last enqueued.
+  uint32 writes_since_evolve = 12;
+}
+
+// A worker's change to an existing memory: a new version, the old one kept at
+// m/(user, 'rv', id, version) (A-MEM evolution, dedup; ADR-0033).
+message MemoryEvolve {
+  string id = 1;
+  // Replaces the tags when set.
+  repeated string tags = 2;
+  bool set_tags = 3;
+  // Merged into meta_json (top-level keys).
+  string meta_json = 4;
+  // Replaces the importance when set.
+  float importance = 5;
+  bool set_importance = 6;
+  repeated MemoryLink add_links = 7;
+}
+
+// Moves a memory between tiers. To cold: the record becomes a stub with
+// stub_text, its vector row is dropped, and the segment holds the full record.
+// To hot: text and vector come back from the segment (read by the leader).
+message TierMove {
+  string id = 1;
+  // hot | cold
+  string tier = 2;
+  string segment = 3;
+  string sha256 = 4;
+  string text = 5;
+  // float32 little-endian, with its model; empty when none is known.
+  bytes vector = 6;
+  string model_id = 7;
+}
+
+message EntitySummary {
+  string entity_id = 1;
+  string summary = 2;
+}
+
+message Reembedded {
+  string id = 1;
+  bytes vector = 2;
+}
+
+message PinChange {
+  string id = 1;
+  bool pinned = 2;
+}
+
+// Command body 21: lifecycle changes of one user scope from a consolidation
+// worker or an operator (PLAN 12.6, ADR-0033), applied in one batch with the
+// worker's checkpoint, the jobs it enqueues and the completion of its own job.
+message MemoryMaintain {
+  string user = 1;
+  repeated MemoryEvolve evolve = 2;
+  repeated TierMove tier = 3;
+  repeated EntitySummary entities = 4;
+  // New vectors of `reembed_model`; `reembed_done` once none of another model remain.
+  repeated Reembedded reembed = 5;
+  string reembed_model = 6;
+  bool reembed_done = 7;
+  repeated PinChange pin = 8;
+  repeated JobSpec enqueue = 9;
+  JobRef complete = 10;
+  // Worker kind and where it stopped.
+  string checkpoint_worker = 11;
+  string checkpoint = 12;
+  // From the tick: the next tick to enqueue; with `tick` and none, ticking stops.
+  JobSpec next_tick = 13;
+  bool tick = 14;
+}
+
+// Command body 23: memories a recall returned (PLAN 12.4 stage 10). Apply
+// raises each one's strength by the spacing rule of PLAN 13.7.
+message MemoryRecallStats {
+  string user = 1;
+  repeated string ids = 2;
 }

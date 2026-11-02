@@ -24,17 +24,17 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17mindlog/v1/models.proto\x12\nmindlog.v1\"B\n\x0c\x45mbedRequest\x12\r\n\x05texts\x18\x01 \x03(\t\x12#\n\x04kind\x18\x02 \x01(\x0e\x32\x15.mindlog.v1.EmbedKind\"@\n\rEmbedResponse\x12\x0f\n\x07vectors\x18\x01 \x03(\x0c\x12\x0c\n\x04\x64ims\x18\x02 \x01(\r\x12\x10\n\x08model_id\x18\x03 \x01(\t\"L\n\x18RecognizeEntitiesRequest\x12\r\n\x05texts\x18\x01 \x03(\t\x12\x0e\n\x06labels\x18\x02 \x03(\t\x12\x11\n\tthreshold\x18\x03 \x01(\x02\"T\n\nEntitySpan\x12\r\n\x05start\x18\x01 \x01(\r\x12\x0b\n\x03\x65nd\x18\x02 \x01(\r\x12\x0c\n\x04text\x18\x03 \x01(\t\x12\r\n\x05label\x18\x04 \x01(\t\x12\r\n\x05score\x18\x05 \x01(\x02\"4\n\x0b\x45ntitySpans\x12%\n\x05spans\x18\x01 \x03(\x0b\x32\x16.mindlog.v1.EntitySpan\"W\n\x19RecognizeEntitiesResponse\x12(\n\x07results\x18\x01 \x03(\x0b\x32\x17.mindlog.v1.EntitySpans\x12\x10\n\x08model_id\x18\x02 \x01(\t\".\n\x07NliPair\x12\x0f\n\x07premise\x18\x01 \x01(\t\x12\x12\n\nhypothesis\x18\x02 \x01(\t\"?\n\tNliResult\x12#\n\x05label\x18\x01 \x01(\x0e\x32\x14.mindlog.v1.NliLabel\x12\r\n\x05score\x18\x02 \x01(\x02\"8\n\x12\x43lassifyNliRequest\x12\"\n\x05pairs\x18\x01 \x03(\x0b\x32\x13.mindlog.v1.NliPair\"O\n\x13\x43lassifyNliResponse\x12&\n\x07results\x18\x01 \x03(\x0b\x32\x15.mindlog.v1.NliResult\x12\x10\n\x08model_id\x18\x02 \x01(\t\"1\n\rRerankRequest\x12\r\n\x05query\x18\x01 \x01(\t\x12\x11\n\tdocuments\x18\x02 \x03(\t\"2\n\x0eRerankResponse\x12\x0e\n\x06scores\x18\x01 \x03(\x02\x12\x10\n\x08model_id\x18\x02 \x01(\t\"#\n\x13\x45xtractFactsRequest\x12\x0c\n\x04text\x18\x01 \x01(\t\"A\n\x0c\x46\x61\x63tRelation\x12\x0f\n\x07subject\x18\x01 \x01(\t\x12\x10\n\x08relation\x18\x02 \x01(\t\x12\x0e\n\x06object\x18\x03 \x01(\t\"X\n\rExtractedFact\x12\x0c\n\x04text\x18\x01 \x01(\t\x12\x0c\n\x04kind\x18\x02 \x01(\t\x12+\n\trelations\x18\x03 \x03(\x0b\x32\x18.mindlog.v1.FactRelation\"R\n\x14\x45xtractFactsResponse\x12(\n\x05\x66\x61\x63ts\x18\x01 \x03(\x0b\x32\x19.mindlog.v1.ExtractedFact\x12\x10\n\x08model_id\x18\x02 \x01(\t\"6\n\x10SummarizeRequest\x12\r\n\x05texts\x18\x01 \x03(\t\x12\x13\n\x0binstruction\x18\x02 \x01(\t\"6\n\x11SummarizeResponse\x12\x0f\n\x07summary\x18\x01 \x01(\t\x12\x10\n\x08model_id\x18\x02 \x01(\t\"\x0f\n\rHealthRequest\"W\n\x0bModelStatus\x12\x12\n\ncapability\x18\x01 \x01(\t\x12\x10\n\x08model_id\x18\x02 \x01(\t\x12\r\n\x05ready\x18\x03 \x01(\x08\x12\x13\n\x0bqueue_depth\x18\x04 \x01(\r\"H\n\x0eHealthResponse\x12\r\n\x05ready\x18\x01 \x01(\x08\x12\'\n\x06models\x18\x02 \x03(\x0b\x32\x17.mindlog.v1.ModelStatus*U\n\tEmbedKind\x12\x1a\n\x16\x45MBED_KIND_UNSPECIFIED\x10\x00\x12\x14\n\x10\x45MBED_KIND_QUERY\x10\x01\x12\x16\n\x12\x45MBED_KIND_PASSAGE\x10\x02*s\n\x08NliLabel\x12\x19\n\x15NLI_LABEL_UNSPECIFIED\x10\x00\x12\x18\n\x14NLI_LABEL_ENTAILMENT\x10\x01\x12\x15\n\x11NLI_LABEL_NEUTRAL\x10\x02\x12\x1b\n\x17NLI_LABEL_CONTRADICTION\x10\x03\x32\x9e\x04\n\rModelsService\x12<\n\x05\x45mbed\x12\x18.mindlog.v1.EmbedRequest\x1a\x19.mindlog.v1.EmbedResponse\x12`\n\x11RecognizeEntities\x12$.mindlog.v1.RecognizeEntitiesRequest\x1a%.mindlog.v1.RecognizeEntitiesResponse\x12N\n\x0b\x43lassifyNli\x12\x1e.mindlog.v1.ClassifyNliRequest\x1a\x1f.mindlog.v1.ClassifyNliResponse\x12?\n\x06Rerank\x12\x19.mindlog.v1.RerankRequest\x1a\x1a.mindlog.v1.RerankResponse\x12Q\n\x0c\x45xtractFacts\x12\x1f.mindlog.v1.ExtractFactsRequest\x1a .mindlog.v1.ExtractFactsResponse\x12H\n\tSummarize\x12\x1c.mindlog.v1.SummarizeRequest\x1a\x1d.mindlog.v1.SummarizeResponse\x12?\n\x06Health\x12\x19.mindlog.v1.HealthRequest\x1a\x1a.mindlog.v1.HealthResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17mindlog/v1/models.proto\x12\nmindlog.v1\"B\n\x0c\x45mbedRequest\x12\r\n\x05texts\x18\x01 \x03(\t\x12#\n\x04kind\x18\x02 \x01(\x0e\x32\x15.mindlog.v1.EmbedKind\"@\n\rEmbedResponse\x12\x0f\n\x07vectors\x18\x01 \x03(\x0c\x12\x0c\n\x04\x64ims\x18\x02 \x01(\r\x12\x10\n\x08model_id\x18\x03 \x01(\t\"L\n\x18RecognizeEntitiesRequest\x12\r\n\x05texts\x18\x01 \x03(\t\x12\x0e\n\x06labels\x18\x02 \x03(\t\x12\x11\n\tthreshold\x18\x03 \x01(\x02\"T\n\nEntitySpan\x12\r\n\x05start\x18\x01 \x01(\r\x12\x0b\n\x03\x65nd\x18\x02 \x01(\r\x12\x0c\n\x04text\x18\x03 \x01(\t\x12\r\n\x05label\x18\x04 \x01(\t\x12\r\n\x05score\x18\x05 \x01(\x02\"4\n\x0b\x45ntitySpans\x12%\n\x05spans\x18\x01 \x03(\x0b\x32\x16.mindlog.v1.EntitySpan\"W\n\x19RecognizeEntitiesResponse\x12(\n\x07results\x18\x01 \x03(\x0b\x32\x17.mindlog.v1.EntitySpans\x12\x10\n\x08model_id\x18\x02 \x01(\t\".\n\x07NliPair\x12\x0f\n\x07premise\x18\x01 \x01(\t\x12\x12\n\nhypothesis\x18\x02 \x01(\t\"?\n\tNliResult\x12#\n\x05label\x18\x01 \x01(\x0e\x32\x14.mindlog.v1.NliLabel\x12\r\n\x05score\x18\x02 \x01(\x02\"8\n\x12\x43lassifyNliRequest\x12\"\n\x05pairs\x18\x01 \x03(\x0b\x32\x13.mindlog.v1.NliPair\"O\n\x13\x43lassifyNliResponse\x12&\n\x07results\x18\x01 \x03(\x0b\x32\x15.mindlog.v1.NliResult\x12\x10\n\x08model_id\x18\x02 \x01(\t\"1\n\rRerankRequest\x12\r\n\x05query\x18\x01 \x01(\t\x12\x11\n\tdocuments\x18\x02 \x03(\t\"2\n\x0eRerankResponse\x12\x0e\n\x06scores\x18\x01 \x03(\x02\x12\x10\n\x08model_id\x18\x02 \x01(\t\"#\n\x13\x45xtractFactsRequest\x12\x0c\n\x04text\x18\x01 \x01(\t\"A\n\x0c\x46\x61\x63tRelation\x12\x0f\n\x07subject\x18\x01 \x01(\t\x12\x10\n\x08relation\x18\x02 \x01(\t\x12\x0e\n\x06object\x18\x03 \x01(\t\"X\n\rExtractedFact\x12\x0c\n\x04text\x18\x01 \x01(\t\x12\x0c\n\x04kind\x18\x02 \x01(\t\x12+\n\trelations\x18\x03 \x03(\x0b\x32\x18.mindlog.v1.FactRelation\"R\n\x14\x45xtractFactsResponse\x12(\n\x05\x66\x61\x63ts\x18\x01 \x03(\x0b\x32\x19.mindlog.v1.ExtractedFact\x12\x10\n\x08model_id\x18\x02 \x01(\t\"I\n\x10SummarizeRequest\x12\r\n\x05texts\x18\x01 \x03(\t\x12\x13\n\x0binstruction\x18\x02 \x01(\t\x12\x11\n\tmax_chars\x18\x03 \x01(\r\"6\n\x11SummarizeResponse\x12\x0f\n\x07summary\x18\x01 \x01(\t\x12\x10\n\x08model_id\x18\x02 \x01(\t\"\x0f\n\rHealthRequest\"W\n\x0bModelStatus\x12\x12\n\ncapability\x18\x01 \x01(\t\x12\x10\n\x08model_id\x18\x02 \x01(\t\x12\r\n\x05ready\x18\x03 \x01(\x08\x12\x13\n\x0bqueue_depth\x18\x04 \x01(\r\"H\n\x0eHealthResponse\x12\r\n\x05ready\x18\x01 \x01(\x08\x12\'\n\x06models\x18\x02 \x03(\x0b\x32\x17.mindlog.v1.ModelStatus*U\n\tEmbedKind\x12\x1a\n\x16\x45MBED_KIND_UNSPECIFIED\x10\x00\x12\x14\n\x10\x45MBED_KIND_QUERY\x10\x01\x12\x16\n\x12\x45MBED_KIND_PASSAGE\x10\x02*s\n\x08NliLabel\x12\x19\n\x15NLI_LABEL_UNSPECIFIED\x10\x00\x12\x18\n\x14NLI_LABEL_ENTAILMENT\x10\x01\x12\x15\n\x11NLI_LABEL_NEUTRAL\x10\x02\x12\x1b\n\x17NLI_LABEL_CONTRADICTION\x10\x03\x32\x9e\x04\n\rModelsService\x12<\n\x05\x45mbed\x12\x18.mindlog.v1.EmbedRequest\x1a\x19.mindlog.v1.EmbedResponse\x12`\n\x11RecognizeEntities\x12$.mindlog.v1.RecognizeEntitiesRequest\x1a%.mindlog.v1.RecognizeEntitiesResponse\x12N\n\x0b\x43lassifyNli\x12\x1e.mindlog.v1.ClassifyNliRequest\x1a\x1f.mindlog.v1.ClassifyNliResponse\x12?\n\x06Rerank\x12\x19.mindlog.v1.RerankRequest\x1a\x1a.mindlog.v1.RerankResponse\x12Q\n\x0c\x45xtractFacts\x12\x1f.mindlog.v1.ExtractFactsRequest\x1a .mindlog.v1.ExtractFactsResponse\x12H\n\tSummarize\x12\x1c.mindlog.v1.SummarizeRequest\x1a\x1d.mindlog.v1.SummarizeResponse\x12?\n\x06Health\x12\x19.mindlog.v1.HealthRequest\x1a\x1a.mindlog.v1.HealthResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'mindlog.v1.models_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_EMBEDKIND']._serialized_start=1405
-  _globals['_EMBEDKIND']._serialized_end=1490
-  _globals['_NLILABEL']._serialized_start=1492
-  _globals['_NLILABEL']._serialized_end=1607
+  _globals['_EMBEDKIND']._serialized_start=1424
+  _globals['_EMBEDKIND']._serialized_end=1509
+  _globals['_NLILABEL']._serialized_start=1511
+  _globals['_NLILABEL']._serialized_end=1626
   _globals['_EMBEDREQUEST']._serialized_start=39
   _globals['_EMBEDREQUEST']._serialized_end=105
   _globals['_EMBEDRESPONSE']._serialized_start=107
@@ -68,15 +68,15 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_EXTRACTFACTSRESPONSE']._serialized_start=1029
   _globals['_EXTRACTFACTSRESPONSE']._serialized_end=1111
   _globals['_SUMMARIZEREQUEST']._serialized_start=1113
-  _globals['_SUMMARIZEREQUEST']._serialized_end=1167
-  _globals['_SUMMARIZERESPONSE']._serialized_start=1169
-  _globals['_SUMMARIZERESPONSE']._serialized_end=1223
-  _globals['_HEALTHREQUEST']._serialized_start=1225
-  _globals['_HEALTHREQUEST']._serialized_end=1240
-  _globals['_MODELSTATUS']._serialized_start=1242
-  _globals['_MODELSTATUS']._serialized_end=1329
-  _globals['_HEALTHRESPONSE']._serialized_start=1331
-  _globals['_HEALTHRESPONSE']._serialized_end=1403
-  _globals['_MODELSSERVICE']._serialized_start=1610
-  _globals['_MODELSSERVICE']._serialized_end=2152
+  _globals['_SUMMARIZEREQUEST']._serialized_end=1186
+  _globals['_SUMMARIZERESPONSE']._serialized_start=1188
+  _globals['_SUMMARIZERESPONSE']._serialized_end=1242
+  _globals['_HEALTHREQUEST']._serialized_start=1244
+  _globals['_HEALTHREQUEST']._serialized_end=1259
+  _globals['_MODELSTATUS']._serialized_start=1261
+  _globals['_MODELSTATUS']._serialized_end=1348
+  _globals['_HEALTHRESPONSE']._serialized_start=1350
+  _globals['_HEALTHRESPONSE']._serialized_end=1422
+  _globals['_MODELSSERVICE']._serialized_start=1629
+  _globals['_MODELSSERVICE']._serialized_end=2171
 # @@protoc_insertion_point(module_scope)

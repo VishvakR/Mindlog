@@ -212,6 +212,8 @@ export {
   RecognizeEntitiesResponseSchema,
   RerankRequestSchema,
   RerankResponseSchema,
+  SummarizeRequestSchema,
+  SummarizeResponseSchema,
   file_mindlog_v1_models,
 } from './gen/mindlog/v1/models_pb.js';
 export type {
@@ -233,6 +235,8 @@ export type {
   RecognizeEntitiesRequest,
   RecognizeEntitiesResponse,
   RerankRequest,
+  SummarizeRequest,
+  SummarizeResponse,
   RerankResponse,
 } from './gen/mindlog/v1/models_pb.js';
 export {
@@ -277,6 +281,14 @@ export {
   MemoryVectorSchema,
   NewMemorySchema,
   RecordFieldsSchema,
+  EntitySummarySchema,
+  MemoryEvolveSchema,
+  MemoryMaintainSchema,
+  MemoryRecallStatsSchema,
+  PinChangeSchema,
+  ReembeddedSchema,
+  ScopeLifecycleSchema,
+  TierMoveSchema,
   SupersedeSchema,
   TermCountSchema,
   file_mindlog_v1_memory,
@@ -305,6 +317,14 @@ export type {
   MemoryVector,
   NewMemory,
   RecordFields,
+  EntitySummary,
+  MemoryEvolve,
+  MemoryMaintain,
+  MemoryRecallStats,
+  PinChange,
+  Reembedded,
+  ScopeLifecycle,
+  TierMove,
   Supersede,
   TermCount,
 } from './gen/mindlog/v1/memory_pb.js';

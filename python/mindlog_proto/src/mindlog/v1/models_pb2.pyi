@@ -164,12 +164,14 @@ class ExtractFactsResponse(_message.Message):
     def __init__(self, facts: _Optional[_Iterable[_Union[ExtractedFact, _Mapping]]] = ..., model_id: _Optional[str] = ...) -> None: ...
 
 class SummarizeRequest(_message.Message):
-    __slots__ = ("texts", "instruction")
+    __slots__ = ("texts", "instruction", "max_chars")
     TEXTS_FIELD_NUMBER: _ClassVar[int]
     INSTRUCTION_FIELD_NUMBER: _ClassVar[int]
+    MAX_CHARS_FIELD_NUMBER: _ClassVar[int]
     texts: _containers.RepeatedScalarFieldContainer[str]
     instruction: str
-    def __init__(self, texts: _Optional[_Iterable[str]] = ..., instruction: _Optional[str] = ...) -> None: ...
+    max_chars: int
+    def __init__(self, texts: _Optional[_Iterable[str]] = ..., instruction: _Optional[str] = ..., max_chars: _Optional[int] = ...) -> None: ...
 
 class SummarizeResponse(_message.Message):
     __slots__ = ("summary", "model_id")

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/memory.proto.
  */
 export const file_mindlog_v1_memory: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIroECgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCRIkCgV0ZXJtcxgaIAMoCzIVLm1pbmRsb2cudjEuVGVybUNvdW50EhMKC3Rlcm1fbGVuZ3RoGBsgASgNIm0KDE1lbW9yeVZlY3RvchIQCghtb2RlbF9pZBgBIAEoCRIOCgZ2ZWN0b3IYAiABKAwSDAoEa2luZBgDIAEoCRINCgV0cnVzdBgEIAEoCRINCgVhZ2VudBgFIAEoCRIPCgdzZXNzaW9uGAYgASgJIigKCVRlcm1Db3VudBIMCgR0ZXJtGAEgASgJEg0KBWNvdW50GAIgASgNIisKDUVudGl0eU1lbnRpb24SDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJInIKCU5ld01lbW9yeRIoCgZyZWNvcmQYASABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVJlY29yZBIOCgZ2ZWN0b3IYAiABKAwSKwoIbWVudGlvbnMYAyADKAsyGS5taW5kbG9nLnYxLkVudGl0eU1lbnRpb24iiQEKCkVudGl0eUVkZ2USEAoIc3JjX25hbWUYASABKAkSEAoIc3JjX3R5cGUYAiABKAkSEAoIcmVsYXRpb24YAyABKAkSEAoIZHN0X25hbWUYBCABKAkSEAoIZHN0X3R5cGUYBSABKAkSDgoGd2VpZ2h0GAYgASgCEhEKCW1lbW9yeV9pZBgHIAEoCSIlCgZKb2JSZWYSCgoCaWQYASABKAkSDwoHYXR0ZW1wdBgCIAEoDSKRAgoMTWVtb3J5Q29tbWl0EgwKBHVzZXIYASABKAkSJwoIbWVtb3JpZXMYAiADKAsyFS5taW5kbG9nLnYxLk5ld01lbW9yeRIlCgVlZGdlcxgDIAMoCzIWLm1pbmRsb2cudjEuRW50aXR5RWRnZRIkCgdlbnF1ZXVlGAQgAygLMhMubWluZGxvZy52MS5Kb2JTcGVjEiQKCGNvbXBsZXRlGAUgASgLMhIubWluZGxvZy52MS5Kb2JSZWYSLQoJY29uZmxpY3RzGAYgAygLMhoubWluZGxvZy52MS5NZW1vcnlDb25mbGljdBIoCglzdXBlcnNlZGUYByADKAsyFS5taW5kbG9nLnYxLlN1cGVyc2VkZSLlAQoOTWVtb3J5Q29uZmxpY3QSCgoCaWQYASABKAkSCQoBYRgCIAEoCRIJCgFiGAMgASgJEhAKCHNjb3JlX2FiGAQgASgCEhAKCHNjb3JlX2JhGAUgASgCEhMKC2RldGVjdGVkX2F0GAYgASgEEg4KBnN0YXR1cxgHIAEoCRIOCgZwb2xpY3kYCCABKAkSDgoGb3JpZ2luGAkgASgJEhAKCG1vZGVsX2lkGAogASgJEgwKBGtlZXAYCyABKAkSEwoLcmVzb2x2ZWRfYnkYDCABKAkSEwoLcmVzb2x2ZWRfYXQYDSABKAQiKQoJU3VwZXJzZWRlEgoKAmlkGAEgASgJEhAKCHZhbGlkX3RvGAIgASgEIl0KD0NvbmZsaWN0UmVzb2x2ZRIMCgR1c2VyGAEgASgJEgoKAmlkGAIgASgJEgwKBGtlZXAYAyABKAkSEgoKdmFsaWRfZnJvbRgEIAEoBBIOCgZub3dfbXMYBSABKAQiRwoLTWVtb3J5VHJ1c3QSDAoEdXNlchgBIAEoCRILCgNpZHMYAiADKAkSDQoFdHJ1c3QYAyABKAkSDgoGcmVhc29uGAQgASgJImQKDE1lbW9yeUZvcmdldBIMCgR1c2VyGAEgASgJEgsKA2lkcxgCIAMoCRIOCgZyZWFzb24YAyABKAkSEgoKc291cmNlX3JlZhgEIAEoCRIVCg1jYXNjYWRlX2xpbWl0GAUgASgNIlUKDE1lbW9yeUVudGl0eRIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSFQoNbWVudGlvbl9jb3VudBgDIAEoDRISCgpjcmVhdGVkX2F0GAQgASgEIkIKCk1lbW9yeUVkZ2USDgoGd2VpZ2h0GAEgASgCEhAKCG1lbW9yaWVzGAIgAygJEhIKCmNyZWF0ZWRfYXQYAyABKAQiKwoNTWVtb3J5T3V0Y29tZRILCgNpZHMYASADKAkSDQoFY291bnQYAiABKA0ioQEKDE1lbW9yeUJyYW5jaBIMCgRuYW1lGAEgASgJEhIKCmZvcmtfaW5kZXgYAiABKAQSFAoMZm9ya192ZXJzaW9uGAMgASgEEhIKCmNyZWF0ZWRfYnkYBCABKAkSDgoGc3RhdHVzGAUgASgJEhEKCWNsb3NlZF9hdBgGIAEoBBIOCgZ3cml0ZXMYByABKA0SEgoKbWF4X3dyaXRlcxgIIAEoDSI+CgxCcmFuY2hDcmVhdGUSDAoEdXNlchgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCm1heF93cml0ZXMYAyABKA0iKwoJQnJhbmNoQWRkEgoKAmlkGAEgASgJEhIKCnF1YXJhbnRpbmUYAiABKAgiTAoMUmVjb3JkRmllbGRzEgoKAmlkGAEgASgJEg8KB2V4cGlyZWQYAiABKAgSDQoFdHJ1c3QYAyABKAkSEAoIdmFsaWRfdG8YBCABKAQiWgoKRWRnZVdlaWdodBILCgNzcmMYASABKAkSEAoIcmVsYXRpb24YAiABKAkSCwoDZHN0GAMgASgJEg4KBndlaWdodBgEIAEoAhIQCghtZW1vcmllcxgFIAMoCSK0AgoLQnJhbmNoTWVyZ2USDAoEdXNlchgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnBvbGljeRgDIAEoCRIXCg9tYWluX2dlbmVyYXRpb24YBCABKAQSIwoEYWRkcxgFIAMoCzIVLm1pbmRsb2cudjEuQnJhbmNoQWRkEikKB3JlY29yZHMYBiADKAsyGC5taW5kbG9nLnYxLlJlY29yZEZpZWxkcxIlCgVlZGdlcxgHIAMoCzIWLm1pbmRsb2cudjEuRWRnZVdlaWdodBItCgljb25mbGljdHMYCCADKAsyGi5taW5kbG9nLnYxLk1lbW9yeUNvbmZsaWN0EigKCXN1cGVyc2VkZRgJIAMoCzIVLm1pbmRsb2cudjEuU3VwZXJzZWRlEhAKCHJlamVjdGVkGAogAygJIigKCkJyYW5jaERyb3ASDAoEdXNlchgBIAEoCRIMCgRuYW1lGAIgASgJYgZwcm90bzM", [file_mindlog_v1_jobs]);
+  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIoMFCgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCRIkCgV0ZXJtcxgaIAMoCzIVLm1pbmRsb2cudjEuVGVybUNvdW50EhMKC3Rlcm1fbGVuZ3RoGBsgASgNEgwKBHRpZXIYHCABKAkSDgoGcGlubmVkGB0gASgIEhQKDGNvbGRfc2VnbWVudBgeIAEoCRITCgtjb2xkX3NoYTI1NhgfIAEoCSJtCgxNZW1vcnlWZWN0b3ISEAoIbW9kZWxfaWQYASABKAkSDgoGdmVjdG9yGAIgASgMEgwKBGtpbmQYAyABKAkSDQoFdHJ1c3QYBCABKAkSDQoFYWdlbnQYBSABKAkSDwoHc2Vzc2lvbhgGIAEoCSIoCglUZXJtQ291bnQSDAoEdGVybRgBIAEoCRINCgVjb3VudBgCIAEoDSIrCg1FbnRpdHlNZW50aW9uEgwKBG5hbWUYASABKAkSDAoEdHlwZRgCIAEoCSJyCglOZXdNZW1vcnkSKAoGcmVjb3JkGAEgASgLMhgubWluZGxvZy52MS5NZW1vcnlSZWNvcmQSDgoGdmVjdG9yGAIgASgMEisKCG1lbnRpb25zGAMgAygLMhkubWluZGxvZy52MS5FbnRpdHlNZW50aW9uIokBCgpFbnRpdHlFZGdlEhAKCHNyY19uYW1lGAEgASgJEhAKCHNyY190eXBlGAIgASgJEhAKCHJlbGF0aW9uGAMgASgJEhAKCGRzdF9uYW1lGAQgASgJEhAKCGRzdF90eXBlGAUgASgJEg4KBndlaWdodBgGIAEoAhIRCgltZW1vcnlfaWQYByABKAkiJQoGSm9iUmVmEgoKAmlkGAEgASgJEg8KB2F0dGVtcHQYAiABKA0ixQIKDE1lbW9yeUNvbW1pdBIMCgR1c2VyGAEgASgJEicKCG1lbW9yaWVzGAIgAygLMhUubWluZGxvZy52MS5OZXdNZW1vcnkSJQoFZWRnZXMYAyADKAsyFi5taW5kbG9nLnYxLkVudGl0eUVkZ2USJAoHZW5xdWV1ZRgEIAMoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIkCghjb21wbGV0ZRgFIAEoCzISLm1pbmRsb2cudjEuSm9iUmVmEi0KCWNvbmZsaWN0cxgGIAMoCzIaLm1pbmRsb2cudjEuTWVtb3J5Q29uZmxpY3QSKAoJc3VwZXJzZWRlGAcgAygLMhUubWluZGxvZy52MS5TdXBlcnNlZGUSIQoEdGljaxgIIAEoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIPCgdyZWVtYmVkGAkgASgIIuUBCg5NZW1vcnlDb25mbGljdBIKCgJpZBgBIAEoCRIJCgFhGAIgASgJEgkKAWIYAyABKAkSEAoIc2NvcmVfYWIYBCABKAISEAoIc2NvcmVfYmEYBSABKAISEwoLZGV0ZWN0ZWRfYXQYBiABKAQSDgoGc3RhdHVzGAcgASgJEg4KBnBvbGljeRgIIAEoCRIOCgZvcmlnaW4YCSABKAkSEAoIbW9kZWxfaWQYCiABKAkSDAoEa2VlcBgLIAEoCRITCgtyZXNvbHZlZF9ieRgMIAEoCRITCgtyZXNvbHZlZF9hdBgNIAEoBCIpCglTdXBlcnNlZGUSCgoCaWQYASABKAkSEAoIdmFsaWRfdG8YAiABKAQiXQoPQ29uZmxpY3RSZXNvbHZlEgwKBHVzZXIYASABKAkSCgoCaWQYAiABKAkSDAoEa2VlcBgDIAEoCRISCgp2YWxpZF9mcm9tGAQgASgEEg4KBm5vd19tcxgFIAEoBCJHCgtNZW1vcnlUcnVzdBIMCgR1c2VyGAEgASgJEgsKA2lkcxgCIAMoCRINCgV0cnVzdBgDIAEoCRIOCgZyZWFzb24YBCABKAkiZAoMTWVtb3J5Rm9yZ2V0EgwKBHVzZXIYASABKAkSCwoDaWRzGAIgAygJEg4KBnJlYXNvbhgDIAEoCRISCgpzb3VyY2VfcmVmGAQgASgJEhUKDWNhc2NhZGVfbGltaXQYBSABKA0igAEKDE1lbW9yeUVudGl0eRIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSFQoNbWVudGlvbl9jb3VudBgDIAEoDRISCgpjcmVhdGVkX2F0GAQgASgEEg8KB3N1bW1hcnkYBSABKAkSGAoQc3VtbWFyeV9tZW50aW9ucxgGIAEoDSJCCgpNZW1vcnlFZGdlEg4KBndlaWdodBgBIAEoAhIQCghtZW1vcmllcxgCIAMoCRISCgpjcmVhdGVkX2F0GAMgASgEIisKDU1lbW9yeU91dGNvbWUSCwoDaWRzGAEgAygJEg0KBWNvdW50GAIgASgNIqEBCgxNZW1vcnlCcmFuY2gSDAoEbmFtZRgBIAEoCRISCgpmb3JrX2luZGV4GAIgASgEEhQKDGZvcmtfdmVyc2lvbhgDIAEoBBISCgpjcmVhdGVkX2J5GAQgASgJEg4KBnN0YXR1cxgFIAEoCRIRCgljbG9zZWRfYXQYBiABKAQSDgoGd3JpdGVzGAcgASgNEhIKCm1heF93cml0ZXMYCCABKA0iPgoMQnJhbmNoQ3JlYXRlEgwKBHVzZXIYASABKAkSDAoEbmFtZRgCIAEoCRISCgptYXhfd3JpdGVzGAMgASgNIisKCUJyYW5jaEFkZBIKCgJpZBgBIAEoCRISCgpxdWFyYW50aW5lGAIgASgIIkwKDFJlY29yZEZpZWxkcxIKCgJpZBgBIAEoCRIPCgdleHBpcmVkGAIgASgIEg0KBXRydXN0GAMgASgJEhAKCHZhbGlkX3RvGAQgASgEIloKCkVkZ2VXZWlnaHQSCwoDc3JjGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEgsKA2RzdBgDIAEoCRIOCgZ3ZWlnaHQYBCABKAISEAoIbWVtb3JpZXMYBSADKAkizwIKC0JyYW5jaE1lcmdlEgwKBHVzZXIYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZwb2xpY3kYAyABKAkSFwoPbWFpbl9nZW5lcmF0aW9uGAQgASgEEiMKBGFkZHMYBSADKAsyFS5taW5kbG9nLnYxLkJyYW5jaEFkZBIpCgdyZWNvcmRzGAYgAygLMhgubWluZGxvZy52MS5SZWNvcmRGaWVsZHMSJQoFZWRnZXMYByADKAsyFi5taW5kbG9nLnYxLkVkZ2VXZWlnaHQSLQoJY29uZmxpY3RzGAggAygLMhoubWluZGxvZy52MS5NZW1vcnlDb25mbGljdBIoCglzdXBlcnNlZGUYCSADKAsyFS5taW5kbG9nLnYxLlN1cGVyc2VkZRIQCghyZWplY3RlZBgKIAMoCRIZChFicmFuY2hfZ2VuZXJhdGlvbhgLIAEoBCIoCgpCcmFuY2hEcm9wEgwKBHVzZXIYASABKAkSDAoEbmFtZRgCIAEoCSLOAwoOU2NvcGVMaWZlY3ljbGUSFQoNbGFzdF93cml0ZV9tcxgBIAEoBBIaChJ3cml0ZXNfc2luY2Vfc2xlZXAYAiABKA0SEgoKZ3JhcGhfc2l6ZRgDIAEoDRIbChNncmFwaF9zaXplX2F0X3RoZW1lGAQgASgNEhMKC2VtYmVkX21vZGVsGAUgASgJEg8KB3JlZW1iZWQYBiABKAgSPgoLbGFzdF9ydW5fbXMYByADKAsyKS5taW5kbG9nLnYxLlNjb3BlTGlmZWN5Y2xlLkxhc3RSdW5Nc0VudHJ5EkAKC2NoZWNrcG9pbnRzGAggAygLMisubWluZGxvZy52MS5TY29wZUxpZmVjeWNsZS5DaGVja3BvaW50c0VudHJ5EhIKCnRpY2tfYXRfbXMYCSABKAQSCwoDaG90GAogASgNEgwKBGNvbGQYCyABKA0SGwoTd3JpdGVzX3NpbmNlX2V2b2x2ZRgMIAEoDRowCg5MYXN0UnVuTXNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAQ6AjgBGjIKEENoZWNrcG9pbnRzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASKkAQoMTWVtb3J5RXZvbHZlEgoKAmlkGAEgASgJEgwKBHRhZ3MYAiADKAkSEAoIc2V0X3RhZ3MYAyABKAgSEQoJbWV0YV9qc29uGAQgASgJEhIKCmltcG9ydGFuY2UYBSABKAISFgoOc2V0X2ltcG9ydGFuY2UYBiABKAgSKQoJYWRkX2xpbmtzGAcgAygLMhYubWluZGxvZy52MS5NZW1vcnlMaW5rInUKCFRpZXJNb3ZlEgoKAmlkGAEgASgJEgwKBHRpZXIYAiABKAkSDwoHc2VnbWVudBgDIAEoCRIOCgZzaGEyNTYYBCABKAkSDAoEdGV4dBgFIAEoCRIOCgZ2ZWN0b3IYBiABKAwSEAoIbW9kZWxfaWQYByABKAkiMwoNRW50aXR5U3VtbWFyeRIRCgllbnRpdHlfaWQYASABKAkSDwoHc3VtbWFyeRgCIAEoCSIoCgpSZWVtYmVkZGVkEgoKAmlkGAEgASgJEg4KBnZlY3RvchgCIAEoDCInCglQaW5DaGFuZ2USCgoCaWQYASABKAkSDgoGcGlubmVkGAIgASgIIsQDCg5NZW1vcnlNYWludGFpbhIMCgR1c2VyGAEgASgJEigKBmV2b2x2ZRgCIAMoCzIYLm1pbmRsb2cudjEuTWVtb3J5RXZvbHZlEiIKBHRpZXIYAyADKAsyFC5taW5kbG9nLnYxLlRpZXJNb3ZlEisKCGVudGl0aWVzGAQgAygLMhkubWluZGxvZy52MS5FbnRpdHlTdW1tYXJ5EicKB3JlZW1iZWQYBSADKAsyFi5taW5kbG9nLnYxLlJlZW1iZWRkZWQSFQoNcmVlbWJlZF9tb2RlbBgGIAEoCRIUCgxyZWVtYmVkX2RvbmUYByABKAgSIgoDcGluGAggAygLMhUubWluZGxvZy52MS5QaW5DaGFuZ2USJAoHZW5xdWV1ZRgJIAMoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIkCghjb21wbGV0ZRgKIAEoCzISLm1pbmRsb2cudjEuSm9iUmVmEhkKEWNoZWNrcG9pbnRfd29ya2VyGAsgASgJEhIKCmNoZWNrcG9pbnQYDCABKAkSJgoJbmV4dF90aWNrGA0gASgLMhMubWluZGxvZy52MS5Kb2JTcGVjEgwKBHRpY2sYDiABKAgiLgoRTWVtb3J5UmVjYWxsU3RhdHMSDAoEdXNlchgBIAEoCRILCgNpZHMYAiADKAliBnByb3RvMw", [file_mindlog_v1_jobs]);
 
 /**
  * @generated from message mindlog.v1.MemoryLink
@@ -238,6 +238,33 @@ export type MemoryRecord = Message<"mindlog.v1.MemoryRecord"> & {
    * @generated from field: uint32 term_length = 27;
    */
   termLength: number;
+
+  /**
+   * hot | cold (PLAN 10.4, ADR-0033); '' is hot. A cold record is a stub: its text
+   * is a summary and its vector is gone; the full record lives in the blob segment.
+   *
+   * @generated from field: string tier = 28;
+   */
+  tier: string;
+
+  /**
+   * Exempt from tiering and hard forgetting.
+   *
+   * @generated from field: bool pinned = 29;
+   */
+  pinned: boolean;
+
+  /**
+   * Blob key and sha256 (hex) of the cold segment holding the full record.
+   *
+   * @generated from field: string cold_segment = 30;
+   */
+  coldSegment: string;
+
+  /**
+   * @generated from field: string cold_sha256 = 31;
+   */
+  coldSha256: string;
 };
 
 /**
@@ -487,6 +514,20 @@ export type MemoryCommit = Message<"mindlog.v1.MemoryCommit"> & {
    * @generated from field: repeated mindlog.v1.Supersede supersede = 7;
    */
   supersede: Supersede[];
+
+  /**
+   * The scope's consolidation tick (ADR-0033), enqueued only if none is scheduled.
+   *
+   * @generated from field: mindlog.v1.JobSpec tick = 8;
+   */
+  tick?: JobSpec | undefined;
+
+  /**
+   * Some memories carry no vector of the current model (an import); re-embed the scope.
+   *
+   * @generated from field: bool reembed = 9;
+   */
+  reembed: boolean;
 };
 
 /**
@@ -763,6 +804,20 @@ export type MemoryEntity = Message<"mindlog.v1.MemoryEntity"> & {
    * @generated from field: uint64 created_at = 4;
    */
   createdAt: bigint;
+
+  /**
+   * Summary of what the scope's memories say about it (EntitySummarizer, PLAN 12.6).
+   *
+   * @generated from field: string summary = 5;
+   */
+  summary: string;
+
+  /**
+   * Mention count when the summary was written.
+   *
+   * @generated from field: uint32 summary_mentions = 6;
+   */
+  summaryMentions: number;
 };
 
 /**
@@ -1081,6 +1136,14 @@ export type BranchMerge = Message<"mindlog.v1.BranchMerge"> & {
    * @generated from field: repeated string rejected = 10;
    */
   rejected: string[];
+
+  /**
+   * The branch's generation the plan was made at; apply refuses the plan if the
+   * branch was written since. 0 skips the check (proposers before cluster version 8).
+   *
+   * @generated from field: uint64 branch_generation = 11;
+   */
+  branchGeneration: bigint;
 };
 
 /**
@@ -1113,4 +1176,391 @@ export type BranchDrop = Message<"mindlog.v1.BranchDrop"> & {
  */
 export const BranchDropSchema: GenMessage<BranchDrop> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_memory, 24);
+
+/**
+ * Lifecycle state of a user scope, stored at m/(user, 'cs') (ADR-0033). Apply
+ * keeps it current; the consolidation tick reads it to decide what is due.
+ *
+ * @generated from message mindlog.v1.ScopeLifecycle
+ */
+export type ScopeLifecycle = Message<"mindlog.v1.ScopeLifecycle"> & {
+  /**
+   * World time (ms) of the last main commit.
+   *
+   * @generated from field: uint64 last_write_ms = 1;
+   */
+  lastWriteMs: bigint;
+
+  /**
+   * Memories committed since sleep-time consolidation was last enqueued.
+   *
+   * @generated from field: uint32 writes_since_sleep = 2;
+   */
+  writesSinceSleep: number;
+
+  /**
+   * Entities and entity edges created, and that count when themes were last enqueued.
+   *
+   * @generated from field: uint32 graph_size = 3;
+   */
+  graphSize: number;
+
+  /**
+   * @generated from field: uint32 graph_size_at_theme = 4;
+   */
+  graphSizeAtTheme: number;
+
+  /**
+   * Model of the newest vectors, and whether vectors of another model (or none) remain.
+   *
+   * @generated from field: string embed_model = 5;
+   */
+  embedModel: string;
+
+  /**
+   * @generated from field: bool reembed = 6;
+   */
+  reembed: boolean;
+
+  /**
+   * When each worker kind was last enqueued (ms).
+   *
+   * @generated from field: map<string, uint64> last_run_ms = 7;
+   */
+  lastRunMs: { [key: string]: bigint };
+
+  /**
+   * Per worker kind: where its last batch stopped (an id).
+   *
+   * @generated from field: map<string, string> checkpoints = 8;
+   */
+  checkpoints: { [key: string]: string };
+
+  /**
+   * Run time of the scheduled tick; 0 when none is.
+   *
+   * @generated from field: uint64 tick_at_ms = 9;
+   */
+  tickAtMs: bigint;
+
+  /**
+   * Current memories per tier.
+   *
+   * @generated from field: uint32 hot = 10;
+   */
+  hot: number;
+
+  /**
+   * @generated from field: uint32 cold = 11;
+   */
+  cold: number;
+
+  /**
+   * Memories committed since evolution was last enqueued.
+   *
+   * @generated from field: uint32 writes_since_evolve = 12;
+   */
+  writesSinceEvolve: number;
+};
+
+/**
+ * Describes the message mindlog.v1.ScopeLifecycle.
+ * Use `create(ScopeLifecycleSchema)` to create a new message.
+ */
+export const ScopeLifecycleSchema: GenMessage<ScopeLifecycle> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 25);
+
+/**
+ * A worker's change to an existing memory: a new version, the old one kept at
+ * m/(user, 'rv', id, version) (A-MEM evolution, dedup; ADR-0033).
+ *
+ * @generated from message mindlog.v1.MemoryEvolve
+ */
+export type MemoryEvolve = Message<"mindlog.v1.MemoryEvolve"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Replaces the tags when set.
+   *
+   * @generated from field: repeated string tags = 2;
+   */
+  tags: string[];
+
+  /**
+   * @generated from field: bool set_tags = 3;
+   */
+  setTags: boolean;
+
+  /**
+   * Merged into meta_json (top-level keys).
+   *
+   * @generated from field: string meta_json = 4;
+   */
+  metaJson: string;
+
+  /**
+   * Replaces the importance when set.
+   *
+   * @generated from field: float importance = 5;
+   */
+  importance: number;
+
+  /**
+   * @generated from field: bool set_importance = 6;
+   */
+  setImportance: boolean;
+
+  /**
+   * @generated from field: repeated mindlog.v1.MemoryLink add_links = 7;
+   */
+  addLinks: MemoryLink[];
+};
+
+/**
+ * Describes the message mindlog.v1.MemoryEvolve.
+ * Use `create(MemoryEvolveSchema)` to create a new message.
+ */
+export const MemoryEvolveSchema: GenMessage<MemoryEvolve> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 26);
+
+/**
+ * Moves a memory between tiers. To cold: the record becomes a stub with
+ * stub_text, its vector row is dropped, and the segment holds the full record.
+ * To hot: text and vector come back from the segment (read by the leader).
+ *
+ * @generated from message mindlog.v1.TierMove
+ */
+export type TierMove = Message<"mindlog.v1.TierMove"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * hot | cold
+   *
+   * @generated from field: string tier = 2;
+   */
+  tier: string;
+
+  /**
+   * @generated from field: string segment = 3;
+   */
+  segment: string;
+
+  /**
+   * @generated from field: string sha256 = 4;
+   */
+  sha256: string;
+
+  /**
+   * @generated from field: string text = 5;
+   */
+  text: string;
+
+  /**
+   * float32 little-endian, with its model; empty when none is known.
+   *
+   * @generated from field: bytes vector = 6;
+   */
+  vector: Uint8Array;
+
+  /**
+   * @generated from field: string model_id = 7;
+   */
+  modelId: string;
+};
+
+/**
+ * Describes the message mindlog.v1.TierMove.
+ * Use `create(TierMoveSchema)` to create a new message.
+ */
+export const TierMoveSchema: GenMessage<TierMove> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 27);
+
+/**
+ * @generated from message mindlog.v1.EntitySummary
+ */
+export type EntitySummary = Message<"mindlog.v1.EntitySummary"> & {
+  /**
+   * @generated from field: string entity_id = 1;
+   */
+  entityId: string;
+
+  /**
+   * @generated from field: string summary = 2;
+   */
+  summary: string;
+};
+
+/**
+ * Describes the message mindlog.v1.EntitySummary.
+ * Use `create(EntitySummarySchema)` to create a new message.
+ */
+export const EntitySummarySchema: GenMessage<EntitySummary> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 28);
+
+/**
+ * @generated from message mindlog.v1.Reembedded
+ */
+export type Reembedded = Message<"mindlog.v1.Reembedded"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: bytes vector = 2;
+   */
+  vector: Uint8Array;
+};
+
+/**
+ * Describes the message mindlog.v1.Reembedded.
+ * Use `create(ReembeddedSchema)` to create a new message.
+ */
+export const ReembeddedSchema: GenMessage<Reembedded> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 29);
+
+/**
+ * @generated from message mindlog.v1.PinChange
+ */
+export type PinChange = Message<"mindlog.v1.PinChange"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: bool pinned = 2;
+   */
+  pinned: boolean;
+};
+
+/**
+ * Describes the message mindlog.v1.PinChange.
+ * Use `create(PinChangeSchema)` to create a new message.
+ */
+export const PinChangeSchema: GenMessage<PinChange> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 30);
+
+/**
+ * Command body 21: lifecycle changes of one user scope from a consolidation
+ * worker or an operator (PLAN 12.6, ADR-0033), applied in one batch with the
+ * worker's checkpoint, the jobs it enqueues and the completion of its own job.
+ *
+ * @generated from message mindlog.v1.MemoryMaintain
+ */
+export type MemoryMaintain = Message<"mindlog.v1.MemoryMaintain"> & {
+  /**
+   * @generated from field: string user = 1;
+   */
+  user: string;
+
+  /**
+   * @generated from field: repeated mindlog.v1.MemoryEvolve evolve = 2;
+   */
+  evolve: MemoryEvolve[];
+
+  /**
+   * @generated from field: repeated mindlog.v1.TierMove tier = 3;
+   */
+  tier: TierMove[];
+
+  /**
+   * @generated from field: repeated mindlog.v1.EntitySummary entities = 4;
+   */
+  entities: EntitySummary[];
+
+  /**
+   * New vectors of `reembed_model`; `reembed_done` once none of another model remain.
+   *
+   * @generated from field: repeated mindlog.v1.Reembedded reembed = 5;
+   */
+  reembed: Reembedded[];
+
+  /**
+   * @generated from field: string reembed_model = 6;
+   */
+  reembedModel: string;
+
+  /**
+   * @generated from field: bool reembed_done = 7;
+   */
+  reembedDone: boolean;
+
+  /**
+   * @generated from field: repeated mindlog.v1.PinChange pin = 8;
+   */
+  pin: PinChange[];
+
+  /**
+   * @generated from field: repeated mindlog.v1.JobSpec enqueue = 9;
+   */
+  enqueue: JobSpec[];
+
+  /**
+   * @generated from field: mindlog.v1.JobRef complete = 10;
+   */
+  complete?: JobRef | undefined;
+
+  /**
+   * Worker kind and where it stopped.
+   *
+   * @generated from field: string checkpoint_worker = 11;
+   */
+  checkpointWorker: string;
+
+  /**
+   * @generated from field: string checkpoint = 12;
+   */
+  checkpoint: string;
+
+  /**
+   * From the tick: the next tick to enqueue; with `tick` and none, ticking stops.
+   *
+   * @generated from field: mindlog.v1.JobSpec next_tick = 13;
+   */
+  nextTick?: JobSpec | undefined;
+
+  /**
+   * @generated from field: bool tick = 14;
+   */
+  tick: boolean;
+};
+
+/**
+ * Describes the message mindlog.v1.MemoryMaintain.
+ * Use `create(MemoryMaintainSchema)` to create a new message.
+ */
+export const MemoryMaintainSchema: GenMessage<MemoryMaintain> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 31);
+
+/**
+ * Command body 23: memories a recall returned (PLAN 12.4 stage 10). Apply
+ * raises each one's strength by the spacing rule of PLAN 13.7.
+ *
+ * @generated from message mindlog.v1.MemoryRecallStats
+ */
+export type MemoryRecallStats = Message<"mindlog.v1.MemoryRecallStats"> & {
+  /**
+   * @generated from field: string user = 1;
+   */
+  user: string;
+
+  /**
+   * @generated from field: repeated string ids = 2;
+   */
+  ids: string[];
+};
+
+/**
+ * Describes the message mindlog.v1.MemoryRecallStats.
+ * Use `create(MemoryRecallStatsSchema)` to create a new message.
+ */
+export const MemoryRecallStatsSchema: GenMessage<MemoryRecallStats> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 32);
 

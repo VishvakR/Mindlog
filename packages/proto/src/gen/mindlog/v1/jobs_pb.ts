@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/jobs.proto.
  */
 export const file_mindlog_v1_jobs: GenFile = /*@__PURE__*/
-  fileDesc("ChVtaW5kbG9nL3YxL2pvYnMucHJvdG8SCm1pbmRsb2cudjEiRwoHSm9iU3BlYxIKCgJpZBgBIAEoCRIMCgRraW5kGAIgASgJEg8KB3BheWxvYWQYAyABKAwSEQoJcnVuX2F0X21zGAQgASgEIrUBCgNKb2ISCgoCaWQYASABKAkSDAoEa2luZBgCIAEoCRIPCgdwYXlsb2FkGAMgASgMEiMKBXN0YXRlGAQgASgOMhQubWluZGxvZy52MS5Kb2JTdGF0ZRIQCghhdHRlbXB0cxgFIAEoDRIRCglydW5fYXRfbXMYBiABKAQSFgoObGVhc2VfdW50aWxfbXMYByABKAQSDQoFZXJyb3IYCCABKAkSEgoKY3JlYXRlZF9hdBgJIAEoBCI2CghKb2JMZWFzZRIMCgR1c2VyGAEgASgJEgoKAmlkGAIgASgJEhAKCGxlYXNlX21zGAMgASgEIkcKC0pvYkNvbXBsZXRlEgwKBHVzZXIYASABKAkSCgoCaWQYAiABKAkSDwoHYXR0ZW1wdBgDIAEoDRINCgVlcnJvchgEIAEoCSJCCgpKb2JPdXRjb21lEg8KB2F0dGVtcHQYASABKA0SIwoFc3RhdGUYAiABKA4yFC5taW5kbG9nLnYxLkpvYlN0YXRlKnkKCEpvYlN0YXRlEhkKFUpPQl9TVEFURV9VTlNQRUNJRklFRBAAEhQKEEpPQl9TVEFURV9RVUVVRUQQARIUChBKT0JfU1RBVEVfTEVBU0VEEAISEgoOSk9CX1NUQVRFX0RPTkUQAxISCg5KT0JfU1RBVEVfREVBRBAEYgZwcm90bzM");
+  fileDesc("ChVtaW5kbG9nL3YxL2pvYnMucHJvdG8SCm1pbmRsb2cudjEiRwoHSm9iU3BlYxIKCgJpZBgBIAEoCRIMCgRraW5kGAIgASgJEg8KB3BheWxvYWQYAyABKAwSEQoJcnVuX2F0X21zGAQgASgEIsgBCgNKb2ISCgoCaWQYASABKAkSDAoEa2luZBgCIAEoCRIPCgdwYXlsb2FkGAMgASgMEiMKBXN0YXRlGAQgASgOMhQubWluZGxvZy52MS5Kb2JTdGF0ZRIQCghhdHRlbXB0cxgFIAEoDRIRCglydW5fYXRfbXMYBiABKAQSFgoObGVhc2VfdW50aWxfbXMYByABKAQSDQoFZXJyb3IYCCABKAkSEgoKY3JlYXRlZF9hdBgJIAEoBBIRCglkZWZlcnJhbHMYCiABKA0iNgoISm9iTGVhc2USDAoEdXNlchgBIAEoCRIKCgJpZBgCIAEoCRIQCghsZWFzZV9tcxgDIAEoBCJfCgtKb2JDb21wbGV0ZRIMCgR1c2VyGAEgASgJEgoKAmlkGAIgASgJEg8KB2F0dGVtcHQYAyABKA0SDQoFZXJyb3IYBCABKAkSFgoOZGVmZXJfdW50aWxfbXMYBSABKAQiQgoKSm9iT3V0Y29tZRIPCgdhdHRlbXB0GAEgASgNEiMKBXN0YXRlGAIgASgOMhQubWluZGxvZy52MS5Kb2JTdGF0ZSp5CghKb2JTdGF0ZRIZChVKT0JfU1RBVEVfVU5TUEVDSUZJRUQQABIUChBKT0JfU1RBVEVfUVVFVUVEEAESFAoQSk9CX1NUQVRFX0xFQVNFRBACEhIKDkpPQl9TVEFURV9ET05FEAMSEgoOSk9CX1NUQVRFX0RFQUQQBGIGcHJvdG8z");
 
 /**
  * A job to enqueue, chosen by the proposer.
@@ -108,6 +108,13 @@ export type Job = Message<"mindlog.v1.Job"> & {
    * @generated from field: uint64 created_at = 9;
    */
   createdAt: bigint;
+
+  /**
+   * Leases that ended deferred (out of budget); they do not count toward dead.
+   *
+   * @generated from field: uint32 deferrals = 10;
+   */
+  deferrals: number;
 };
 
 /**
@@ -171,6 +178,13 @@ export type JobComplete = Message<"mindlog.v1.JobComplete"> & {
    * @generated from field: string error = 4;
    */
   error: string;
+
+  /**
+   * With no error: run again at this time (ms) instead of finishing (a deferral, ADR-0033).
+   *
+   * @generated from field: uint64 defer_until_ms = 5;
+   */
+  deferUntilMs: bigint;
 };
 
 /**

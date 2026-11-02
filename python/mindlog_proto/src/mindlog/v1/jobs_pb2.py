@@ -24,23 +24,23 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15mindlog/v1/jobs.proto\x12\nmindlog.v1\"G\n\x07JobSpec\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04kind\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x11\n\trun_at_ms\x18\x04 \x01(\x04\"\xb5\x01\n\x03Job\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04kind\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12#\n\x05state\x18\x04 \x01(\x0e\x32\x14.mindlog.v1.JobState\x12\x10\n\x08\x61ttempts\x18\x05 \x01(\r\x12\x11\n\trun_at_ms\x18\x06 \x01(\x04\x12\x16\n\x0elease_until_ms\x18\x07 \x01(\x04\x12\r\n\x05\x65rror\x18\x08 \x01(\t\x12\x12\n\ncreated_at\x18\t \x01(\x04\"6\n\x08JobLease\x12\x0c\n\x04user\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\x12\x10\n\x08lease_ms\x18\x03 \x01(\x04\"G\n\x0bJobComplete\x12\x0c\n\x04user\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\x12\x0f\n\x07\x61ttempt\x18\x03 \x01(\r\x12\r\n\x05\x65rror\x18\x04 \x01(\t\"B\n\nJobOutcome\x12\x0f\n\x07\x61ttempt\x18\x01 \x01(\r\x12#\n\x05state\x18\x02 \x01(\x0e\x32\x14.mindlog.v1.JobState*y\n\x08JobState\x12\x19\n\x15JOB_STATE_UNSPECIFIED\x10\x00\x12\x14\n\x10JOB_STATE_QUEUED\x10\x01\x12\x14\n\x10JOB_STATE_LEASED\x10\x02\x12\x12\n\x0eJOB_STATE_DONE\x10\x03\x12\x12\n\x0eJOB_STATE_DEAD\x10\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15mindlog/v1/jobs.proto\x12\nmindlog.v1\"G\n\x07JobSpec\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04kind\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x11\n\trun_at_ms\x18\x04 \x01(\x04\"\xc8\x01\n\x03Job\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04kind\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12#\n\x05state\x18\x04 \x01(\x0e\x32\x14.mindlog.v1.JobState\x12\x10\n\x08\x61ttempts\x18\x05 \x01(\r\x12\x11\n\trun_at_ms\x18\x06 \x01(\x04\x12\x16\n\x0elease_until_ms\x18\x07 \x01(\x04\x12\r\n\x05\x65rror\x18\x08 \x01(\t\x12\x12\n\ncreated_at\x18\t \x01(\x04\x12\x11\n\tdeferrals\x18\n \x01(\r\"6\n\x08JobLease\x12\x0c\n\x04user\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\x12\x10\n\x08lease_ms\x18\x03 \x01(\x04\"_\n\x0bJobComplete\x12\x0c\n\x04user\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\x12\x0f\n\x07\x61ttempt\x18\x03 \x01(\r\x12\r\n\x05\x65rror\x18\x04 \x01(\t\x12\x16\n\x0e\x64\x65\x66\x65r_until_ms\x18\x05 \x01(\x04\"B\n\nJobOutcome\x12\x0f\n\x07\x61ttempt\x18\x01 \x01(\r\x12#\n\x05state\x18\x02 \x01(\x0e\x32\x14.mindlog.v1.JobState*y\n\x08JobState\x12\x19\n\x15JOB_STATE_UNSPECIFIED\x10\x00\x12\x14\n\x10JOB_STATE_QUEUED\x10\x01\x12\x14\n\x10JOB_STATE_LEASED\x10\x02\x12\x12\n\x0eJOB_STATE_DONE\x10\x03\x12\x12\n\x0eJOB_STATE_DEAD\x10\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'mindlog.v1.jobs_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_JOBSTATE']._serialized_start=491
-  _globals['_JOBSTATE']._serialized_end=612
+  _globals['_JOBSTATE']._serialized_start=534
+  _globals['_JOBSTATE']._serialized_end=655
   _globals['_JOBSPEC']._serialized_start=37
   _globals['_JOBSPEC']._serialized_end=108
   _globals['_JOB']._serialized_start=111
-  _globals['_JOB']._serialized_end=292
-  _globals['_JOBLEASE']._serialized_start=294
-  _globals['_JOBLEASE']._serialized_end=348
-  _globals['_JOBCOMPLETE']._serialized_start=350
-  _globals['_JOBCOMPLETE']._serialized_end=421
-  _globals['_JOBOUTCOME']._serialized_start=423
-  _globals['_JOBOUTCOME']._serialized_end=489
+  _globals['_JOB']._serialized_end=311
+  _globals['_JOBLEASE']._serialized_start=313
+  _globals['_JOBLEASE']._serialized_end=367
+  _globals['_JOBCOMPLETE']._serialized_start=369
+  _globals['_JOBCOMPLETE']._serialized_end=464
+  _globals['_JOBOUTCOME']._serialized_start=466
+  _globals['_JOBOUTCOME']._serialized_end=532
 # @@protoc_insertion_point(module_scope)

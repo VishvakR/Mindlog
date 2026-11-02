@@ -38,6 +38,8 @@ message Job {
   string error = 8;
   // HLC of the enqueueing command.
   uint64 created_at = 9;
+  // Leases that ended deferred (out of budget); they do not count toward dead.
+  uint32 deferrals = 10;
 }
 
 // Command body 71: lease a due job (or one whose lease expired) for lease_ms.
@@ -53,6 +55,8 @@ message JobComplete {
   string id = 2;
   uint32 attempt = 3;
   string error = 4;
+  // With no error: run again at this time (ms) instead of finishing (a deferral, ADR-0033).
+  uint64 defer_until_ms = 5;
 }
 
 // Result of a lease or completion.

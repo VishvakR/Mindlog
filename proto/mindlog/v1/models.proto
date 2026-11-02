@@ -127,6 +127,8 @@ message ExtractFactsResponse {
 message SummarizeRequest {
   repeated string texts = 1;
   string instruction = 2;
+  // Longest summary wanted, in characters; 0 lets the model choose.
+  uint32 max_chars = 3;
 }
 
 message SummarizeResponse {

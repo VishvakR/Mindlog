@@ -28,7 +28,7 @@ class MemorySource(_message.Message):
     def __init__(self, type: _Optional[str] = ..., ref: _Optional[str] = ..., principal: _Optional[str] = ...) -> None: ...
 
 class MemoryRecord(_message.Message):
-    __slots__ = ("id", "user", "agent", "session", "kind", "text", "entities", "links", "source", "trust", "importance", "strength", "created_at", "expired_at", "tags", "version", "embedding_model", "log_index", "branch", "valid_from", "valid_to", "recall_count", "last_recalled_at", "meta_json", "forget_reason", "terms", "term_length")
+    __slots__ = ("id", "user", "agent", "session", "kind", "text", "entities", "links", "source", "trust", "importance", "strength", "created_at", "expired_at", "tags", "version", "embedding_model", "log_index", "branch", "valid_from", "valid_to", "recall_count", "last_recalled_at", "meta_json", "forget_reason", "terms", "term_length", "tier", "pinned", "cold_segment", "cold_sha256")
     ID_FIELD_NUMBER: _ClassVar[int]
     USER_FIELD_NUMBER: _ClassVar[int]
     AGENT_FIELD_NUMBER: _ClassVar[int]
@@ -56,6 +56,10 @@ class MemoryRecord(_message.Message):
     FORGET_REASON_FIELD_NUMBER: _ClassVar[int]
     TERMS_FIELD_NUMBER: _ClassVar[int]
     TERM_LENGTH_FIELD_NUMBER: _ClassVar[int]
+    TIER_FIELD_NUMBER: _ClassVar[int]
+    PINNED_FIELD_NUMBER: _ClassVar[int]
+    COLD_SEGMENT_FIELD_NUMBER: _ClassVar[int]
+    COLD_SHA256_FIELD_NUMBER: _ClassVar[int]
     id: str
     user: str
     agent: str
@@ -83,7 +87,11 @@ class MemoryRecord(_message.Message):
     forget_reason: str
     terms: _containers.RepeatedCompositeFieldContainer[TermCount]
     term_length: int
-    def __init__(self, id: _Optional[str] = ..., user: _Optional[str] = ..., agent: _Optional[str] = ..., session: _Optional[str] = ..., kind: _Optional[str] = ..., text: _Optional[str] = ..., entities: _Optional[_Iterable[str]] = ..., links: _Optional[_Iterable[_Union[MemoryLink, _Mapping]]] = ..., source: _Optional[_Union[MemorySource, _Mapping]] = ..., trust: _Optional[str] = ..., importance: _Optional[float] = ..., strength: _Optional[float] = ..., created_at: _Optional[int] = ..., expired_at: _Optional[int] = ..., tags: _Optional[_Iterable[str]] = ..., version: _Optional[int] = ..., embedding_model: _Optional[str] = ..., log_index: _Optional[int] = ..., branch: _Optional[str] = ..., valid_from: _Optional[int] = ..., valid_to: _Optional[int] = ..., recall_count: _Optional[int] = ..., last_recalled_at: _Optional[int] = ..., meta_json: _Optional[str] = ..., forget_reason: _Optional[str] = ..., terms: _Optional[_Iterable[_Union[TermCount, _Mapping]]] = ..., term_length: _Optional[int] = ...) -> None: ...
+    tier: str
+    pinned: bool
+    cold_segment: str
+    cold_sha256: str
+    def __init__(self, id: _Optional[str] = ..., user: _Optional[str] = ..., agent: _Optional[str] = ..., session: _Optional[str] = ..., kind: _Optional[str] = ..., text: _Optional[str] = ..., entities: _Optional[_Iterable[str]] = ..., links: _Optional[_Iterable[_Union[MemoryLink, _Mapping]]] = ..., source: _Optional[_Union[MemorySource, _Mapping]] = ..., trust: _Optional[str] = ..., importance: _Optional[float] = ..., strength: _Optional[float] = ..., created_at: _Optional[int] = ..., expired_at: _Optional[int] = ..., tags: _Optional[_Iterable[str]] = ..., version: _Optional[int] = ..., embedding_model: _Optional[str] = ..., log_index: _Optional[int] = ..., branch: _Optional[str] = ..., valid_from: _Optional[int] = ..., valid_to: _Optional[int] = ..., recall_count: _Optional[int] = ..., last_recalled_at: _Optional[int] = ..., meta_json: _Optional[str] = ..., forget_reason: _Optional[str] = ..., terms: _Optional[_Iterable[_Union[TermCount, _Mapping]]] = ..., term_length: _Optional[int] = ..., tier: _Optional[str] = ..., pinned: _Optional[bool] = ..., cold_segment: _Optional[str] = ..., cold_sha256: _Optional[str] = ...) -> None: ...
 
 class MemoryVector(_message.Message):
     __slots__ = ("model_id", "vector", "kind", "trust", "agent", "session")
@@ -154,7 +162,7 @@ class JobRef(_message.Message):
     def __init__(self, id: _Optional[str] = ..., attempt: _Optional[int] = ...) -> None: ...
 
 class MemoryCommit(_message.Message):
-    __slots__ = ("user", "memories", "edges", "enqueue", "complete", "conflicts", "supersede")
+    __slots__ = ("user", "memories", "edges", "enqueue", "complete", "conflicts", "supersede", "tick", "reembed")
     USER_FIELD_NUMBER: _ClassVar[int]
     MEMORIES_FIELD_NUMBER: _ClassVar[int]
     EDGES_FIELD_NUMBER: _ClassVar[int]
@@ -162,6 +170,8 @@ class MemoryCommit(_message.Message):
     COMPLETE_FIELD_NUMBER: _ClassVar[int]
     CONFLICTS_FIELD_NUMBER: _ClassVar[int]
     SUPERSEDE_FIELD_NUMBER: _ClassVar[int]
+    TICK_FIELD_NUMBER: _ClassVar[int]
+    REEMBED_FIELD_NUMBER: _ClassVar[int]
     user: str
     memories: _containers.RepeatedCompositeFieldContainer[NewMemory]
     edges: _containers.RepeatedCompositeFieldContainer[EntityEdge]
@@ -169,7 +179,9 @@ class MemoryCommit(_message.Message):
     complete: JobRef
     conflicts: _containers.RepeatedCompositeFieldContainer[MemoryConflict]
     supersede: _containers.RepeatedCompositeFieldContainer[Supersede]
-    def __init__(self, user: _Optional[str] = ..., memories: _Optional[_Iterable[_Union[NewMemory, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[EntityEdge, _Mapping]]] = ..., enqueue: _Optional[_Iterable[_Union[_jobs_pb2.JobSpec, _Mapping]]] = ..., complete: _Optional[_Union[JobRef, _Mapping]] = ..., conflicts: _Optional[_Iterable[_Union[MemoryConflict, _Mapping]]] = ..., supersede: _Optional[_Iterable[_Union[Supersede, _Mapping]]] = ...) -> None: ...
+    tick: _jobs_pb2.JobSpec
+    reembed: bool
+    def __init__(self, user: _Optional[str] = ..., memories: _Optional[_Iterable[_Union[NewMemory, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[EntityEdge, _Mapping]]] = ..., enqueue: _Optional[_Iterable[_Union[_jobs_pb2.JobSpec, _Mapping]]] = ..., complete: _Optional[_Union[JobRef, _Mapping]] = ..., conflicts: _Optional[_Iterable[_Union[MemoryConflict, _Mapping]]] = ..., supersede: _Optional[_Iterable[_Union[Supersede, _Mapping]]] = ..., tick: _Optional[_Union[_jobs_pb2.JobSpec, _Mapping]] = ..., reembed: _Optional[bool] = ...) -> None: ...
 
 class MemoryConflict(_message.Message):
     __slots__ = ("id", "a", "b", "score_ab", "score_ba", "detected_at", "status", "policy", "origin", "model_id", "keep", "resolved_by", "resolved_at")
@@ -250,16 +262,20 @@ class MemoryForget(_message.Message):
     def __init__(self, user: _Optional[str] = ..., ids: _Optional[_Iterable[str]] = ..., reason: _Optional[str] = ..., source_ref: _Optional[str] = ..., cascade_limit: _Optional[int] = ...) -> None: ...
 
 class MemoryEntity(_message.Message):
-    __slots__ = ("name", "type", "mention_count", "created_at")
+    __slots__ = ("name", "type", "mention_count", "created_at", "summary", "summary_mentions")
     NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     MENTION_COUNT_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_MENTIONS_FIELD_NUMBER: _ClassVar[int]
     name: str
     type: str
     mention_count: int
     created_at: int
-    def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., mention_count: _Optional[int] = ..., created_at: _Optional[int] = ...) -> None: ...
+    summary: str
+    summary_mentions: int
+    def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., mention_count: _Optional[int] = ..., created_at: _Optional[int] = ..., summary: _Optional[str] = ..., summary_mentions: _Optional[int] = ...) -> None: ...
 
 class MemoryEdge(_message.Message):
     __slots__ = ("weight", "memories", "created_at")
@@ -344,7 +360,7 @@ class EdgeWeight(_message.Message):
     def __init__(self, src: _Optional[str] = ..., relation: _Optional[str] = ..., dst: _Optional[str] = ..., weight: _Optional[float] = ..., memories: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class BranchMerge(_message.Message):
-    __slots__ = ("user", "name", "policy", "main_generation", "adds", "records", "edges", "conflicts", "supersede", "rejected")
+    __slots__ = ("user", "name", "policy", "main_generation", "adds", "records", "edges", "conflicts", "supersede", "rejected", "branch_generation")
     USER_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     POLICY_FIELD_NUMBER: _ClassVar[int]
@@ -355,6 +371,7 @@ class BranchMerge(_message.Message):
     CONFLICTS_FIELD_NUMBER: _ClassVar[int]
     SUPERSEDE_FIELD_NUMBER: _ClassVar[int]
     REJECTED_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_GENERATION_FIELD_NUMBER: _ClassVar[int]
     user: str
     name: str
     policy: str
@@ -365,7 +382,8 @@ class BranchMerge(_message.Message):
     conflicts: _containers.RepeatedCompositeFieldContainer[MemoryConflict]
     supersede: _containers.RepeatedCompositeFieldContainer[Supersede]
     rejected: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, user: _Optional[str] = ..., name: _Optional[str] = ..., policy: _Optional[str] = ..., main_generation: _Optional[int] = ..., adds: _Optional[_Iterable[_Union[BranchAdd, _Mapping]]] = ..., records: _Optional[_Iterable[_Union[RecordFields, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[EdgeWeight, _Mapping]]] = ..., conflicts: _Optional[_Iterable[_Union[MemoryConflict, _Mapping]]] = ..., supersede: _Optional[_Iterable[_Union[Supersede, _Mapping]]] = ..., rejected: _Optional[_Iterable[str]] = ...) -> None: ...
+    branch_generation: int
+    def __init__(self, user: _Optional[str] = ..., name: _Optional[str] = ..., policy: _Optional[str] = ..., main_generation: _Optional[int] = ..., adds: _Optional[_Iterable[_Union[BranchAdd, _Mapping]]] = ..., records: _Optional[_Iterable[_Union[RecordFields, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[EdgeWeight, _Mapping]]] = ..., conflicts: _Optional[_Iterable[_Union[MemoryConflict, _Mapping]]] = ..., supersede: _Optional[_Iterable[_Union[Supersede, _Mapping]]] = ..., rejected: _Optional[_Iterable[str]] = ..., branch_generation: _Optional[int] = ...) -> None: ...
 
 class BranchDrop(_message.Message):
     __slots__ = ("user", "name")
@@ -374,3 +392,145 @@ class BranchDrop(_message.Message):
     user: str
     name: str
     def __init__(self, user: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class ScopeLifecycle(_message.Message):
+    __slots__ = ("last_write_ms", "writes_since_sleep", "graph_size", "graph_size_at_theme", "embed_model", "reembed", "last_run_ms", "checkpoints", "tick_at_ms", "hot", "cold", "writes_since_evolve")
+    class LastRunMsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: int
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[int] = ...) -> None: ...
+    class CheckpointsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    LAST_WRITE_MS_FIELD_NUMBER: _ClassVar[int]
+    WRITES_SINCE_SLEEP_FIELD_NUMBER: _ClassVar[int]
+    GRAPH_SIZE_FIELD_NUMBER: _ClassVar[int]
+    GRAPH_SIZE_AT_THEME_FIELD_NUMBER: _ClassVar[int]
+    EMBED_MODEL_FIELD_NUMBER: _ClassVar[int]
+    REEMBED_FIELD_NUMBER: _ClassVar[int]
+    LAST_RUN_MS_FIELD_NUMBER: _ClassVar[int]
+    CHECKPOINTS_FIELD_NUMBER: _ClassVar[int]
+    TICK_AT_MS_FIELD_NUMBER: _ClassVar[int]
+    HOT_FIELD_NUMBER: _ClassVar[int]
+    COLD_FIELD_NUMBER: _ClassVar[int]
+    WRITES_SINCE_EVOLVE_FIELD_NUMBER: _ClassVar[int]
+    last_write_ms: int
+    writes_since_sleep: int
+    graph_size: int
+    graph_size_at_theme: int
+    embed_model: str
+    reembed: bool
+    last_run_ms: _containers.ScalarMap[str, int]
+    checkpoints: _containers.ScalarMap[str, str]
+    tick_at_ms: int
+    hot: int
+    cold: int
+    writes_since_evolve: int
+    def __init__(self, last_write_ms: _Optional[int] = ..., writes_since_sleep: _Optional[int] = ..., graph_size: _Optional[int] = ..., graph_size_at_theme: _Optional[int] = ..., embed_model: _Optional[str] = ..., reembed: _Optional[bool] = ..., last_run_ms: _Optional[_Mapping[str, int]] = ..., checkpoints: _Optional[_Mapping[str, str]] = ..., tick_at_ms: _Optional[int] = ..., hot: _Optional[int] = ..., cold: _Optional[int] = ..., writes_since_evolve: _Optional[int] = ...) -> None: ...
+
+class MemoryEvolve(_message.Message):
+    __slots__ = ("id", "tags", "set_tags", "meta_json", "importance", "set_importance", "add_links")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    SET_TAGS_FIELD_NUMBER: _ClassVar[int]
+    META_JSON_FIELD_NUMBER: _ClassVar[int]
+    IMPORTANCE_FIELD_NUMBER: _ClassVar[int]
+    SET_IMPORTANCE_FIELD_NUMBER: _ClassVar[int]
+    ADD_LINKS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    set_tags: bool
+    meta_json: str
+    importance: float
+    set_importance: bool
+    add_links: _containers.RepeatedCompositeFieldContainer[MemoryLink]
+    def __init__(self, id: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., set_tags: _Optional[bool] = ..., meta_json: _Optional[str] = ..., importance: _Optional[float] = ..., set_importance: _Optional[bool] = ..., add_links: _Optional[_Iterable[_Union[MemoryLink, _Mapping]]] = ...) -> None: ...
+
+class TierMove(_message.Message):
+    __slots__ = ("id", "tier", "segment", "sha256", "text", "vector", "model_id")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TIER_FIELD_NUMBER: _ClassVar[int]
+    SEGMENT_FIELD_NUMBER: _ClassVar[int]
+    SHA256_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    tier: str
+    segment: str
+    sha256: str
+    text: str
+    vector: bytes
+    model_id: str
+    def __init__(self, id: _Optional[str] = ..., tier: _Optional[str] = ..., segment: _Optional[str] = ..., sha256: _Optional[str] = ..., text: _Optional[str] = ..., vector: _Optional[bytes] = ..., model_id: _Optional[str] = ...) -> None: ...
+
+class EntitySummary(_message.Message):
+    __slots__ = ("entity_id", "summary")
+    ENTITY_ID_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    entity_id: str
+    summary: str
+    def __init__(self, entity_id: _Optional[str] = ..., summary: _Optional[str] = ...) -> None: ...
+
+class Reembedded(_message.Message):
+    __slots__ = ("id", "vector")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    vector: bytes
+    def __init__(self, id: _Optional[str] = ..., vector: _Optional[bytes] = ...) -> None: ...
+
+class PinChange(_message.Message):
+    __slots__ = ("id", "pinned")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    PINNED_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    pinned: bool
+    def __init__(self, id: _Optional[str] = ..., pinned: _Optional[bool] = ...) -> None: ...
+
+class MemoryMaintain(_message.Message):
+    __slots__ = ("user", "evolve", "tier", "entities", "reembed", "reembed_model", "reembed_done", "pin", "enqueue", "complete", "checkpoint_worker", "checkpoint", "next_tick", "tick")
+    USER_FIELD_NUMBER: _ClassVar[int]
+    EVOLVE_FIELD_NUMBER: _ClassVar[int]
+    TIER_FIELD_NUMBER: _ClassVar[int]
+    ENTITIES_FIELD_NUMBER: _ClassVar[int]
+    REEMBED_FIELD_NUMBER: _ClassVar[int]
+    REEMBED_MODEL_FIELD_NUMBER: _ClassVar[int]
+    REEMBED_DONE_FIELD_NUMBER: _ClassVar[int]
+    PIN_FIELD_NUMBER: _ClassVar[int]
+    ENQUEUE_FIELD_NUMBER: _ClassVar[int]
+    COMPLETE_FIELD_NUMBER: _ClassVar[int]
+    CHECKPOINT_WORKER_FIELD_NUMBER: _ClassVar[int]
+    CHECKPOINT_FIELD_NUMBER: _ClassVar[int]
+    NEXT_TICK_FIELD_NUMBER: _ClassVar[int]
+    TICK_FIELD_NUMBER: _ClassVar[int]
+    user: str
+    evolve: _containers.RepeatedCompositeFieldContainer[MemoryEvolve]
+    tier: _containers.RepeatedCompositeFieldContainer[TierMove]
+    entities: _containers.RepeatedCompositeFieldContainer[EntitySummary]
+    reembed: _containers.RepeatedCompositeFieldContainer[Reembedded]
+    reembed_model: str
+    reembed_done: bool
+    pin: _containers.RepeatedCompositeFieldContainer[PinChange]
+    enqueue: _containers.RepeatedCompositeFieldContainer[_jobs_pb2.JobSpec]
+    complete: JobRef
+    checkpoint_worker: str
+    checkpoint: str
+    next_tick: _jobs_pb2.JobSpec
+    tick: bool
+    def __init__(self, user: _Optional[str] = ..., evolve: _Optional[_Iterable[_Union[MemoryEvolve, _Mapping]]] = ..., tier: _Optional[_Iterable[_Union[TierMove, _Mapping]]] = ..., entities: _Optional[_Iterable[_Union[EntitySummary, _Mapping]]] = ..., reembed: _Optional[_Iterable[_Union[Reembedded, _Mapping]]] = ..., reembed_model: _Optional[str] = ..., reembed_done: _Optional[bool] = ..., pin: _Optional[_Iterable[_Union[PinChange, _Mapping]]] = ..., enqueue: _Optional[_Iterable[_Union[_jobs_pb2.JobSpec, _Mapping]]] = ..., complete: _Optional[_Union[JobRef, _Mapping]] = ..., checkpoint_worker: _Optional[str] = ..., checkpoint: _Optional[str] = ..., next_tick: _Optional[_Union[_jobs_pb2.JobSpec, _Mapping]] = ..., tick: _Optional[bool] = ...) -> None: ...
+
+class MemoryRecallStats(_message.Message):
+    __slots__ = ("user", "ids")
+    USER_FIELD_NUMBER: _ClassVar[int]
+    IDS_FIELD_NUMBER: _ClassVar[int]
+    user: str
+    ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, user: _Optional[str] = ..., ids: _Optional[_Iterable[str]] = ...) -> None: ...

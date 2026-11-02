@@ -36,7 +36,9 @@ message Command {
     Expire expire = 12;
     GcThreshold gc_threshold = 13;
     MemoryCommit memory_commit = 20;
+    MemoryMaintain memory_maintain = 21;
     MemoryForget memory_forget = 22;
+    MemoryRecallStats memory_recall_stats = 23;
     ConflictResolve conflict_resolve = 24;
     MemoryTrust memory_trust = 25;
     BranchCreate branch_create = 30;
@@ -63,8 +65,6 @@ message Command {
   }
 
   reserved 14 to 19;
-  reserved 21;
-  reserved 23;
   reserved 26 to 29;
   reserved 33 to 39;
   reserved 42 to 59;

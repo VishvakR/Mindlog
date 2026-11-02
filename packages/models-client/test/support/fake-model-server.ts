@@ -19,6 +19,7 @@ function withModes(fake: FakeModels, modes: Partial<Record<'embed' | 'ner', Mode
     classify: (pairs) => fake.classify(pairs),
     rerank: (q, docs) => fake.rerank(q, docs),
     extractFacts: (text) => fake.extractFacts(text),
+    summarize: (texts, instruction, options) => fake.summarize(texts, instruction, options),
     health: () => fake.health(),
   };
 }

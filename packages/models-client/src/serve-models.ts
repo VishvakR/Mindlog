@@ -15,6 +15,7 @@ import {
   NliLabel,
   RecognizeEntitiesResponseSchema,
   RerankResponseSchema,
+  SummarizeResponseSchema,
 } from '@mindlog/proto';
 import type { Models } from './ports.js';
 
@@ -98,8 +99,13 @@ export async function serveModels(
             modelId: r.modelId,
           });
         },
-        summarize() {
-          throw new ConnectError('summaries arrive in phase 8', Code.Unimplemented);
+        async summarize(req) {
+          const r = value(
+            await models.summarize(req.texts, req.instruction, {
+              ...(req.maxChars > 0 ? { maxChars: req.maxChars } : {}),
+            }),
+          );
+          return create(SummarizeResponseSchema, { summary: r.summary, modelId: r.modelId });
         },
         async health() {
           const r = value(await models.health());

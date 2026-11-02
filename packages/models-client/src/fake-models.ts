@@ -12,6 +12,8 @@ import type {
   NliResults,
   RecognizedEntities,
   RerankScores,
+  SummarizeOptions,
+  Summary,
 } from './ports.js';
 
 const DIMS = 384;
@@ -129,6 +131,27 @@ export class FakeModels implements Models {
     }));
   }
 
+  /** The first sentence of each text, joined, within `maxChars` (an extractive stand-in). */
+  summarize(
+    texts: readonly string[],
+    _instruction: string,
+    options: SummarizeOptions = {},
+  ): Promise<Result<Summary, MindlogError>> {
+    const max = options.maxChars ?? 400;
+    return this.#gate(() => {
+      let summary = '';
+      for (const t of texts) {
+        const first = (t.match(SENTENCE)?.[0] ?? t).trim();
+        if (first === '' || summary.includes(first)) continue;
+        const next = summary === '' ? first : `${summary} ${first}`;
+        if (next.length > max) break;
+        summary = next;
+      }
+      if (summary === '' && texts[0]) summary = texts[0].slice(0, max);
+      return { modelId: 'fake-summarize@1', summary };
+    });
+  }
+
   health(): Promise<Result<ModelServiceStatus, MindlogError>> {
     const capability = (c: Capability) => ({ modelId: `fake-${c}@1`, ready: true });
     return this.#gate(() => ({
@@ -139,6 +162,7 @@ export class FakeModels implements Models {
         nli: capability('nli'),
         rerank: capability('rerank'),
         extract: capability('extract'),
+        summarize: capability('summarize'),
       },
     }));
   }

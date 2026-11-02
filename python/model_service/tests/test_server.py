@@ -10,6 +10,7 @@ import pytest
 from mindlog.v1 import models_pb2, models_pb2_grpc
 from model_service.capabilities import Fact, Span
 from model_service.server import Backends, Limits, serve
+from model_service.summarize import ExtractiveSummarizer
 
 
 class FakeEmbedder:
@@ -83,6 +84,7 @@ def full() -> Backends:
         reranker=FakeReranker(),
         ner=FakeNer(),
         extractor=FakeExtractor(),
+        summarizer=ExtractiveSummarizer(FakeEmbedder()),
     )
 
 
@@ -138,25 +140,43 @@ def test_health_reports_each_capability() -> None:
             "nli": "fake-nli@1",
             "rerank": "fake-rerank@1",
             "extract": "fake-extract@1",
+            "summarize": "extractive-centroid@1+fake-embed@1",
         }
 
     run(full(), call)
 
 
-def test_a_missing_model_is_unavailable_and_summarize_is_unimplemented() -> None:
+def test_summarize_keeps_sentences_within_the_limit() -> None:
     async def call(stub: models_pb2_grpc.ModelsServiceStub) -> None:
-        with pytest.raises(grpc.aio.AioRpcError) as missing:
-            await stub.ClassifyNli(models_pb2.ClassifyNliRequest())
-        assert missing.value.code() == grpc.StatusCode.UNAVAILABLE
-        with pytest.raises(grpc.aio.AioRpcError) as summarize:
-            await stub.Summarize(models_pb2.SummarizeRequest())
-        assert summarize.value.code() == grpc.StatusCode.UNIMPLEMENTED
+        reply = await stub.Summarize(
+            models_pb2.SummarizeRequest(
+                texts=["Ana moved to Lisbon. She likes it.", "Ana works at Acme."],
+                instruction="Summarize.",
+                max_chars=60,
+            )
+        )
+        assert reply.model_id == "extractive-centroid@1+fake-embed@1"
+        assert 0 < len(reply.summary) <= 60
+
+    run(full(), call)
+
+
+def test_a_missing_model_is_unavailable() -> None:
+    async def call(stub: models_pb2_grpc.ModelsServiceStub) -> None:
+        for request in (
+            stub.ClassifyNli(models_pb2.ClassifyNliRequest()),
+            stub.Summarize(models_pb2.SummarizeRequest()),
+        ):
+            with pytest.raises(grpc.aio.AioRpcError) as missing:
+                await request
+            assert missing.value.code() == grpc.StatusCode.UNAVAILABLE
         health = await stub.Health(models_pb2.HealthRequest())
         assert [m.capability for m in health.models if not m.ready] == [
             "ner",
             "nli",
             "rerank",
             "extract",
+            "summarize",
         ]
 
     run(Backends(embedder=FakeEmbedder()), call)

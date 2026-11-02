@@ -61,3 +61,9 @@ class Extractor(Protocol):
     model_id: str
 
     def extract(self, text: str) -> list[Fact]: ...
+
+
+class Summarizer(Protocol):
+    model_id: str
+
+    def summarize(self, texts: list[str], instruction: str, max_chars: int) -> str: ...

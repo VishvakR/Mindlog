@@ -12,6 +12,8 @@ import type {
   NliResults,
   RecognizedEntities,
   RerankScores,
+  SummarizeOptions,
+  Summary,
 } from './ports.js';
 
 export interface GuardedModelsOptions {
@@ -150,6 +152,16 @@ export class GuardedModels implements Models {
 
   extractFacts(text: string, options?: CallOptions): Promise<Result<ExtractedFacts, MindlogError>> {
     return this.#guard('extract', 'extractFacts', () => this.#inner.extractFacts(text, options));
+  }
+
+  summarize(
+    texts: readonly string[],
+    instruction: string,
+    options?: SummarizeOptions,
+  ): Promise<Result<Summary, MindlogError>> {
+    return this.#guard('summarize', 'summarize', () =>
+      this.#inner.summarize(texts, instruction, options),
+    );
   }
 
   health(options?: CallOptions): Promise<Result<ModelServiceStatus, MindlogError>> {

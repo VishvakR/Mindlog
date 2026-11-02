@@ -21,6 +21,8 @@ import type {
   NliResults,
   RecognizedEntities,
   RerankScores,
+  SummarizeOptions,
+  Summary,
 } from './ports.js';
 
 export interface GrpcModelsOptions {
@@ -46,7 +48,14 @@ const NLI: Record<number, NliLabel> = {
 };
 
 const FACT_KINDS = new Set<string>(['semantic', 'procedural', 'episodic']);
-const CAPABILITIES: readonly Capability[] = ['embed', 'ner', 'nli', 'rerank', 'extract'];
+const CAPABILITIES: readonly Capability[] = [
+  'embed',
+  'ner',
+  'nli',
+  'rerank',
+  'extract',
+  'summarize',
+];
 
 function vector(bytes: Uint8Array): Float32Array {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -169,6 +178,20 @@ export class GrpcModels implements Models {
           })),
         })),
       };
+    });
+  }
+
+  summarize(
+    texts: readonly string[],
+    instruction: string,
+    options?: SummarizeOptions,
+  ): Promise<Result<Summary, MindlogError>> {
+    return this.#call('summarize', options, async (call) => {
+      const r = await this.#client.summarize(
+        { texts: [...texts], instruction, maxChars: options?.maxChars ?? 0 },
+        call,
+      );
+      return { modelId: r.modelId, summary: r.summary };
     });
   }
 

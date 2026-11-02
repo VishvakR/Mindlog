@@ -9,6 +9,7 @@ from pathlib import Path
 
 from model_service.extract import HeuristicExtractor, LlamaExtractor
 from model_service.server import Backends, Limits
+from model_service.summarize import ExtractiveSummarizer
 
 # The repo's python/model_service/models/; the image sets MODELS_DIR=/app/models.
 DEFAULT_MODELS_DIR = Path(__file__).resolve().parents[2] / "models"
@@ -74,10 +75,15 @@ def load_backends(settings: Settings) -> Backends:
         )
     else:
         extractor = HeuristicExtractor()
+    embedder = OnnxEmbedder(embed, model_id(embed)) if embed else None
+    summarizer: ExtractiveSummarizer | LlamaExtractor = (
+        extractor if isinstance(extractor, LlamaExtractor) else ExtractiveSummarizer(embedder)
+    )
     return Backends(
-        embedder=OnnxEmbedder(embed, model_id(embed)) if embed else None,
+        embedder=embedder,
         reranker=OnnxCrossEncoder(rerank, model_id(rerank)) if rerank else None,
         nli=OnnxCrossEncoder(nli, model_id(nli)) if nli else None,
         ner=GlinerOnnx(ner, model_id(ner)) if ner else None,
         extractor=extractor,
+        summarizer=summarizer,
     )

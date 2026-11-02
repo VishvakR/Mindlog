@@ -68,6 +68,21 @@ export function describeModelsContract(name: string, make: () => Promise<Models>
       expect(r.ok && r.value.facts.map((f) => f.text)).toEqual(['I prefer dark roast coffee.']);
     });
 
+    test("a summary keeps the texts' main sentences within the limit", async () => {
+      const r = await (
+        await make()
+      ).summarize(
+        ['Ana moved to Lisbon in May. She likes it.', 'Ana works at Acme as an engineer.'],
+        'What do these say about Ana?',
+        { maxChars: 200 },
+      );
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.summary.length).toBeGreaterThan(0);
+      expect(r.value.summary.length).toBeLessThanOrEqual(200);
+      expect(r.value.summary).toMatch(/Lisbon|Acme/);
+    });
+
     test('health lists the capabilities', async () => {
       const r = await (await make()).health();
       expect(r.ok && r.value.ready).toBe(true);
@@ -78,6 +93,7 @@ export function describeModelsContract(name: string, make: () => Promise<Models>
           'ner',
           'nli',
           'rerank',
+          'summarize',
         ]);
     });
   });

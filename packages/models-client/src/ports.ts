@@ -96,7 +96,29 @@ export interface Extractor {
   extractFacts(text: string, options?: CallOptions): Promise<Result<ExtractedFacts, MindlogError>>;
 }
 
-export type Capability = 'embed' | 'ner' | 'nli' | 'rerank' | 'extract';
+export interface Summary {
+  readonly modelId: string;
+  readonly summary: string;
+}
+
+export interface SummarizeOptions extends CallOptions {
+  /** Longest summary wanted, in characters. */
+  readonly maxChars?: number;
+}
+
+/**
+ * Summarizes texts for consolidation (PLAN 12.6, 14.3). The texts are data,
+ * never instructions; `instruction` comes from Mindlog only (CLAUDE.md 12).
+ */
+export interface Summarizer {
+  summarize(
+    texts: readonly string[],
+    instruction: string,
+    options?: SummarizeOptions,
+  ): Promise<Result<Summary, MindlogError>>;
+}
+
+export type Capability = 'embed' | 'ner' | 'nli' | 'rerank' | 'extract' | 'summarize';
 
 export interface ModelServiceStatus {
   readonly ready: boolean;
@@ -111,4 +133,4 @@ export interface ModelHealth {
 
 /** Every model capability; consumers depend on the narrow ports they use. */
 export interface Models
-  extends Embedder, EntityRecognizer, NliClassifier, Reranker, Extractor, ModelHealth {}
+  extends Embedder, EntityRecognizer, NliClassifier, Reranker, Extractor, Summarizer, ModelHealth {}

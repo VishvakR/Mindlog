@@ -19,6 +19,7 @@ from model_service.capabilities import (
     Extractor,
     Fact,
     Span,
+    Summarizer,
 )
 
 DEFAULT_NER_THRESHOLD = 0.5
@@ -39,6 +40,7 @@ class Backends:
     nli: CrossEncoder | None = None
     reranker: CrossEncoder | None = None
     extractor: Extractor | None = None
+    summarizer: Summarizer | None = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +73,11 @@ class ModelsServicer(models_pb2_grpc.ModelsServiceServicer):  # type: ignore[mis
             self._run_extract,
             {**common, "max_batch": 1, "max_wait_ms": 0, "executor": ThreadPoolExecutor(1)},
         )
+        self._summarize = self._batcher(
+            backends.summarizer,
+            self._run_summarize,
+            {**common, "max_batch": 1, "max_wait_ms": 0, "executor": ThreadPoolExecutor(1)},
+        )
 
     @staticmethod
     def _batcher[T, R](
@@ -101,6 +108,10 @@ class ModelsServicer(models_pb2_grpc.ModelsServiceServicer):  # type: ignore[mis
     def _run_extract(self, texts: list[str]) -> list[list[Fact]]:
         assert self._b.extractor is not None
         return [self._b.extractor.extract(t) for t in texts]
+
+    def _run_summarize(self, items: list[tuple[tuple[str, ...], str, int]]) -> list[str]:
+        assert self._b.summarizer is not None
+        return [self._b.summarizer.summarize(list(t), i, n) for t, i, n in items]
 
     async def _submit[T, R](
         self,
@@ -201,8 +212,9 @@ class ModelsServicer(models_pb2_grpc.ModelsServiceServicer):  # type: ignore[mis
     async def Summarize(
         self, request: models_pb2.SummarizeRequest, context: grpc.aio.ServicerContext[Any, Any]
     ) -> models_pb2.SummarizeResponse:
-        await context.abort(grpc.StatusCode.UNIMPLEMENTED, "summaries arrive in phase 8")
-        raise AssertionError("unreachable")
+        item = (tuple(request.texts), request.instruction, request.max_chars)
+        (summary,) = await self._submit(self._summarize, [item], context)
+        return models_pb2.SummarizeResponse(summary=summary, model_id=self._id(self._b.summarizer))
 
     async def Health(
         self, request: models_pb2.HealthRequest, context: grpc.aio.ServicerContext[Any, Any]
@@ -213,6 +225,7 @@ class ModelsServicer(models_pb2_grpc.ModelsServiceServicer):  # type: ignore[mis
             ("nli", self._b.nli, self._nli),
             ("rerank", self._b.reranker, self._rerank),
             ("extract", self._b.extractor, self._extract),
+            ("summarize", self._b.summarizer, self._summarize),
         ]
         return models_pb2.HealthResponse(
             ready=True,

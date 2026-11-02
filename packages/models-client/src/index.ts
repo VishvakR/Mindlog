@@ -19,6 +19,9 @@ export type {
   RecognizedEntities,
   Reranker,
   RerankScores,
+  SummarizeOptions,
+  Summarizer,
+  Summary,
 } from './ports.js';
 export { FakeModels } from './fake-models.js';
 export type { GrpcModelsOptions } from './grpc-models.js';

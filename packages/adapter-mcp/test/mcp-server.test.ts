@@ -29,6 +29,11 @@ const memoryView = (id: string, text: string) => ({
   importance: 0.7,
   tags: [],
   createdAtMs: 1_760_000_000_000,
+  tier: 'hot' as const,
+  pinned: false,
+  version: 1,
+  strength: 7.3,
+  recallCount: 0,
 });
 
 /** A stand-in memory service that records what the adapter asked. */
@@ -101,7 +106,9 @@ function stubMemory() {
     }),
     dropBranch: record('dropBranch', { ids: [], count: 0 }),
     forget: record('forget', { ids: ['m1'], count: 1 }),
-    history: record('history', [{ version: '7', atMs: 1, memory: memoryView('m1', 'x') }]),
+    history: record('history', [
+      { version: '7', revision: 1, atMs: 1, memory: memoryView('m1', 'x') },
+    ]),
     graph: (caller, input) => {
       asked.push({ op: 'graph', caller, input });
       return Promise.resolve(err(mindlogError('NOT_FOUND', 'no entity Zed')));
@@ -186,6 +193,7 @@ describe('MCP over Streamable HTTP', () => {
       'history',
       'recall',
       'remember',
+      'remember_tool_call',
       'resolve_conflict',
     ]);
     for (const t of tools.tools) expect(t.description?.length ?? 0).toBeGreaterThan(40);
@@ -238,6 +246,25 @@ describe('MCP over Streamable HTTP', () => {
       op: 'resolve',
       input: { scope: { user: 'alice' }, id: 'c1', keep: 'both', validFrom: '2026-03-01' },
     });
+  });
+
+  test('remember_tool_call stores a trace, and recall can include the cold tier', async () => {
+    const { connect, asked } = await start();
+    const client = await connect('mlk_alice');
+    const traced = await client.callTool({
+      name: 'remember_tool_call',
+      arguments: { tool: 'deploy', args: { env: 'prod' }, result: 'timeout', success: false },
+    });
+    expect(traced.content).toEqual([{ type: 'text', text: 'Recorded the failed deploy call.' }]);
+    expect(asked.at(-1)).toMatchObject({
+      op: 'remember',
+      input: {
+        scope: { user: 'alice' },
+        toolTrace: { tool: 'deploy', success: false, args: { env: 'prod' }, result: 'timeout' },
+      },
+    });
+    await client.callTool({ name: 'recall', arguments: { query: 'deploy', include_cold: true } });
+    expect(asked.at(-1)).toMatchObject({ op: 'recall', input: { includeCold: true } });
   });
 
   test('branch tools run as the key, and recall takes a branch', async () => {

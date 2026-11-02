@@ -31,6 +31,15 @@ import {
   memWatchCommand,
 } from './branches.js';
 import { memConflictsCommand, memResolveCommand, memTrustCommand } from './review.js';
+import {
+  memConsolidateCommand,
+  memExportCommand,
+  memImportCommand,
+  memJobsCommand,
+  memPinCommand,
+  memTraceCommand,
+  memUnpinCommand,
+} from './lifecycle.js';
 import { quitCommand, resetCommand, selectCommand } from './session-commands.js';
 
 /** Every command the RESP adapter answers itself. */
@@ -64,6 +73,13 @@ export function createConnectionCommands(): ConnectionCommandRegistry {
     memMergeCommand,
     memDropCommand,
     memWatchCommand,
+    memPinCommand,
+    memUnpinCommand,
+    memConsolidateCommand,
+    memJobsCommand,
+    memExportCommand,
+    memImportCommand,
+    memTraceCommand,
     cacheSetCommand,
     cacheGetCommand,
     cacheDelCommand,

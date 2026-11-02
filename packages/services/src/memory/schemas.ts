@@ -1,5 +1,6 @@
 import type { AsOf } from '@mindlog/memory';
 import {
+  LIFECYCLE_JOBS,
   MEMORY_KINDS,
   MERGE_POLICIES,
   RECIPE_NAMES,
@@ -48,12 +49,22 @@ const asOf = z.union([
 export const toAsOf = (a: z.output<typeof asOf> | undefined): AsOf | undefined =>
   a === undefined ? undefined : 'index' in a ? { index: BigInt(a.index) } : { timeMs: a.time };
 
+/** A tool call to keep as a procedural trace (PLAN 13.11); large parts are truncated. */
+const toolTrace = z.strictObject({
+  tool: z.string().min(1).max(128),
+  args: z.unknown().optional(),
+  result: z.unknown().optional(),
+  success: z.boolean(),
+});
+
 export const rememberSchema = z.strictObject({
   scope: memoryScopeSchema,
+  /** Required unless `toolTrace` is given (the engine refuses empty content). */
   content: z
     .string()
-    .min(1)
-    .max(64 * 1024),
+    .max(64 * 1024)
+    .default(''),
+  toolTrace: toolTrace.optional(),
   kind: kind.optional(),
   source: z
     .strictObject({ type: z.enum(SOURCE_TYPES), ref: z.string().max(512).optional() })
@@ -75,6 +86,8 @@ export const recallSchema = z.strictObject({
   inherit: z.boolean().optional(),
   kinds: z.array(kind).max(MEMORY_KINDS.length).optional(),
   includeQuarantined: z.boolean().optional(),
+  /** Also return cold-tier memories (PLAN 10.4); slower. */
+  includeCold: z.boolean().optional(),
   /** Named recall configuration (ADR-0011). */
   recipe: z.enum(RECIPE_NAMES).optional(),
   /** Also return each retriever's ranked ids and the themes found. */
@@ -192,6 +205,49 @@ export const mergeSchema = z.strictObject({
 
 export const branchesSchema = z.strictObject({ scope: memoryScopeSchema });
 
+export const pinSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  ids: z.array(memoryId).min(1).max(100),
+  /** False unpins. */
+  pinned: z.boolean().default(true),
+});
+
+/** Consolidation workers by short name (`sleep`, `dedup`, …). */
+export const WORKER_NAMES = Object.values(LIFECYCLE_JOBS)
+  .map((k) => k.replace('consolidation.', ''))
+  .filter((k) => k !== 'tick') as [string, ...string[]];
+
+export const consolidateSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  /** Workers to run now; default all of them. */
+  workers: z.array(z.enum(WORKER_NAMES)).min(1).max(WORKER_NAMES.length).optional(),
+});
+
+export const jobsSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  state: z.enum(['queued', 'leased', 'dead']).optional(),
+  limit: z.int().min(1).max(200).default(50),
+  after: z.string().min(1).max(128).optional(),
+});
+
+export const exportSchema = z.strictObject({ scope: memoryScopeSchema, asOf: asOf.optional() });
+
+export const importSchema = z.strictObject({
+  scope: memoryScopeSchema,
+  format: z.enum(['mcube', 'cogx']).default('mcube'),
+  /** The archive, base64 (at most 32 MB decoded). */
+  data: z
+    .string()
+    .min(1)
+    .max(44 * 1024 * 1024)
+    .regex(/^[A-Za-z0-9+/=\s]+$/),
+  /** Shown as the memories' source reference `import:<name>`. */
+  name: z
+    .string()
+    .regex(/^[A-Za-z0-9._ -]{1,128}$/)
+    .default('archive'),
+});
+
 export const scopesSchema = z.strictObject({ limit: z.int().min(1).max(1000).default(200) });
 
 export type RememberRequest = z.input<typeof rememberSchema>;
@@ -208,6 +264,11 @@ export type BranchRequest = z.input<typeof branchSchema>;
 export type MergeRequest = z.input<typeof mergeSchema>;
 export type BranchesRequest = z.input<typeof branchesSchema>;
 export type ScopesRequest = z.input<typeof scopesSchema>;
+export type PinRequest = z.input<typeof pinSchema>;
+export type ConsolidateRequest = z.input<typeof consolidateSchema>;
+export type JobsRequest = z.input<typeof jobsSchema>;
+export type ExportRequest = z.input<typeof exportSchema>;
+export type ImportRequest = z.input<typeof importSchema>;
 export type CacheLookupRequest = z.input<typeof cacheLookupSchema>;
 export type CacheStoreRequest = z.input<typeof cacheStoreSchema>;
 export type CacheDeleteRequest = z.input<typeof cacheDeleteSchema>;

@@ -126,6 +126,67 @@ describe('MemoryService', () => {
   });
 });
 
+describe('MemoryService lifecycle', () => {
+  test('pin, consolidate and jobs go through the route; writes need cluster version 8', async () => {
+    const m = await memoryRange({ remote: true });
+    const added = await m.service.remember(m.caller, {
+      scope: { user: 'u1' },
+      content: 'Ana lives in Lisbon.',
+      kind: 'semantic',
+    });
+    const id = added.ok ? (added.value.ids[0] ?? '') : '';
+    const pinned = await m.service.pin(m.caller, { scope: { user: 'u1' }, ids: [id] });
+    expect(pinned.ok && pinned.value.count).toBe(1);
+    const got = await m.service.get(m.caller, { scope: { user: 'u1' }, id });
+    expect(got.ok && got.value?.pinned).toBe(true);
+    const run = await m.service.consolidate(m.caller, {
+      scope: { user: 'u1' },
+      workers: ['dedup', 'forget'],
+    });
+    expect(run.ok && run.value.enqueued).toEqual(['consolidation.dedup', 'consolidation.forget']);
+    const jobs = await m.service.jobs(m.caller, { scope: { user: 'u1' } });
+    expect(jobs.ok && jobs.value.jobs.map((j) => j.kind).sort()).toEqual([
+      'consolidation.dedup',
+      'consolidation.forget',
+      'consolidation.tick',
+    ]);
+    expect(jobs.ok && jobs.value.lifecycle).toMatchObject({ hot: 1, cold: 0 });
+    expect(jobs.ok && jobs.value.jobs[0]?.why).toBeDefined();
+
+    const old = await memoryRange({ clusterVersion: 7 });
+    const refused = await old.service.pin(old.caller, { scope: { user: 'u1' }, ids: ['x'] });
+    expect(!refused.ok && refused.error.code).toBe('UNAVAILABLE');
+  });
+
+  test('a scope exports and imports as a memory cube through the service', async () => {
+    const m = await memoryRange({ remote: true });
+    for (const content of ['Ana lives in Lisbon.', 'Ana works at Acme.'])
+      await m.service.remember(m.caller, { scope: { user: 'u1' }, content, kind: 'semantic' });
+    const cube = await m.service.exportCube(m.caller, { scope: { user: 'u1' } });
+    expect(cube.ok && cube.value.bytes).toBeGreaterThan(100);
+    if (!cube.ok) return;
+    const imported = await m.service.importCube(m.caller, {
+      scope: { user: 'u2' },
+      data: cube.value.data,
+      name: 'u1 backup',
+    });
+    expect(imported.ok && imported.value).toMatchObject({ imported: 2, skipped: 0 });
+    const bad = await m.service.importCube(m.caller, { scope: { user: 'u2' }, data: 'AAAA' });
+    expect(!bad.ok && bad.error.code).toBe('INVALID_ARGUMENT');
+  });
+
+  test('a tool trace is remembered without content', async () => {
+    const m = await memoryRange();
+    const r = await m.service.remember(m.caller, {
+      scope: { user: 'u1' },
+      toolTrace: { tool: 'deploy', args: { env: 'prod' }, success: false, result: 'timeout' },
+    });
+    expect(r.ok && r.value.memories[0]?.kind).toBe('tool_trace');
+    const empty = await m.service.remember(m.caller, { scope: { user: 'u1' } });
+    expect(!empty.ok && empty.error.code).toBe('INVALID_ARGUMENT');
+  });
+});
+
 describe('MemoryService tenants', () => {
   test('reserved tenants are refused', async () => {
     const m = await memoryRange();

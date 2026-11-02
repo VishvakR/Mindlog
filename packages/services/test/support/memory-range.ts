@@ -24,6 +24,8 @@ import {
   branchCreateHandler,
   branchMergeHandler,
   branchDropHandler,
+  memoryMaintainHandler,
+  memoryRecallStatsHandler,
 } from '@mindlog/memory';
 import { FakeModels } from '@mindlog/models-client';
 import { startSingleNode } from '@mindlog/multiraft';
@@ -65,6 +67,8 @@ export async function memoryRange(
     branchCreateHandler,
     branchMergeHandler,
     branchDropHandler,
+    memoryMaintainHandler,
+    memoryRecallStatsHandler,
     jobLeaseHandler,
     jobCompleteHandler,
     cacheSetHandler(liveMemory),
@@ -121,6 +125,8 @@ export async function memoryRange(
     tracer: new OtelTracer(),
     vectors,
     ranges: () => ({ rangeId: 1n, proposer: replica, reader: target.reader }),
+    lifecycle: () => (options.clusterVersion ?? 8) >= 8,
+    config: { recallStatsMs: 0 },
   });
   const forwarded: RangeCall[] = [];
   const holder: { service?: MemoryService } = {};

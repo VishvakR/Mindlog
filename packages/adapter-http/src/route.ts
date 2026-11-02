@@ -19,6 +19,8 @@ export interface RouteSpec<B extends z.ZodType, Q extends z.ZodType, R extends z
   readonly query?: Q;
   /** 200 response body; omitted for 204. */
   readonly response?: R;
+  /** Largest request body in bytes, when it differs from the server's (archive imports). */
+  readonly bodyLimit?: number;
 }
 
 export interface RouteInput<B, Q> {
@@ -66,6 +68,7 @@ export function defineRoute<B extends z.ZodType, Q extends z.ZodType, R extends 
     method: spec.method,
     url: spec.path,
     config: { auth: spec.auth ?? true },
+    ...(spec.bodyLimit ? { bodyLimit: spec.bodyLimit } : {}),
     handler: async (request, reply) => {
       const body = spec.body ? spec.body.safeParse(request.body ?? {}) : undefined;
       if (body && !body.success) return sendProblem(reply, invalid(body.error.issues));

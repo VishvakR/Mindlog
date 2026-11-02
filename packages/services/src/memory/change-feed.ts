@@ -83,6 +83,7 @@ export function changesOf(e: CommandApplied): ChangeEvent[] {
       add('memory.forgotten', body.value.user, done);
       break;
     case 'memoryTrust':
+    case 'memoryMaintain':
       add('memory.evolved', body.value.user, done);
       break;
     case 'conflictResolve':

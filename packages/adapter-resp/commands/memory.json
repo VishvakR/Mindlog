@@ -30,6 +30,7 @@
       { "name": "k", "type": "integer", "token": "K", "optional": true },
       { "name": "budget", "type": "integer", "token": "BUDGET", "optional": true },
       { "name": "inherit", "type": "pure-token", "token": "INHERIT", "optional": true },
+      { "name": "include_cold", "type": "pure-token", "token": "INCLUDE_COLD", "optional": true },
       { "name": "recipe", "type": "string", "token": "RECIPE", "optional": true },
       { "name": "asof", "type": "string", "token": "ASOF", "optional": true },
       { "name": "valid_at", "type": "string", "token": "VALID_AT", "optional": true },
@@ -48,6 +49,7 @@
       { "name": "query", "type": "string" },
       { "name": "budget", "type": "integer", "token": "BUDGET", "optional": true },
       { "name": "inherit", "type": "pure-token", "token": "INHERIT", "optional": true },
+      { "name": "include_cold", "type": "pure-token", "token": "INCLUDE_COLD", "optional": true },
       { "name": "recipe", "type": "string", "token": "RECIPE", "optional": true },
       { "name": "asof", "type": "string", "token": "ASOF", "optional": true },
       { "name": "valid_at", "type": "string", "token": "VALID_AT", "optional": true },
@@ -203,6 +205,97 @@
     "arguments": [
       { "name": "scope", "type": "string" },
       { "name": "from", "type": "string", "token": "FROM", "optional": true }
+    ]
+  },
+  "MEM.PIN": {
+    "summary": "Pins memories: they never move to the cold tier or get hard-forgotten (PLAN 13.7).",
+    "complexity": "O(N) in the ids",
+    "group": "memory",
+    "since": "0.8.0",
+    "arity": -3,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "id", "type": "string", "multiple": true }
+    ]
+  },
+  "MEM.UNPIN": {
+    "summary": "Unpins memories.",
+    "complexity": "O(N) in the ids",
+    "group": "memory",
+    "since": "0.8.0",
+    "arity": -3,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "id", "type": "string", "multiple": true }
+    ]
+  },
+  "MEM.CONSOLIDATE": {
+    "summary": "Runs consolidation workers for a scope now: sleep, evolve, dedup, themes, entities, forget, reembed, cache (ADR-0033).",
+    "complexity": "O(1) to enqueue",
+    "group": "memory",
+    "since": "0.8.0",
+    "arity": -2,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "worker", "type": "string", "multiple": true, "optional": true }
+    ]
+  },
+  "MEM.JOBS": {
+    "summary": "Lists a scope's background jobs with its hot and cold memory counts (PLAN 12.7).",
+    "complexity": "O(N) in the jobs listed",
+    "group": "memory",
+    "since": "0.8.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "state", "type": "string", "token": "STATE", "optional": true },
+      { "name": "limit", "type": "integer", "token": "LIMIT", "optional": true },
+      { "name": "after", "type": "string", "token": "AFTER", "optional": true }
+    ]
+  },
+  "MEM.EXPORT": {
+    "summary": "Exports a scope's memory as a .mcube archive, optionally as of a past state (PLAN 13.11).",
+    "complexity": "O(N) in the scope's memories",
+    "group": "memory",
+    "since": "0.8.0",
+    "arity": -2,
+    "command_flags": ["READONLY"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "asof", "type": "string", "token": "ASOF", "optional": true }
+    ]
+  },
+  "MEM.IMPORT": {
+    "summary": "Imports a .mcube or COGX archive into a scope; imported memories follow the trust policy (PLAN 13.11).",
+    "complexity": "O(N) in the archive's memories",
+    "group": "memory",
+    "since": "0.8.0",
+    "arity": -3,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "archive", "type": "string" },
+      { "name": "format", "type": "string", "token": "FORMAT", "optional": true },
+      { "name": "name", "type": "string", "token": "NAME", "optional": true }
+    ]
+  },
+  "MEM.TRACE": {
+    "summary": "Remembers a tool call as a procedural trace; large arguments and results are truncated (PLAN 13.11).",
+    "complexity": "O(1)",
+    "group": "memory",
+    "since": "0.8.0",
+    "arity": -4,
+    "command_flags": ["WRITE"],
+    "arguments": [
+      { "name": "scope", "type": "string" },
+      { "name": "tool", "type": "string" },
+      { "name": "outcome", "type": "string" },
+      { "name": "args", "type": "string", "token": "ARGS", "optional": true },
+      { "name": "result", "type": "string", "token": "RESULT", "optional": true }
     ]
   }
 }

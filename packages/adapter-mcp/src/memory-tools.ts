@@ -109,6 +109,41 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
   );
 
   server.registerTool(
+    'remember_tool_call',
+    {
+      description:
+        'Record a tool call you made and how it went, so later you can recall how you did something before ' +
+        '("how did I deploy last time?"). Large arguments and results are truncated.',
+      inputSchema: z.object({
+        tool: z.string().min(1).max(128).describe('The tool or command you ran'),
+        args: z.unknown().optional().describe('Its arguments'),
+        result: z.unknown().optional().describe('What it returned, or the error'),
+        success: z.boolean().describe('Whether it did what you wanted'),
+        ...scopeFields,
+      }),
+      outputSchema: z.object({ ids: z.array(z.string()), degraded: z.boolean() }),
+    },
+    (args) =>
+      run(
+        args,
+        (scope) =>
+          memory.remember(caller, {
+            scope,
+            toolTrace: {
+              tool: args.tool,
+              success: args.success,
+              ...(args.args !== undefined ? { args: args.args } : {}),
+              ...(args.result !== undefined ? { result: args.result } : {}),
+            },
+          }),
+        (r) => ({
+          text: `Recorded the ${args.success ? 'successful' : 'failed'} ${args.tool} call.`,
+          data: { ids: [...r.ids], degraded: r.degraded },
+        }),
+      ),
+  );
+
+  server.registerTool(
     'recall',
     {
       description:
@@ -137,6 +172,10 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
           .boolean()
           .optional()
           .describe('Include unverified content from the web'),
+        include_cold: z
+          .boolean()
+          .optional()
+          .describe('Also search memories that faded to the cold tier (slower)'),
         recipe: z
           .enum(RECIPE_NAMES)
           .optional()
@@ -170,6 +209,7 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
             ...(args.token_budget ? { tokenBudget: args.token_budget } : {}),
             ...(args.inherit ? { inherit: true } : {}),
             ...(args.include_quarantined ? { includeQuarantined: true } : {}),
+            ...(args.include_cold ? { includeCold: true } : {}),
             ...(args.recipe ? { recipe: args.recipe } : {}),
             ...(args.as_of ? { asOf: { time: args.as_of } } : {}),
             ...(args.valid_at ? { validAt: args.valid_at } : {}),

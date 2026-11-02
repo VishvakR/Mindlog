@@ -18,6 +18,11 @@ import {
   resolveSchema,
   scopesSchema,
   trustSchema,
+  consolidateSchema,
+  exportSchema,
+  importSchema,
+  jobsSchema,
+  pinSchema,
 } from '@mindlog/services';
 import type { HttpServerDeps } from '../http-deps.js';
 import type { AnyRouteSpec } from '../route.js';
@@ -43,7 +48,12 @@ type Method =
   | 'branches'
   | 'diff'
   | 'merge'
-  | 'drop';
+  | 'drop'
+  | 'pin'
+  | 'consolidate'
+  | 'jobs'
+  | 'export'
+  | 'import';
 
 type Caller = Parameters<MemoryService['get']>[0];
 // Each operation's input was validated by its route schema; the service validates it again.
@@ -69,9 +79,22 @@ const CALLS: Record<
   diff: (m, c, i) => m.diffBranch(c, i),
   merge: (m, c, i) => m.mergeBranch(c, i),
   drop: (m, c, i) => m.dropBranch(c, i),
+  pin: (m, c, i) => m.pin(c, i),
+  consolidate: (m, c, i) => m.consolidate(c, i),
+  jobs: (m, c, i) => m.jobs(c, i),
+  export: (m, c, i) => m.exportCube(c, i),
+  import: (m, c, i) => m.importCube(c, i),
 };
 
-const ROUTES: ReadonlyArray<{ op: Method; summary: string; schema: z.ZodObject }> = [
+/** Largest import request: a 32 MB archive in base64 plus the JSON around it. */
+const IMPORT_BODY_LIMIT = 48 * 1024 * 1024;
+
+const ROUTES: ReadonlyArray<{
+  op: Method;
+  summary: string;
+  schema: z.ZodObject;
+  bodyLimit?: number;
+}> = [
   {
     op: 'remember',
     summary: 'Remember text in a scope (extract, embed, index)',
@@ -117,6 +140,32 @@ const ROUTES: ReadonlyArray<{ op: Method; summary: string; schema: z.ZodObject }
   { op: 'diff', summary: 'What a branch added, forgot and changed', schema: branchSchema },
   { op: 'merge', summary: 'Merge a branch into main under a conflict policy', schema: mergeSchema },
   { op: 'drop', summary: 'Drop a branch and its memories', schema: branchSchema },
+  {
+    op: 'pin',
+    summary: 'Pin or unpin memories (pinned ones never go cold)',
+    schema: pinSchema,
+  },
+  {
+    op: 'consolidate',
+    summary: 'Run consolidation workers for a scope now',
+    schema: consolidateSchema,
+  },
+  {
+    op: 'jobs',
+    summary: "A scope's background jobs and lifecycle counts",
+    schema: jobsSchema,
+  },
+  {
+    op: 'export',
+    summary: 'Export a scope as a .mcube archive (base64), optionally as of a past state',
+    schema: exportSchema,
+  },
+  {
+    op: 'import',
+    summary: 'Import a .mcube or COGX archive (base64) into a scope',
+    schema: importSchema,
+    bodyLimit: IMPORT_BODY_LIMIT,
+  },
 ];
 
 /** REST mirror of the memory operations (PLAN 15.3), for the dashboard and scripts. */
@@ -136,6 +185,7 @@ export function memoryRoutes(
         tag: 'memory',
         body: route.schema.extend(tenant),
         response: anyObject.or(z.null()),
+        ...(route.bodyLimit ? { bodyLimit: route.bodyLimit } : {}),
       },
       async ({ body, superuser }) => {
         const memory: MemoryService | undefined = deps.memory;

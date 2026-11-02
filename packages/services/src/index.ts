@@ -35,6 +35,7 @@ export { CHANGE_TYPES, ChangeFeed, changesOf } from './memory/change-feed.js';
 export type { MemoryServiceDeps } from './memory/memory-service.js';
 export {
   CACHE_CLUSTER_VERSION,
+  LIFECYCLE_CLUSTER_VERSION,
   LOG_NATIVE_CLUSTER_VERSION,
   MEMORY_CLUSTER_VERSION,
   MemoryService,
@@ -57,6 +58,11 @@ export type {
   ResolveRequest,
   ScopesRequest,
   TrustRequest,
+  ConsolidateRequest,
+  ExportRequest,
+  ImportRequest,
+  JobsRequest,
+  PinRequest,
 } from './memory/schemas.js';
 export {
   branchSchema,
@@ -77,6 +83,12 @@ export {
   resolveSchema,
   scopesSchema,
   trustSchema,
+  WORKER_NAMES,
+  consolidateSchema,
+  exportSchema,
+  importSchema,
+  jobsSchema,
+  pinSchema,
 } from './memory/schemas.js';
 export type { ApiKeyIdentity, ApiKeyInfo, ApiKeyInput } from './admin/api-keys.js';
 export { ApiKeyService, apiKeyInputSchema, authorizeScope } from './admin/api-keys.js';

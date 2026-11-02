@@ -50,6 +50,14 @@ export function memoryReply(m: MemoryView): KvReply {
     [text('entities'), replies.array(m.entities.map(text))],
     [text('created_at'), replies.integer(m.createdAtMs)],
     [text('expired'), flag(m.expiredAtMs !== undefined)],
+    [text('tier'), text(m.tier)],
+    [text('pinned'), flag(m.pinned)],
+    [text('version'), replies.integer(m.version)],
+    [text('recalls'), replies.integer(m.recallCount)],
+    [
+      text('derived_from'),
+      replies.array(m.links.filter((l) => l.relation === 'derived_from').map((l) => text(l.to))),
+    ],
     ...(m.validFromMs === undefined
       ? []
       : [[text('valid_from'), replies.integer(m.validFromMs)] as const]),
@@ -146,7 +154,12 @@ export const memAddCommand: ConnectionCommand = {
 function recallRequest(
   argv: readonly Uint8Array[],
 ): Parameters<MemoryService['recall']>[1] | KvReply {
-  const o = options(argv, 3, ['K', 'BUDGET', 'RECIPE', 'ASOF', 'VALID_AT', 'BRANCH'], ['INHERIT']);
+  const o = options(
+    argv,
+    3,
+    ['K', 'BUDGET', 'RECIPE', 'ASOF', 'VALID_AT', 'BRANCH'],
+    ['INHERIT', 'INCLUDE_COLD'],
+  );
   if (isReply(o)) return o;
   const k = integerOption(o.K);
   const budget = integerOption(o.BUDGET);
@@ -158,6 +171,7 @@ function recallRequest(
     ...(k !== undefined ? { k } : {}),
     ...(budget !== undefined ? { tokenBudget: budget } : {}),
     ...(o.INHERIT ? { inherit: true } : {}),
+    ...(o.INCLUDE_COLD ? { includeCold: true } : {}),
     ...(typeof o.RECIPE === 'string' ? { recipe: o.RECIPE.toLowerCase() as never } : {}),
     ...asOfOf(o.ASOF),
     ...timeOption('validAt', o.VALID_AT),
@@ -165,7 +179,7 @@ function recallRequest(
   };
 }
 
-/** `MEM.SEARCH <scope> <query> [K n] [BUDGET tokens] [INHERIT] [RECIPE name] [ASOF index|time] [VALID_AT t]`. */
+/** `MEM.SEARCH <scope> <query> [K n] [BUDGET tokens] [INHERIT] [INCLUDE_COLD] [RECIPE name] [ASOF index|time] [VALID_AT t]`. */
 export const memSearchCommand: ConnectionCommand = {
   name: 'MEM.SEARCH',
   execute: (ctx, argv) =>
@@ -179,6 +193,7 @@ export const memSearchCommand: ConnectionCommand = {
               [text('id'), text(item.memory.id)],
               [text('text'), text(item.memory.text)],
               [text('kind'), text(item.memory.kind)],
+              [text('tier'), text(item.memory.tier)],
               [text('score'), replies.double(Math.round(item.score * 1e6) / 1e6)],
             ]),
           ),

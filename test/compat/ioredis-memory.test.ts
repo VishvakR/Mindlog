@@ -179,6 +179,58 @@ describe('ioredis: MEM.*', () => {
     again.destroy();
   });
 
+  test('MEM.PIN, MEM.TRACE, MEM.CONSOLIDATE, MEM.JOBS, MEM.EXPORT and MEM.IMPORT', async () => {
+    const added = asMap(
+      await redis.call('MEM.ADD', 'carol', 'Carol likes tea.', 'KIND', 'semantic'),
+    );
+    const id = (added.ids as string[])[0] ?? '';
+    expect(await redis.call('MEM.PIN', 'carol', id)).toBe(1);
+    expect(asMap(await redis.call('MEM.GET', 'carol', id))).toMatchObject({
+      pinned: 1,
+      tier: 'hot',
+    });
+    expect(await redis.call('MEM.UNPIN', 'carol', id)).toBe(1);
+
+    const traced = (await redis.call(
+      'MEM.TRACE',
+      'carol',
+      'git',
+      'ok',
+      'ARGS',
+      '{"cmd":"push"}',
+    )) as string[];
+    expect(traced).toHaveLength(1);
+    expect(asMap(await redis.call('MEM.GET', 'carol', traced[0] ?? '')).kind).toBe('tool_trace');
+
+    const enqueued = (await redis.call('MEM.CONSOLIDATE', 'carol', 'forget')) as string[];
+    expect(enqueued).toEqual(['consolidation.forget']);
+    const jobs = asMap(await redis.call('MEM.JOBS', 'carol'));
+    expect(jobs.hot).toBe(2);
+    expect((jobs.jobs as Flat[]).map((j) => asMap(j).kind)).toContain('consolidation.forget');
+
+    const cube = (await redis.callBuffer('MEM.EXPORT', 'carol')) as Buffer;
+    expect(cube.subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]));
+    const imported = asMap(await redis.call('MEM.IMPORT', 'dave', cube, 'NAME', 'carol.mcube'));
+    expect(imported).toMatchObject({ imported: 2, skipped: 0 });
+    expect(await redis.call('MEM.SEARCH', 'carol', 'tea', 'INCLUDE_COLD')).toHaveLength(1);
+  });
+
+  test('lifecycle commands check their arguments', async () => {
+    await expect(redis.call('MEM.TRACE', 'carol', 'git', 'maybe')).rejects.toThrow(/syntax/i);
+    await expect(redis.call('MEM.TRACE', 'carol', 'git', 'ok', 'ARGS', '{nope')).rejects.toThrow(
+      /JSON/,
+    );
+    await expect(redis.call('MEM.JOBS', 'carol', 'LIMIT', 'lots')).rejects.toThrow(/integer/);
+    await expect(redis.call('MEM.JOBS', 'carol', 'STATE', 'sleeping')).rejects.toThrow(/state/i);
+    await expect(redis.call('MEM.IMPORT', 'dave', 'not an archive')).rejects.toThrow(/archive/);
+    await expect(redis.call('MEM.CONSOLIDATE', 'carol', 'nap')).rejects.toThrow(/workers/);
+    const dead = asMap(await redis.call('MEM.JOBS', 'carol', 'STATE', 'dead', 'LIMIT', '5'));
+    expect(dead.jobs).toEqual([]);
+    const past = (await redis.callBuffer('MEM.EXPORT', 'carol', 'ASOF', '1')) as Buffer;
+    expect(past.subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]));
+    await expect(redis.call('MEM.EXPORT', 'carol', 'BOGUS')).rejects.toThrow(/syntax/i);
+  });
+
   test('bad arguments are errors', async () => {
     await expect(redis.call('MEM.ADD', 'alice', 'x', 'KIND', 'gossip')).rejects.toThrow(/kind/i);
     await expect(redis.call('MEM.SEARCH', 'alice', 'x', 'K', 'many')).rejects.toThrow(/integer/);

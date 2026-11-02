@@ -25,9 +25,13 @@ import type {
   MergeResult,
   RecallOutput,
   RememberOutput,
+  JobView,
+  LifecycleJob,
+  LifecycleView,
 } from '@mindlog/memory';
-import { scopeKey } from '@mindlog/memory';
+import { scopeKey, toJobView, toLifecycleView } from '@mindlog/memory';
 import type { KvReply } from '@mindlog/proto';
+import { JobState } from '@mindlog/proto';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { z } from 'zod';
 import type { Caller, Placement, RangeCall, RangeRouter, RangeTarget } from '../kv/range-router.js';
@@ -49,6 +53,11 @@ import type {
   BranchRequest,
   BranchesRequest,
   MergeRequest,
+  ConsolidateRequest,
+  ExportRequest,
+  ImportRequest,
+  JobsRequest,
+  PinRequest,
 } from './schemas.js';
 import {
   cacheDeleteSchema,
@@ -69,6 +78,11 @@ import {
   branchSchema,
   branchesSchema,
   mergeSchema,
+  consolidateSchema,
+  exportSchema,
+  importSchema,
+  jobsSchema,
+  pinSchema,
 } from './schemas.js';
 
 /** Cluster version that knows the memory and job commands (ADR-0032, PLAN 19.5). */
@@ -77,6 +91,14 @@ export const MEMORY_CLUSTER_VERSION = 5;
 export const CACHE_CLUSTER_VERSION = 6;
 /** Cluster version that knows conflict review, trust and branch commands (ADR-0013, ADR-0015). */
 export const LOG_NATIVE_CLUSTER_VERSION = 7;
+/** Cluster version that knows the lifecycle commands (ADR-0033). */
+export const LIFECYCLE_CLUSTER_VERSION = 8;
+
+const JOB_STATES = {
+  queued: JobState.QUEUED,
+  leased: JobState.LEASED,
+  dead: JobState.DEAD,
+} as const;
 
 export interface MemoryServiceDeps {
   readonly engine: MemoryEngine;
@@ -252,6 +274,75 @@ const OPS = {
     write: true,
     version: LOG_NATIVE_CLUSTER_VERSION,
     run: ({ memory: e }, r, scope, i, c) => e.dropBranch(r, scope, i.name, c),
+  }),
+  pin: op({
+    schema: pinSchema,
+    write: true,
+    version: LIFECYCLE_CLUSTER_VERSION,
+    run: ({ memory: e }, r, scope, i, c) => e.pin(r, scope, i.ids, i.pinned, c),
+  }),
+  consolidate: op({
+    schema: consolidateSchema,
+    write: true,
+    version: LIFECYCLE_CLUSTER_VERSION,
+    run: ({ memory: e }, r, scope, i, c) =>
+      e.consolidate(
+        r,
+        scope,
+        i.workers?.map((w) => `consolidation.${w}` as LifecycleJob),
+        c,
+      ),
+  }),
+  jobs: op({
+    schema: jobsSchema,
+    write: false,
+    run: async (
+      { memory: e },
+      r,
+      scope,
+      i,
+    ): Promise<
+      Result<{ jobs: JobView[]; lifecycle: LifecycleView; next?: string }, MindlogError>
+    > => {
+      const page = await e.jobs(r, scope, {
+        limit: i.limit,
+        ...(i.state ? { state: JOB_STATES[i.state] } : {}),
+        ...(i.after ? { after: i.after } : {}),
+      });
+      const lifecycle = toLifecycleView(await e.lifecycle(r, scope), e.coldTier);
+      return ok({
+        jobs: page.jobs.map(toJobView),
+        lifecycle,
+        ...(page.next ? { next: page.next } : {}),
+      });
+    },
+  }),
+  export: op({
+    schema: exportSchema,
+    write: false,
+    run: async (
+      { memory: e },
+      r,
+      scope,
+      i,
+    ): Promise<Result<{ data: string; bytes: number }, MindlogError>> => {
+      const cube = await e.exportCube(r, scope, toAsOf(i.asOf));
+      // Base64, so the result travels as JSON between nodes like every other.
+      return cube.ok
+        ? ok({ data: Buffer.from(cube.value).toString('base64'), bytes: cube.value.length })
+        : cube;
+    },
+  }),
+  import: op({
+    schema: importSchema,
+    write: true,
+    version: LIFECYCLE_CLUSTER_VERSION,
+    run: ({ memory: e }, r, scope, i, c) => {
+      const bytes = new Uint8Array(Buffer.from(i.data, 'base64'));
+      if (bytes.length > 32 * 1024 * 1024)
+        return Promise.resolve(err(mindlogError('PAYLOAD_TOO_LARGE', 'the archive is over 32 MB')));
+      return e.importCube(r, scope, { bytes, format: i.format, name: i.name }, c);
+    },
   }),
   cacheGet: op({
     schema: cacheLookupSchema,
@@ -431,6 +522,46 @@ export class MemoryService {
     input: BranchRequest,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     return this.#execute(caller, 'branchDrop', input);
+  }
+
+  /** Pins or unpins memories (exempt from the cold tier and hard forgetting, PLAN 13.7). */
+  pin(
+    caller: Caller,
+    input: PinRequest,
+  ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
+    return this.#execute(caller, 'pin', input);
+  }
+
+  /** Enqueues consolidation workers for the scope now (ADR-0033). */
+  consolidate(
+    caller: Caller,
+    input: ConsolidateRequest,
+  ): Promise<Result<{ enqueued: string[] }, MindlogError>> {
+    return this.#execute(caller, 'consolidate', input);
+  }
+
+  /** The scope's jobs and lifecycle state (Jobs page). */
+  jobs(
+    caller: Caller,
+    input: JobsRequest,
+  ): Promise<Result<{ jobs: JobView[]; lifecycle: LifecycleView; next?: string }, MindlogError>> {
+    return this.#execute(caller, 'jobs', input);
+  }
+
+  /** The scope as a `.mcube` archive, base64 (PLAN 13.11). */
+  exportCube(
+    caller: Caller,
+    input: ExportRequest,
+  ): Promise<Result<{ data: string; bytes: number }, MindlogError>> {
+    return this.#execute(caller, 'export', input);
+  }
+
+  /** Imports a `.mcube` or COGX archive into the scope; memories follow the trust policy. */
+  importCube(
+    caller: Caller,
+    input: ImportRequest,
+  ): Promise<Result<{ imported: number; skipped: number; ids: string[] }, MindlogError>> {
+    return this.#execute(caller, 'import', input);
   }
 
   /** The cached answer for a similar prompt in the user scope, or `hit: null` (PLAN 13.9). */

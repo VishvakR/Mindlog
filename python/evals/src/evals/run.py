@@ -10,12 +10,13 @@ import time
 from pathlib import Path
 from typing import Any
 
-from . import cache_eval, conflict_eval, conflict_pairs, data, report, suites
+from . import cache_eval, conflict_eval, conflict_pairs, data, report, sleep_eval, suites
 from .client import Mindlog
 
 ROOT = Path(__file__).resolve().parents[4]
 OUT = ROOT / "docs" / "evals" / "phase-6"
 CONFLICTS_OUT = ROOT / "docs" / "evals" / "phase-7"
+SLEEP_OUT = ROOT / "docs" / "evals" / "phase-8-sleep"
 
 
 def say(line: str) -> None:
@@ -62,11 +63,20 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--recipes", nargs="+", default=list(suites.RECIPES))
     p.add_argument("--no-packing", dest="packing", action="store_false")
     p.add_argument("--out", type=Path, default=OUT, help="results path without extension")
+    p.add_argument(
+        "--consolidate",
+        action="store_true",
+        help="LongMemEval before and after sleep-time consolidation (phase 8); run the node "
+        "with memory.consolidation.enabled=false so only MEM.CONSOLIDATE consolidates",
+    )
     args = p.parse_args(argv)
 
     client = Mindlog(args.host, args.port, http_port=args.http_port)
     if args.suite == "conflicts":
         run_conflicts(args)
+        return
+    if args.consolidate:
+        run_sleep(client, args)
         return
     lme_path, locomo_path = data.download()
     json_path, md_path = args.out.with_suffix(".json"), args.out.with_suffix(".md")
@@ -92,6 +102,28 @@ def main(argv: list[str] | None = None) -> None:
         )
     md_path.write_text(report.markdown(merged))
     say(f"wrote {json_path} and {md_path}")
+
+
+def run_sleep(client: Mindlog, args: argparse.Namespace) -> None:
+    """Phase 8: LongMemEval before and after consolidation (its own report)."""
+    lme_path, _ = data.download()
+    sample = data.stratified(data.longmemeval(lme_path), args.n, args.seed)
+    say(f"sleep-time: {len(sample)} scopes, {sum(len(h.turns) for h in sample)} turns, by session")
+    mappings, degraded = suites.ingest(client, sample, args.workers, say, sessions=True)
+    result = sleep_eval.evaluate(client, sample, mappings, tuple(args.recipes), args.workers, say)
+    result["meta"] = {
+        "scopes": len(sample),
+        "questions": sum(len(h.questions) for h in sample),
+        "degraded_writes": degraded,
+        "note": (
+            f"Stratified LongMemEval_s sample of {len(sample)} (seed {args.seed}), turns stored "
+            "per session; in both passes a derived memory (an enrichment fact or a sleep-time "
+            "summary) counts as a source turn only if it carries one of that turn's sentences."
+        ),
+    }
+    SLEEP_OUT.with_suffix(".json").write_text(json.dumps(result, indent=2) + "\n")
+    SLEEP_OUT.with_suffix(".md").write_text(sleep_eval.markdown(result))
+    say(f"wrote {SLEEP_OUT}.json and .md")
 
 
 def run_conflicts(args: argparse.Namespace) -> None:

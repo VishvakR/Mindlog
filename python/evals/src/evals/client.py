@@ -93,16 +93,49 @@ class Mindlog:
         self._r.set(f"evals:next:{scope}", next_turn)
 
     def queued_jobs(self) -> int:
-        """Queued and leased jobs on the node, from its metrics."""
+        """Queued and leased jobs on the node, from its metrics (consolidation ticks included)."""
         with urllib.request.urlopen(self._metrics, timeout=10) as r:
             text = r.read().decode()
         return int(sum(float(v) for v in _DEPTH.findall(text)))
 
-    def drain(self, say: Any, timeout_s: float = 3600) -> None:
-        """Waits for the enrichment jobs (embeddings, entities) of degraded writes to finish."""
+    def jobs(self, scope: str) -> list[dict[str, Any]]:
+        """A scope's jobs, all states but done (MEM.JOBS)."""
+        reply = cast(dict[str, Any], self._call("MEM.JOBS", scope, "LIMIT", 200))
+        return cast(list[dict[str, Any]], reply["jobs"])
+
+    def pending(self, scope: str, kinds: tuple[str, ...]) -> int:
+        """Queued or running jobs of these kinds in a scope."""
+        return sum(
+            1
+            for j in self.jobs(scope)
+            if _str(j["kind"]) in kinds and _str(j["state"]) in ("queued", "leased")
+        )
+
+    def drain(
+        self,
+        say: Any,
+        scopes: list[str],
+        kinds: tuple[str, ...] = ("memory.enrich",),
+        timeout_s: float = 3600,
+        poll_s: float = 30,
+    ) -> None:
+        """Waits until no job of `kinds` is queued or running in the scopes.
+
+        Phase 8 keeps a consolidation tick queued in every scope, so the node-wide queue
+        depth never reaches 0; this counts the jobs that matter per scope.
+        """
         deadline = time.monotonic() + timeout_s
-        while (left := self.queued_jobs()) > 0:
+        while (left := sum(self.pending(s, kinds) for s in scopes)) > 0:
             if time.monotonic() > deadline:
                 raise TimeoutError(f"{left} jobs still queued after {timeout_s:.0f} s")
-            say(f"waiting for {left} enrichment jobs")
-            time.sleep(30)
+            say(f"waiting for {left} jobs ({', '.join(kinds)})")
+            time.sleep(poll_s)
+
+    def consolidate(self, scope: str, workers: list[str]) -> list[str]:
+        """Enqueues consolidation workers now (MEM.CONSOLIDATE)."""
+        return [_str(k) for k in cast(list[Any], self._call("MEM.CONSOLIDATE", scope, *workers))]
+
+    def derived_from(self, scope: str, memory_id: str) -> tuple[str, list[str]]:
+        """A memory's text and the memories it was derived from (a summary's turns)."""
+        reply = cast(dict[str, Any] | None, self._call("MEM.GET", scope, memory_id)) or {}
+        return _str(reply.get("text", "")), [_str(i) for i in reply.get("derived_from", [])]

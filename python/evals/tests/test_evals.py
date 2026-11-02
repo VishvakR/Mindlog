@@ -170,3 +170,47 @@ def test_prf() -> None:
 
     assert prf(8, 2, 2) == {"precision": 0.8, "recall": 0.8, "f1": 0.8}
     assert prf(0, 0, 3) == {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+
+
+def test_sleep_resolver_credits_only_turns_a_summary_carries() -> None:
+    from evals import sleep_eval
+
+    class Fake:
+        calls = 0
+
+        def derived_from(self, scope: str, memory_id: str) -> tuple[str, list[str]]:
+            self.calls += 1
+            if memory_id == "s1":
+                return "Ana moved to Lisbon in May last year. Bob likes tea.", ["m1", "m2", "gone"]
+            return "", []
+
+    fake = Fake()
+    mappings = {"u": {"m1": "t1", "m2": "t2"}}
+    turns = {
+        ("u", "t1"): "Hi! Ana moved to Lisbon in May last year. Nice.",
+        ("u", "t2"): "We talked about the weather all afternoon.",
+    }
+    resolve = sleep_eval.resolver(fake, mappings, turns)  # type: ignore[arg-type]
+    assert resolve("u", "m1") == ["t1"]
+    assert resolve("u", "s1") == ["t1"]
+    assert resolve("u", "s1") == ["t1"]
+    assert fake.calls == 1
+    assert resolve("u", "other") == []
+
+
+def test_sleep_markdown_reports_before_and_after() -> None:
+    from evals import sleep_eval
+
+    turn = {"recall_any@10": 0.5, "ndcg@10": 0.25}
+    point = {"budget": 500, "evidence_packed": 0.5, "tokens_used": 400}
+    result = {
+        "meta": {"note": "n"},
+        "before": {"full": {"turn": turn}},
+        "after": {"full": {"turn": {"recall_any@10": 0.75, "ndcg@10": 0.5}}},
+        "packing_before": {"full": [point]},
+        "packing_after": {"full": [{**point, "tokens_used": 300}]},
+        "consolidation": {"rounds": 3, "dead_jobs": 0},
+    }
+    md = sleep_eval.markdown(result)
+    assert "| full | 0.500 | 0.750 | 0.250 | 0.500 |" in md
+    assert "| 500 | 0.500 | 0.500 | 400 | 300 |" in md

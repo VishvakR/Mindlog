@@ -17,13 +17,25 @@ SEARCH_K = 50
 BUDGETS = (250, 500, 1000, 2000, 4000)
 
 Job = tuple[Haystack, Question]
+# Corpus ids a returned memory stands for: its own turn, or a summary's source turns.
+Resolve = Callable[[str, str], list[str]]
+
+
+def by_mapping(mappings: dict[str, dict[str, str]]) -> Resolve:
+    return lambda scope, i: [mappings[scope][i]] if i in mappings[scope] else []
 
 
 def ingest(
-    client: Mindlog, haystacks: list[Haystack], workers: int, say: Callable[[str], None]
+    client: Mindlog,
+    haystacks: list[Haystack],
+    workers: int,
+    say: Callable[[str], None],
+    sessions: bool = False,
 ) -> tuple[dict[str, dict[str, str]], int]:
     """Stores every turn (resuming where a previous run stopped) and waits for enrichment.
 
+    With `sessions`, each turn goes into `<scope>/lme/<session>`, so sleep-time
+    consolidation sees the sessions; recall at `<scope>` still covers them all.
     Returns memory → corpus ids per scope and how many writes came back degraded.
     """
 
@@ -32,7 +44,8 @@ def ingest(
         degraded = 0
         for i in range(start, len(h.turns)):
             turn = h.turns[i]
-            ids, raw = client.add(h.scope, turn.text) if turn.text.strip() else ([], False)
+            at = f"{h.scope}/lme/{session_of(turn.id)}" if sessions else h.scope
+            ids, raw = client.add(at, turn.text) if turn.text.strip() else ([], False)
             degraded += raw
             client.record(h.scope, ids, turn.id, i + 1)
             mapping.update(dict.fromkeys(ids, turn.id))
@@ -50,7 +63,7 @@ def ingest(
     if degraded:
         say(f"{degraded} writes were degraded under load")
     # Degraded writes have no vectors until their enrichment jobs run; score only after.
-    client.drain(say)
+    client.drain(say, [h.scope for h in haystacks])
     return out, degraded
 
 
@@ -74,10 +87,12 @@ def score(
     mappings: dict[str, dict[str, str]],
     recipes: tuple[str, ...],
     workers: int,
+    resolve: Resolve | None = None,
 ) -> dict[str, RecipeScore]:
     """recall_any / recall_all / NDCG at 5 and 10, on turns and sessions, per recipe."""
     jobs: list[Job] = [(h, q) for h in haystacks for q in h.questions]
     out: dict[str, RecipeScore] = {}
+    corpus = resolve or by_mapping(mappings)
     for recipe in recipes:
 
         def one(
@@ -87,7 +102,7 @@ def score(
             started = time.monotonic()
             ids = client.search(h.scope, q.text, SEARCH_K, recipe)
             ms = (time.monotonic() - started) * 1000
-            ranked = dedupe([mappings[h.scope][i] for i in ids if i in mappings[h.scope]])
+            ranked = dedupe([c for i in ids for c in corpus(h.scope, i)])
             turn: dict[str, float] = {}
             session: dict[str, float] = {}
             for k in KS:
@@ -117,10 +132,12 @@ def packing_curve(
     mappings: dict[str, dict[str, str]],
     recipes: tuple[str, ...],
     workers: int,
+    resolve: Resolve | None = None,
 ) -> dict[str, list[dict[str, float]]]:
     """Per budget: share of questions with an evidence turn packed, and the tokens used."""
     jobs: list[Job] = [(h, q) for h in haystacks for q in h.questions]
     out: dict[str, list[dict[str, float]]] = {}
+    corpus = resolve or by_mapping(mappings)
     for recipe in recipes:
         points = []
         for budget in BUDGETS:
@@ -128,7 +145,7 @@ def packing_curve(
             def one(job: Job, budget: int = budget, recipe: str = recipe) -> tuple[float, int]:
                 h, q = job
                 ids, tokens = client.pack(h.scope, q.text, budget, recipe)
-                packed = {mappings[h.scope].get(i) for i in ids}
+                packed = {c for i in ids for c in corpus(h.scope, i)}
                 return float(bool(packed & q.evidence)), tokens
 
             with ThreadPoolExecutor(workers) as pool:

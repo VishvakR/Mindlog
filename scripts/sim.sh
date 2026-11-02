@@ -6,6 +6,7 @@
 # SIM_BANK=1 scripts/sim.sh ... adds the bank-transfer workload (cross-range transactions) to every seed.
 # SIM_MEM=1 scripts/sim.sh ... adds the memory workload (remember, forget and cache, phases 5–6) to every seed.
 # SIM_BRANCH=1 scripts/sim.sh ... adds memory branches (create, write, merge, drop; phase 7) to the memory workload.
+# SIM_LIFE=1 scripts/sim.sh ... adds the memory lifecycle (recall stats, cold tier moves, evolve, pin; phase 8).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SEEDS=${1:-10000}

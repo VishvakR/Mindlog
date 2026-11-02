@@ -74,7 +74,7 @@ export class BranchLoad {
     const b = world.pick(open);
     const seq = this.#seq++;
     const scope = { tenant: TENANT, user: b.user };
-    if (world.between(0, 3) === 0) {
+    if (world.chance(1 / 4)) {
       // Forget a main memory on the branch only.
       const main = [...(this.#d.memory.remembered.get(b.user) ?? [])];
       if (main.length === 0) return;
@@ -90,10 +90,9 @@ export class BranchLoad {
       return;
     }
     // Some branch facts negate main's, so merges meet contradictions.
-    const content =
-      world.between(0, 1) === 0
-        ? `Fact ${String(seq)} says Ana does not like coffee.`
-        : `Fact ${String(seq)} says Ana likes ${b.name} plans.`;
+    const content = world.chance(1 / 2)
+      ? `Fact ${String(seq)} says Ana does not like coffee.`
+      : `Fact ${String(seq)} says Ana likes ${b.name} plans.`;
     const done = await this.#d.memory.run(b.user, ({ engine }, range) =>
       engine.remember(
         range,
@@ -111,7 +110,7 @@ export class BranchLoad {
     const b = world.pick(open);
     const scope = { tenant: TENANT, user: b.user };
     const requestId = enc.encode(`sim-close-${b.name}`);
-    if (world.between(0, 4) === 0) {
+    if (world.chance(1 / 5)) {
       const done = await this.#d.memory.run(b.user, ({ engine }, range) =>
         engine.dropBranch(range, scope, b.name, { principal: 'sim', requestId }),
       );

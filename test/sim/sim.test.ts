@@ -23,12 +23,16 @@ const WITH_MEM = process.env.SIM_MEM === '1';
 // SIM_BRANCH=1 adds memory branches (create, write, merge under a random policy, drop; phase 7) to the memory workload.
 const WITH_BRANCH = process.env.SIM_BRANCH === '1';
 
+// SIM_LIFE=1 adds the lifecycle workload (recall stats, cold tier moves, evolve and pin; phase 8) to the memory workload.
+const WITH_LIFE = process.env.SIM_LIFE === '1';
+
 async function violations(seed: bigint): Promise<string[]> {
   const nodes = seed % 2n === 0n ? 5 : 3;
   const sized = WITH_PD ? scenario(seed).nodes(5).pd(2) : scenario(seed).nodes(nodes);
   const banked = WITH_BANK ? sized.bank(8) : sized;
-  const memory = WITH_MEM || WITH_BRANCH ? banked.memory(4) : banked;
-  const base = WITH_BRANCH ? memory.branches() : memory;
+  const memory = WITH_MEM || WITH_BRANCH || WITH_LIFE ? banked.memory(4) : banked;
+  const branched = WITH_BRANCH ? memory.branches() : memory;
+  const base = WITH_LIFE ? branched.lifecycle() : branched;
   const result = await base.verbose(process.env.SIM_VERBOSE === '1').run();
   return result.violations.map((v) => `replay: SIM_SEED=${seed} SIM_VERBOSE=1 pnpm sim → ${v}`);
 }

@@ -9,6 +9,7 @@ import {
   SeededRandom,
   UlidGenerator,
 } from '@mindlog/core';
+import { MemoryBlobStore } from '@mindlog/blob';
 import { SemanticCache, cacheInvalidateHandler, cacheSetHandler } from '@mindlog/cache';
 import { jobCompleteHandler, jobLeaseHandler, jobRangeHooks } from '@mindlog/jobs';
 import {
@@ -22,6 +23,8 @@ import {
   branchCreateHandler,
   branchMergeHandler,
   branchDropHandler,
+  memoryMaintainHandler,
+  memoryRecallStatsHandler,
 } from '@mindlog/memory';
 import { FakeModels } from '@mindlog/models-client';
 import { InMemoryEventBus } from '@mindlog/eventbus';
@@ -66,6 +69,7 @@ import type { RegisterOp } from './linearizability.js';
 import { checkRegister } from './linearizability.js';
 import { Bank } from './bank.js';
 import { BranchLoad } from './branch-load.js';
+import { LifecycleLoad } from './lifecycle-load.js';
 import { MemoryLoad } from './memory-load.js';
 import { SimDisk } from './sim-disk.js';
 import { SimNetwork } from './sim-network.js';
@@ -115,6 +119,8 @@ export interface ScenarioOptions {
   readonly memory: number;
   /** Adds the branch workload to the memory workload (phase 7). */
   readonly branches: boolean;
+  /** Adds the lifecycle workload to the memory workload (phase 8). */
+  readonly lifecycle: boolean;
 }
 
 export interface SimResult {
@@ -135,7 +141,7 @@ export interface SimResult {
     /** Bank-transfer workload: transfers committed, transactions that gave up, consistent audits. */
     bank: { committed: number; aborted: number; audits: number };
     /** Memory workload: memories remembered and forgotten (acknowledged). */
-    memory: { remembered: number; forgotten: number };
+    memory: { remembered: number; forgotten: number; lifecycle?: Record<string, number> };
     /** At the end: ranges, and replicas created by PD operators (ids from 1000). */
     ranges: number;
     placed: number;
@@ -207,6 +213,8 @@ const simClock = (world: World, rate: number, skewMs: number): Clock => ({
 export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
   const world = new World(o.seed);
   const net = new SimNetwork(world);
+  // The cold tier is an object store every node shares (phase 8).
+  const coldTier = new MemoryBlobStore();
   const violations: string[] = [];
   const stats = {
     events: 0,
@@ -277,6 +285,8 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       branchCreateHandler,
       branchMergeHandler,
       branchDropHandler,
+      memoryMaintainHandler,
+      memoryRecallStatsHandler,
       jobLeaseHandler,
       jobCompleteHandler,
       cacheSetHandler(liveMemory),
@@ -410,8 +420,10 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       tracer: new OtelTracer(),
       vectors,
       ranges: () => undefined,
+      cold: coldTier,
       // FakeModels scores contradictions 0.9, so branch merges raise conflicts (phase 7).
-      config: { conflictThreshold: 0.8 },
+      // Recall stats are proposed by the workload, never on a wall-clock timer.
+      config: { conflictThreshold: 0.8, recallStatsMs: 0 },
     });
     const cache = new SemanticCache({
       models: new FakeModels(),
@@ -741,6 +753,10 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       : undefined;
   const branches =
     memory && o.branches ? new BranchLoad({ world, memory, say, violate }) : undefined;
+  const lifecycle =
+    memory && o.lifecycle
+      ? new LifecycleLoad({ world, memory, blob: coldTier, say, violate })
+      : undefined;
   if (memory) {
     const every = (lo: number, hi: number, work: () => Promise<void>): void => {
       const tick = (): void => {
@@ -758,6 +774,12 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       every(500, 1500, () => branches.create());
       every(100, 400, () => branches.write());
       every(800, 2000, () => branches.close());
+    }
+    if (lifecycle) {
+      every(200, 600, () => lifecycle.recall());
+      every(400, 1200, () => lifecycle.cool());
+      every(600, 1500, () => lifecycle.warm());
+      every(300, 900, () => lifecycle.evolve());
     }
   }
 
@@ -914,7 +936,12 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     if (memory) {
       await memory.check();
       await branches?.check();
-      stats.memory = { remembered: memory.committed, forgotten: memory.forgotten.size };
+      await lifecycle?.check();
+      stats.memory = {
+        remembered: memory.committed,
+        forgotten: memory.forgotten.size,
+        ...(lifecycle ? { lifecycle: lifecycle.counts } : {}),
+      };
     }
   }
 
@@ -1026,6 +1053,7 @@ export function scenario(seed: bigint) {
     bank: 0,
     memory: 0,
     branches: false,
+    lifecycle: false,
   };
   const dsl = {
     pd: (spare = 0) => {
@@ -1038,6 +1066,7 @@ export function scenario(seed: bigint) {
     bank: (accounts = 8) => ((o.bank = accounts), dsl),
     memory: (users = 4) => ((o.memory = users), dsl),
     branches: () => ((o.branches = true), dsl),
+    lifecycle: () => ((o.lifecycle = true), dsl),
     nodes: (n: number) => ((o.nodes = n), dsl),
     clients: (n: number) => ((o.clients = n), dsl),
     keys: (n: number) => ((o.keys = n), dsl),

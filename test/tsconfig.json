@@ -8,7 +8,13 @@
   "include": ["architecture", "bench", "compat", "integration", "sim", "support"],
   "references": [
     {
+      "path": "../packages/blob"
+    },
+    {
       "path": "../packages/cache"
+    },
+    {
+      "path": "../packages/consolidation"
     },
     {
       "path": "../packages/core"

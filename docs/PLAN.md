@@ -455,7 +455,7 @@ message Command {
   string branch     = 4;       // default "main"
   oneof body {
     KvWrite kv_write = 10;  KvBatch kv_batch = 11;  Expire expire = 12;
-    MemoryCommit memory_commit = 20; MemoryEvolve memory_evolve = 21; MemoryForget memory_forget = 22;
+    MemoryCommit memory_commit = 20; MemoryMaintain memory_maintain = 21; MemoryForget memory_forget = 22;
     MemoryRecallStats recall_stats = 23; ConflictResolve conflict_resolve = 24; Quarantine quarantine = 25;
     BranchCreate branch_create = 30; BranchMerge branch_merge = 31; BranchDrop branch_drop = 32;
     CacheSet cache_set = 40; CacheInvalidate cache_invalidate = 41;
@@ -674,7 +674,7 @@ v1 scope: implement the protocol for collections' unique-index writes; keep the 
 ### 10.4 Tiered storage
 
 - **Hot**: LevelDB + in-memory HNSW.
-- **Cold**: memories with retention R below the cold threshold (section 13.7) move to the blob store (MinIO/S3 or local disk) as compressed segments; a stub record stays in LevelDB with the text summary and entity links so graph walks and explicit lookups still work. Recall can include cold tier with `INCLUDE_COLD` (slower).
+- **Cold**: memories with retention R below the cold threshold (section 13.7) move to the blob store (MinIO/S3 or local disk) as compressed segments; a stub record stays in LevelDB with the text summary and entity links so graph walks and explicit lookups still work. Recall can include cold tier with `INCLUDE_COLD` (slower). As built (ADR-0033): the leader writes a content-addressed gzip segment (`cold/<tenant>/<user>/<sha256>.json.gz`) of the full records and vectors before proposing the tier move; the stub keeps its first sentence, BM25 postings, mentions and links, and loses its vector row. Recalling a cold memory moves it back hot.
 
 ### 10.5 Backups and restore
 
@@ -782,7 +782,7 @@ interface StageContext {
 
 - Each stage returns `Result<O, StageError>`. Errors are classified `retryable` (model timeout), `skippable` (stage optional, e.g., rerank) or `fatal` (validation).
 - The orchestrator applies per-stage timeouts, records a span and metrics per stage, and on `skippable` failure continues with the stage's declared fallback output.
-- **Durable async mode**: `remember(..., { async: true })` writes the raw input as an episodic memory immediately (one command, fast ack) and enqueues an `enrich` job carrying the memory id. Workers run the full pipeline later and propose a `MemoryEvolve` that adds facts, entities and links. The agent always gets a fast response; enrichment is eventually consistent and visible through the change stream.
+- **Durable async mode**: `remember(..., { async: true })` writes the raw input as an episodic memory immediately (one command, fast ack) and enqueues an `enrich` job carrying the memory id. Workers run the full pipeline later and propose a `MemoryCommit` that adds the facts, entities and links, derived from the raw memory, and completes the job. The agent always gets a fast response; enrichment is eventually consistent and visible through the change stream.
 
 ### 12.3 Ingestion pipeline (`remember`)
 
@@ -839,16 +839,18 @@ Leader-only background workers, scheduled per scope, all writing through the nor
 
 | Worker | Trigger | Work | Output |
 |---|---|---|---|
-| `SleepTimeConsolidator` (Letta-inspired) | Scope idle ≥ 10 min after ≥ 20 new memories, or every 24 h | Creates branch `sleep/<ts>`, distils sessions into semantic facts, writes "learned context" summaries, proposes merges of duplicates | Branch merged via the normal merge path (conflict check applies); rejected automatically if it raises > N conflicts |
-| `EvolutionWorker` (A-MEM) | New memory linked to existing ones | Asks the Summarizer to refine tags/context of linked older memories | `MemoryEvolve` (new version; old kept) |
+| `SleepTimeConsolidator` (Letta-inspired) | Scope idle ≥ 10 min after ≥ 20 new memories, or every 24 h | Creates branch `sleep-<ms>` (branch names have no `/`), distils sessions into semantic facts, writes "learned context" summaries, proposes merges of duplicates | Branch merged via the normal merge path (conflict check applies); rejected automatically if it raises > N conflicts |
+| `EvolutionWorker` (A-MEM) | New memory linked to existing ones | Asks the Summarizer to refine tags/context of linked older memories | `MemoryMaintain.evolve` (new version; old kept at `m/(user,'rv',id,version)`) |
 | `Deduplicator` | Nightly | Clusters near-duplicates (similarity ≥ 0.93) | Marks duplicates `supersedes` and lowers their weight; never deletes |
 | `ThemeBuilder` (LightRAG/GraphRAG-style) | Graph changed by > 5% | Community detection (Louvain/Leiden on entity graph) → theme summary per community | `theme` memories linked to members |
-| `ForgettingWorker` (MemoryBank) | Hourly | Computes retention; moves memories below cold threshold to cold tier | `TierChange` commands |
-| `EntitySummarizer` | Entity mention count crosses thresholds | Refreshes entity summaries | `EntityUpdate` |
-| `ReembedWorker` | Embedding model changed | Re-embeds a scope in batches | New index generation |
+| `ForgettingWorker` (MemoryBank) | Hourly | Computes retention; moves memories below cold threshold to cold tier | `MemoryMaintain.tier` (segment written first) |
+| `EntitySummarizer` | Entity mention count crosses thresholds | Refreshes entity summaries | `MemoryMaintain.entities` |
+| `ReembedWorker` | Embedding model changed | Re-embeds a scope in batches | `MemoryMaintain.reembed` (vectors of the scope's current model) |
 | `CacheJanitor` | Every 5 min | Drops expired cache entries | `CacheInvalidate` |
 
 Worker rules: bounded concurrency per node, per-tenant budget of model-seconds per hour, every job idempotent (keyed by `(worker, scope, inputVersion)`), progress checkpointed so a leader change resumes rather than restarts.
+
+As built (ADR-0033): one command body, `MemoryMaintain` (21), carries every worker's changes with its checkpoint, the jobs it enqueues and its own completion. Scheduling is a self-rescheduling `consolidation.tick` job per scope, enqueued by the first main commit (10 min later) and every 15 min while the scope has hot memories or a cache; it evaluates the triggers above with a pure function and enqueues the due workers. The CacheJanitor therefore runs at most once per tick. The model-seconds budget is node-local; a worker over budget defers its job (`JobComplete.defer_until_ms`) without using up an attempt.
 
 ### 12.7 Durable job queue (`@mindlog/jobs`)
 
@@ -871,7 +873,7 @@ Worker rules: bounded concurrency per node, per-tenant budget of model-seconds p
 
 **Indexes for branches**: the branch space has its own vector rows and BM25 postings (same layout as main); recall builds one vector index from main at the fork plus the branch, and adds up postings and counts, so the normal recall stages run on the overlay.
 
-**Merge algorithm** (`BranchMerge` command, planned on the leader by the pure `@mindlog/branching` planner and applied as data; apply refuses a plan made against an older main generation, and the leader plans again):
+**Merge algorithm** (`BranchMerge` command, planned on the leader by the pure `@mindlog/branching` planner and applied as data; apply refuses a plan made against an older main generation or, from cluster version 8, an older branch generation, and the leader plans again; ADR-0033):
 1. Collect branch changes (adds, evolves, forgets) in log order.
 2. For each change, find main's changes to the same memory or the same entity since `forkIndex`.
 3. Structured fields (tags, importance, counters, entity lists, link sets) merge with CRDT rules via Automerge-compatible semantics: sets = add-wins OR-set, counters = PN-counter, registers = last-writer-wins by HLC.
@@ -954,7 +956,7 @@ Specified in 8.5. Additional requirement: recall over a semantically split scope
 
 ### 13.11 Memory cubes (export/import) and tool traces
 
-- **Export**: `MEM.EXPORT scope [ASOF index]` writes a `.mcube` file: a tar of `manifest.json` (scope, index, HLC, model ids, counts, checksum, optional signature), `memories.jsonl`, `entities.jsonl`, `edges.jsonl`, `branches.json` and optionally `vectors.bin`.
+- **Export**: `MEM.EXPORT scope [ASOF index]` writes a `.mcube` file: a tar of `manifest.json` (scope, index, HLC, model ids, counts, checksum, optional signature), `memories.jsonl`, `entities.jsonl`, `edges.jsonl`, `branches.json` and optionally `vectors.bin`. As built: the manifest carries a sha256 per file, and `vectors.bin` is not written; imports are re-embedded by the importing node. Import goes through `remember` (source `document`, ref `import:<name>`), so imported memory follows the trust policy and is quarantined unless the source is trusted.
 - **Import**: native `.mcube`, or COGX (Cognee's exchange format) for migration from Mem0, Letta, Zep or Graphiti exports. Imported memories carry `source.type = 'document'`, `ref = import:<file>` and follow trust policy.
 - **Tool traces**: `remember` accepts `{ kind: 'tool_trace', tool, args, result, success }`; stored as procedural memory; recall of "how did I do X before" uses them. Large results are truncated to a summary.
 
@@ -1002,7 +1004,7 @@ service Models {
 
 ### 14.5 Model versioning
 
-Every output carries `modelId@version`. Records store the embedding model id. Changing the embedding model creates a new index generation per scope: the `ReembedWorker` fills it in the background; recall uses the old generation until the new one reaches 100%, then switches atomically (a replicated `IndexGenerationSwitch` command).
+Every output carries `modelId@version`. Records store the embedding model id. Changing the embedding model creates a new index generation per scope: the `ReembedWorker` fills it in the background; recall uses the old generation until the new one reaches 100%, then switches atomically (a replicated `IndexGenerationSwitch` command). As built (ADR-0033): the scope's generation is its embedding model (`ScopeLifecycle.embed_model`), switched by the first commit with a new model; queries are embedded with the new model, so the vector retriever sees only re-embedded and new memories until the `ReembedWorker` finishes (other retrievers see everything).
 
 ### 14.6 Optional remote models
 
@@ -1765,6 +1767,9 @@ References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly]
 | 028 | Range-local system state, PD-allocated replica ids, the multi-range store |
 | 029 | Request routing, forwarding and range epochs (`CROSS_RANGE`) |
 | 030 | Cross-range transactions with Percolator |
+| 031 | Memory key layout under the user scope and scope placement |
+| 032 | Memory and job commands |
+| 033 | Memory lifecycle: consolidation tick, `MemoryMaintain`, forgetting curve, cold tier on a blob store |
 
 ---
 

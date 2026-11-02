@@ -1,0 +1,494 @@
+{
+  "consolidation": {
+    "rounds": 3,
+    "dead_jobs": 467
+  },
+  "before": {
+    "hybrid": {
+      "turn": {
+        "recall_any@5": 0.92,
+        "recall_all@5": 0.7,
+        "ndcg@5": 0.7101661633264996,
+        "recall_any@10": 0.95,
+        "recall_all@10": 0.81,
+        "ndcg@10": 0.7464420007711751
+      },
+      "session": {
+        "recall_any@5": 0.97,
+        "recall_all@5": 0.88,
+        "ndcg@5": 0.894165719480262,
+        "recall_any@10": 0.99,
+        "recall_all@10": 0.97,
+        "ndcg@10": 0.9113250531584147
+      },
+      "by_category": {
+        "knowledge-update": {
+          "recall_any@5": 0.9411764705882353,
+          "recall_all@5": 0.8823529411764706,
+          "ndcg@5": 0.8171808322823881,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.9411764705882353,
+          "ndcg@10": 0.8420508225416028
+        },
+        "multi-session": {
+          "recall_any@5": 0.9655172413793104,
+          "recall_all@5": 0.4827586206896552,
+          "ndcg@5": 0.6505067999307823,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.7241379310344828,
+          "ndcg@10": 0.7124671734350569
+        },
+        "single-session-assistant": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 1.0
+        },
+        "single-session-preference": {
+          "recall_any@5": 0.5714285714285714,
+          "recall_all@5": 0.5714285714285714,
+          "ndcg@5": 0.41866807972477044,
+          "recall_any@10": 0.5714285714285714,
+          "recall_all@10": 0.5714285714285714,
+          "ndcg@10": 0.41866807972477044
+        },
+        "single-session-user": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 0.8215643879191844,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 0.8215643879191844
+        },
+        "temporal-reasoning": {
+          "recall_any@5": 0.9032258064516129,
+          "recall_all@5": 0.6774193548387096,
+          "ndcg@5": 0.7098613744837261,
+          "recall_any@10": 0.9354838709677419,
+          "recall_all@10": 0.7741935483870968,
+          "ndcg@10": 0.7552788931429821
+        }
+      },
+      "p50_ms": 45.25691599701531,
+      "p95_ms": 57.293541001854464
+    },
+    "hybrid_ppr": {
+      "turn": {
+        "recall_any@5": 0.91,
+        "recall_all@5": 0.69,
+        "ndcg@5": 0.6837314318615146,
+        "recall_any@10": 0.94,
+        "recall_all@10": 0.77,
+        "ndcg@10": 0.7168725377706074
+      },
+      "session": {
+        "recall_any@5": 0.96,
+        "recall_all@5": 0.86,
+        "ndcg@5": 0.8839637111889616,
+        "recall_any@10": 0.98,
+        "recall_all@10": 0.96,
+        "ndcg@10": 0.9012842494704679
+      },
+      "by_category": {
+        "knowledge-update": {
+          "recall_any@5": 0.9411764705882353,
+          "recall_all@5": 0.8823529411764706,
+          "ndcg@5": 0.7837625941487678,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.9411764705882353,
+          "ndcg@10": 0.8094575867156105
+        },
+        "multi-session": {
+          "recall_any@5": 0.9655172413793104,
+          "recall_all@5": 0.4827586206896552,
+          "ndcg@5": 0.634823570619095,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.7241379310344828,
+          "ndcg@10": 0.7045715192687065
+        },
+        "single-session-assistant": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 1.0
+        },
+        "single-session-preference": {
+          "recall_any@5": 0.5714285714285714,
+          "recall_all@5": 0.5714285714285714,
+          "ndcg@5": 0.4373723302349787,
+          "recall_any@10": 0.5714285714285714,
+          "recall_all@10": 0.5714285714285714,
+          "ndcg@10": 0.4373723302349787
+        },
+        "single-session-user": {
+          "recall_any@5": 0.9333333333333333,
+          "recall_all@5": 0.9333333333333333,
+          "ndcg@5": 0.7548977212525176,
+          "recall_any@10": 0.9333333333333333,
+          "recall_all@10": 0.9333333333333333,
+          "ndcg@10": 0.7548977212525176
+        },
+        "temporal-reasoning": {
+          "recall_any@5": 0.9032258064516129,
+          "recall_all@5": 0.6774193548387096,
+          "ndcg@5": 0.6856201099108401,
+          "recall_any@10": 0.9354838709677419,
+          "recall_all@10": 0.6774193548387096,
+          "ndcg@10": 0.7131880197958149
+        }
+      },
+      "p50_ms": 58.56929199944716,
+      "p95_ms": 75.89300000108778
+    },
+    "full": {
+      "turn": {
+        "recall_any@5": 0.91,
+        "recall_all@5": 0.66,
+        "ndcg@5": 0.6999101690055456,
+        "recall_any@10": 0.93,
+        "recall_all@10": 0.79,
+        "ndcg@10": 0.7406471388044527
+      },
+      "session": {
+        "recall_any@5": 0.95,
+        "recall_all@5": 0.87,
+        "ndcg@5": 0.8833338677259333,
+        "recall_any@10": 0.98,
+        "recall_all@10": 0.97,
+        "ndcg@10": 0.9032392778092669
+      },
+      "by_category": {
+        "knowledge-update": {
+          "recall_any@5": 0.9411764705882353,
+          "recall_all@5": 0.7647058823529411,
+          "ndcg@5": 0.7804719781645153,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.9411764705882353,
+          "ndcg@10": 0.8274502050586297
+        },
+        "multi-session": {
+          "recall_any@5": 0.9655172413793104,
+          "recall_all@5": 0.6206896551724138,
+          "ndcg@5": 0.7511643636120804,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.8275862068965517,
+          "ndcg@10": 0.805030282554454
+        },
+        "single-session-assistant": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 1.0
+        },
+        "single-session-preference": {
+          "recall_any@5": 0.42857142857142855,
+          "recall_all@5": 0.42857142857142855,
+          "ndcg@5": 0.3758471076530654,
+          "recall_any@10": 0.42857142857142855,
+          "recall_all@10": 0.42857142857142855,
+          "ndcg@10": 0.3758471076530654
+        },
+        "single-session-user": {
+          "recall_any@5": 0.9333333333333333,
+          "recall_all@5": 0.9333333333333333,
+          "ndcg@5": 0.7444329916788971,
+          "recall_any@10": 0.9333333333333333,
+          "recall_all@10": 0.9333333333333333,
+          "ndcg@10": 0.7444329916788971
+        },
+        "temporal-reasoning": {
+          "recall_any@5": 0.9354838709677419,
+          "recall_all@5": 0.5483870967741935,
+          "ndcg@5": 0.6497355515565338,
+          "recall_any@10": 0.9354838709677419,
+          "recall_all@10": 0.6774193548387096,
+          "ndcg@10": 0.7049921797294993
+        }
+      },
+      "p50_ms": 176.19770800229162,
+      "p95_ms": 2123.8883339974564
+    }
+  },
+  "after": {
+    "hybrid": {
+      "turn": {
+        "recall_any@5": 0.86,
+        "recall_all@5": 0.64,
+        "ndcg@5": 0.671758297141438,
+        "recall_any@10": 0.91,
+        "recall_all@10": 0.72,
+        "ndcg@10": 0.7015331135740922
+      },
+      "session": {
+        "recall_any@5": 0.93,
+        "recall_all@5": 0.79,
+        "ndcg@5": 0.8323014636530713,
+        "recall_any@10": 0.96,
+        "recall_all@10": 0.88,
+        "ndcg@10": 0.8585655710745133
+      },
+      "by_category": {
+        "knowledge-update": {
+          "recall_any@5": 0.9411764705882353,
+          "recall_all@5": 0.7058823529411765,
+          "ndcg@5": 0.71848722407001,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.7647058823529411,
+          "ndcg@10": 0.7412432715543948
+        },
+        "multi-session": {
+          "recall_any@5": 0.896551724137931,
+          "recall_all@5": 0.4482758620689655,
+          "ndcg@5": 0.6267714392748384,
+          "recall_any@10": 0.9655172413793104,
+          "recall_all@10": 0.6896551724137931,
+          "ndcg@10": 0.6807686501234114
+        },
+        "single-session-assistant": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 1.0
+        },
+        "single-session-preference": {
+          "recall_any@5": 0.2857142857142857,
+          "recall_all@5": 0.2857142857142857,
+          "ndcg@5": 0.2857142857142857,
+          "recall_any@10": 0.2857142857142857,
+          "recall_all@10": 0.2857142857142857,
+          "ndcg@10": 0.2857142857142857
+        },
+        "single-session-user": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 0.8215643879191844,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 0.8215643879191844
+        },
+        "temporal-reasoning": {
+          "recall_any@5": 0.8387096774193549,
+          "recall_all@5": 0.6774193548387096,
+          "ndcg@5": 0.6923132047482435,
+          "recall_any@10": 0.9032258064516129,
+          "recall_all@10": 0.6774193548387096,
+          "ndcg@10": 0.7253683570521874
+        }
+      },
+      "p50_ms": 4.2928749971906655,
+      "p95_ms": 8.8751669973135
+    },
+    "hybrid_ppr": {
+      "turn": {
+        "recall_any@5": 0.86,
+        "recall_all@5": 0.64,
+        "ndcg@5": 0.671758297141438,
+        "recall_any@10": 0.91,
+        "recall_all@10": 0.72,
+        "ndcg@10": 0.7015331135740922
+      },
+      "session": {
+        "recall_any@5": 0.93,
+        "recall_all@5": 0.79,
+        "ndcg@5": 0.8323014636530713,
+        "recall_any@10": 0.96,
+        "recall_all@10": 0.88,
+        "ndcg@10": 0.8585655710745133
+      },
+      "by_category": {
+        "knowledge-update": {
+          "recall_any@5": 0.9411764705882353,
+          "recall_all@5": 0.7058823529411765,
+          "ndcg@5": 0.71848722407001,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.7647058823529411,
+          "ndcg@10": 0.7412432715543948
+        },
+        "multi-session": {
+          "recall_any@5": 0.896551724137931,
+          "recall_all@5": 0.4482758620689655,
+          "ndcg@5": 0.6267714392748384,
+          "recall_any@10": 0.9655172413793104,
+          "recall_all@10": 0.6896551724137931,
+          "ndcg@10": 0.6807686501234114
+        },
+        "single-session-assistant": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 1.0
+        },
+        "single-session-preference": {
+          "recall_any@5": 0.2857142857142857,
+          "recall_all@5": 0.2857142857142857,
+          "ndcg@5": 0.2857142857142857,
+          "recall_any@10": 0.2857142857142857,
+          "recall_all@10": 0.2857142857142857,
+          "ndcg@10": 0.2857142857142857
+        },
+        "single-session-user": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 0.8215643879191844,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 0.8215643879191844
+        },
+        "temporal-reasoning": {
+          "recall_any@5": 0.8387096774193549,
+          "recall_all@5": 0.6774193548387096,
+          "ndcg@5": 0.6923132047482435,
+          "recall_any@10": 0.9032258064516129,
+          "recall_all@10": 0.6774193548387096,
+          "ndcg@10": 0.7253683570521874
+        }
+      },
+      "p50_ms": 4.0290830002049915,
+      "p95_ms": 5.458542000269517
+    },
+    "full": {
+      "turn": {
+        "recall_any@5": 0.86,
+        "recall_all@5": 0.58,
+        "ndcg@5": 0.6434823015565143,
+        "recall_any@10": 0.91,
+        "recall_all@10": 0.7,
+        "ndcg@10": 0.68549812343808
+      },
+      "session": {
+        "recall_any@5": 0.91,
+        "recall_all@5": 0.74,
+        "ndcg@5": 0.7956055940321228,
+        "recall_any@10": 0.94,
+        "recall_all@10": 0.84,
+        "ndcg@10": 0.8266287943768498
+      },
+      "by_category": {
+        "knowledge-update": {
+          "recall_any@5": 0.9411764705882353,
+          "recall_all@5": 0.5294117647058824,
+          "ndcg@5": 0.6596636946582453,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.7647058823529411,
+          "ndcg@10": 0.7181471263300547
+        },
+        "multi-session": {
+          "recall_any@5": 0.8620689655172413,
+          "recall_all@5": 0.3793103448275862,
+          "ndcg@5": 0.5773641083598917,
+          "recall_any@10": 0.9655172413793104,
+          "recall_all@10": 0.6206896551724138,
+          "ndcg@10": 0.6471139286155941
+        },
+        "single-session-assistant": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 1.0
+        },
+        "single-session-preference": {
+          "recall_any@5": 0.2857142857142857,
+          "recall_all@5": 0.2857142857142857,
+          "ndcg@5": 0.2857142857142857,
+          "recall_any@10": 0.2857142857142857,
+          "recall_all@10": 0.2857142857142857,
+          "ndcg@10": 0.2857142857142857
+        },
+        "single-session-user": {
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "ndcg@5": 0.8261859507142916,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "ndcg@10": 0.8261859507142916
+        },
+        "temporal-reasoning": {
+          "recall_any@5": 0.8709677419354839,
+          "recall_all@5": 0.6451612903225806,
+          "ndcg@5": 0.6773419013970978,
+          "recall_any@10": 0.9032258064516129,
+          "recall_all@10": 0.6774193548387096,
+          "ndcg@10": 0.7155554195364667
+        }
+      },
+      "p50_ms": 9.063750003406312,
+      "p95_ms": 16.651208003167994
+    }
+  },
+  "packing_before": {
+    "full": [
+      {
+        "budget": 250,
+        "evidence_packed": 0.45,
+        "tokens_used": 244.51
+      },
+      {
+        "budget": 500,
+        "evidence_packed": 0.58,
+        "tokens_used": 493.35
+      },
+      {
+        "budget": 1000,
+        "evidence_packed": 0.74,
+        "tokens_used": 991.23
+      },
+      {
+        "budget": 2000,
+        "evidence_packed": 0.95,
+        "tokens_used": 1988.3
+      },
+      {
+        "budget": 4000,
+        "evidence_packed": 0.99,
+        "tokens_used": 3802.53
+      }
+    ]
+  },
+  "packing_after": {
+    "full": [
+      {
+        "budget": 250,
+        "evidence_packed": 0.43,
+        "tokens_used": 244.5
+      },
+      {
+        "budget": 500,
+        "evidence_packed": 0.68,
+        "tokens_used": 490.84
+      },
+      {
+        "budget": 1000,
+        "evidence_packed": 0.76,
+        "tokens_used": 977.92
+      },
+      {
+        "budget": 2000,
+        "evidence_packed": 0.92,
+        "tokens_used": 1915.8
+      },
+      {
+        "budget": 4000,
+        "evidence_packed": 0.94,
+        "tokens_used": 2834.35
+      }
+    ]
+  },
+  "meta": {
+    "scopes": 100,
+    "questions": 100,
+    "degraded_writes": 15431,
+    "note": "Stratified LongMemEval_s sample of 100 (seed 6), turns stored per session; in both passes a derived memory (an enrichment fact or a sleep-time summary) counts as a source turn only if it carries one of that turn's sentences."
+  }
+}

@@ -11,6 +11,7 @@ const SECRET_KEYS = [
   'joinToken',
   'privateKey',
   'secretAccessKey',
+  'clientSecret',
 ];
 
 /** pino redact paths: each secret key at the top level and one or two levels down. */

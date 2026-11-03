@@ -56,7 +56,12 @@ import {
 import { ConnectPdClient } from '@mindlog/pd';
 import { StoreRouter, connectForwardCall, fromRequest } from '@mindlog/router';
 import type { ChangeFeed, MemoryService, PdAdmin } from '@mindlog/services';
-import { KvService, StaticAuthenticator } from '@mindlog/services';
+import {
+  COLLECTION_OP_PREFIX,
+  CollectionService,
+  KvService,
+  StaticAuthenticator,
+} from '@mindlog/services';
 import {
   ApplyHandlerRegistry,
   CommandStamper,
@@ -111,6 +116,8 @@ export interface NodeCore {
   readonly memory: MemoryService;
   /** Memory change stream (PLAN 13.5). */
   readonly changes: ChangeFeed;
+  /** Full-stack collections (PLAN 16); routed to the leader of each collection's range. */
+  readonly collections: CollectionService;
   /** Job workers for the range jobs (ADR-0017). */
   readonly workers: WorkerRegistry;
   /** Log entries applied while opening (ADR-0005). */
@@ -293,7 +300,8 @@ export async function openNodeCore(
   let client: (PdClient & PdAdmin) | undefined;
   let replica: Replica;
   // Forwarded calls arrive on the internal listener before the service exists; they wait for it.
-  const running: { service?: KvService; memory?: MemoryService } = {};
+  const running: { service?: KvService; memory?: MemoryService; collections?: CollectionService } =
+    {};
   try {
     const peers = single
       ? [{ id: raftId, address: '' }]
@@ -310,8 +318,18 @@ export async function openNodeCore(
         routes: forwardRoutes(
           () => async (request) => {
             const forwarded = fromRequest(request);
-            if (!running.service || !running.memory || !forwarded)
+            if (!running.service || !running.memory || !running.collections || !forwarded)
               return replies.error('UNAVAILABLE', 'the node is starting');
+            // Collection calls share the memory-call message (ADR-0034).
+            if (
+              forwarded.call.kind === 'memory' &&
+              forwarded.call.op.startsWith(COLLECTION_OP_PREFIX)
+            )
+              return running.collections.forwarded(
+                forwarded.rangeId,
+                forwarded.caller,
+                forwarded.call,
+              );
             if (forwarded.call.kind === 'memory')
               return running.memory.forwarded(forwarded.rangeId, forwarded.caller, forwarded.call);
             return running.service.forwarded(forwarded.rangeId, forwarded.caller, forwarded.call);
@@ -442,8 +460,19 @@ export async function openNodeCore(
     logger,
     tracer,
   });
+  const tenants = config.collections.tenants;
+  const collections = new CollectionService({
+    router,
+    stamper,
+    clock,
+    clusterVersion,
+    embedder: memory.models,
+    enabled: (tenant) =>
+      config.collections.enabled && (tenants.length === 0 || tenants.includes(tenant)),
+  });
   running.service = service;
   running.memory = memory.service;
+  running.collections = collections;
   const started = store as Store | undefined;
   if (!started) throw new Error('the store opens before the replica');
   return ok({
@@ -460,6 +489,7 @@ export async function openNodeCore(
     service,
     memory: memory.service,
     changes: memory.changes,
+    collections,
     workers: memory.workers,
     replayed: Number(machine.appliedIndex - before),
     async close() {

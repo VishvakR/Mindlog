@@ -25,6 +25,18 @@ execute(session, argv)
   └─ write command                         → stamp (ULID + HLC) → Proposer → KvReply
 ```
 
+## Collections (PLAN 16, ADR-0034, ADR-0035)
+
+- **`CollectionService`**: schema administration for superusers (`saveCollection`, `deleteCollection`, `checkRuleText` for the rule editor) and record CRUD for everyone else (`list`, `view`, `create`, `update`, `delete`), under the collection rules with PocketBase's status conventions:
+  - a locked rule (`null`) is `PERMISSION_DENIED` unless the requester is a superuser;
+  - a failed list rule filters the list, a failed view, update or delete rule is `NOT_FOUND`, a failed create rule is `INVALID_ARGUMENT`.
+- Requests are routed to the leader of the collection's range (`CollectionRanges`, local or through the forwarding RPC as `collections.<op>` calls). Reads wait for the lease read barrier.
+- `RecordReader` evaluates rules as the requester (relations and `@collection` rows through a resolver), plans list scans through indexes (at most `MAX_SCAN` = 10,000 rows per request), expands relations (each checked with its `viewRule`) and hides hidden fields and private emails.
+- `RecordWriter` resolves field modifiers, hashes passwords (and rotates `tokenKey`), sets autodates, embeds `vector` fields (degraded without models), checks relations exist, then proposes one `RecordWrite` fenced by the version it read; a `CONFLICT` is retried.
+- `Catalog` caches the tenant's schemas for 2 s (`shortcut:`).
+- **`AppAuthService`**: password sign-in with 15-minute HS256 access tokens (`JwtKeySet` in `$system`) and rotating refresh tokens (`_sessions`), delegated agent tokens, file tokens, and the opt-in OTP (`_otps`), verification, password reset and OAuth2 (`_externalAuths`) flows. System collections are created on first use.
+- Writes need cluster version 9 (`COLLECTIONS_CLUSTER_VERSION`).
+
 ## Invariants
 
 - **Authorization before anything else.** With a password configured, only `AUTH` runs before authentication. Without one, the `default` user is `nopass` as in Valkey: `AUTH default <anything>` succeeds, while one-argument `AUTH` is an error.

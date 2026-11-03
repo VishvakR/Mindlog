@@ -84,7 +84,14 @@ function respLimits(config: MindlogConfig): ConnectionLimits {
 export function redactedSettings(config: MindlogConfig): Record<string, unknown> {
   return {
     ...config,
-    auth: { password: config.auth.password === undefined ? null : '[redacted]' },
+    auth: {
+      password: config.auth.password === undefined ? null : '[redacted]',
+      oauth2: config.auth.oauth2.map((p) => ({ ...p, clientSecret: '[redacted]' })),
+    },
+    mail: {
+      ...config.mail,
+      ...(config.mail.password === undefined ? {} : { password: '[redacted]' }),
+    },
   };
 }
 

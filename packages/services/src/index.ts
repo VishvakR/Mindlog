@@ -92,3 +92,26 @@ export {
 } from './memory/schemas.js';
 export type { ApiKeyIdentity, ApiKeyInfo, ApiKeyInput } from './admin/api-keys.js';
 export { ApiKeyService, apiKeyInputSchema, authorizeScope } from './admin/api-keys.js';
+export type {
+  RangeOp,
+  RawRecord,
+  ScanPage,
+  StoredCollection,
+} from './collections/collection-ranges.js';
+export { COLLECTION_OP_PREFIX, CollectionRanges } from './collections/collection-ranges.js';
+export type { RecordView, RequestContext } from './collections/record-reader.js';
+export { MAX_SCAN, RecordReader, ruleRecord } from './collections/record-reader.js';
+export type { Body, TextEmbedder, WriteExtras, WriteResult } from './collections/record-writer.js';
+export type {
+  CollectionInfo,
+  CollectionServiceDeps,
+  ListQuery,
+  ListResult,
+} from './collections/collection-service.js';
+export {
+  COLLECTIONS_CLUSTER_VERSION,
+  CollectionService,
+} from './collections/collection-service.js';
+export type { AppAuthDeps, AuthResponse } from './collections/app-auth.js';
+export { AppAuthService, eq } from './collections/app-auth.js';
+export { JwtKeySet } from './collections/key-set.js';

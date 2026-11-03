@@ -290,6 +290,45 @@ export const configSchema = z.strictObject({
     .strictObject({
       // Single static user for phase 1 (`AUTH <password>` / `AUTH default <password>`).
       password: z.string().min(1).optional(),
+      // Opt-in OAuth2 providers for auth collections (ADR-0035): google, github, or any OIDC issuer.
+      oauth2: z
+        .array(
+          z.strictObject({
+            name: z.string().regex(/^[a-z0-9_-]{1,32}$/),
+            clientId: z.string().min(1),
+            clientSecret: z.string().min(1),
+            // OIDC issuer for generic providers; google and github have presets.
+            issuer: z.url().optional(),
+          }),
+        )
+        .default([]),
+    })
+    .prefault({}),
+  // Full-stack collections (PLAN 16, ADR-0034).
+  collections: z
+    .strictObject({
+      enabled: z.boolean().default(true),
+      // Tenants with collections on; empty means every user tenant.
+      tenants: z.array(z.string().min(1)).default([]),
+      // Tenant of requests that name none (no token claim, no X-Mindlog-Tenant header).
+      defaultTenant: z.string().min(1).default('default'),
+      // Public URL of the app, for links in verification and reset mail.
+      appUrl: z.string().default(''),
+      migrationsDir: z.string().default(''),
+      hooksDir: z.string().default(''),
+    })
+    .prefault({}),
+  // Opt-in mail for OTP, verification and password reset (ADR-0035); off by default.
+  mail: z
+    .strictObject({
+      mode: z.enum(['off', 'console', 'smtp']).default('off'),
+      from: z.string().default('noreply@mindlog.local'),
+      host: z.string().default('127.0.0.1'),
+      port: z.number().int().min(1).max(65535).default(587),
+      tls: z.boolean().default(false),
+      requireTls: z.boolean().default(true),
+      username: z.string().optional(),
+      password: z.string().optional(),
     })
     .prefault({}),
   profile: z.enum(['dev', 'production']).default('dev'),

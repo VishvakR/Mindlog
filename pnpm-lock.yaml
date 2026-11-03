@@ -266,6 +266,12 @@ importers:
         specifier: workspace:*
         version: link:../storage
 
+  packages/auth:
+    dependencies:
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/blob:
     dependencies:
       '@mindlog/core':

@@ -177,6 +177,12 @@
     },
     {
       "path": "packages/collections/test"
+    },
+    {
+      "path": "packages/auth"
+    },
+    {
+      "path": "packages/auth/test"
     }
   ]
 }

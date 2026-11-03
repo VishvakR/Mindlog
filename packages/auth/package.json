@@ -1,0 +1,24 @@
+{
+  "name": "@mindlog/auth",
+  "version": "0.0.0",
+  "private": true,
+  "description": "End-user auth for full-stack mode: argon2id, HS256 JWTs, identities, rate limits, and opt-in SMTP and OAuth2 (ADR-0035)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/auth/"
+  },
+  "dependencies": {
+    "@mindlog/core": "workspace:*"
+  }
+}

@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package mindlog.v1;
+
+import "mindlog/v1/jobs.proto";
+import "mindlog/v1/memory.proto";
+
+// Full-stack collections (PLAN 16, ADR-0034). Everything of one collection is
+// under c/(collection, …), so these commands touch one range.
+
+enum RecordOpKind {
+  RECORD_OP_KIND_UNSPECIFIED = 0;
+  RECORD_OP_KIND_CREATE = 1;
+  RECORD_OP_KIND_UPDATE = 2;
+  RECORD_OP_KIND_DELETE = 3;
+  // Creates or replaces without a version check (view rows maintained by jobs).
+  RECORD_OP_KIND_UPSERT = 4;
+}
+
+message RecordOp {
+  RecordOpKind kind = 1;
+  string id = 2;
+  // The full record as a JSON object, without id, created and updated; empty for a delete.
+  bytes data = 3;
+  // Updates and deletes: the record version the proposer read.
+  uint64 expect_version = 4;
+}
+
+// Command body 50: creates, updates and deletes on one collection, applied
+// atomically. The leader has already resolved modifiers, hashed passwords
+// and embedded vectors; apply validates against the stored schema.
+message RecordWrite {
+  string collection = 1;
+  repeated RecordOp ops = 2;
+  // Jobs of this collection to enqueue in the same batch (after-hooks, cascades).
+  repeated JobSpec enqueue = 3;
+  // The collection job that produced this write, finished in the same batch.
+  JobRef complete = 4;
+}
+
+// Command body 51: creates (expect_version 0), replaces or, with an empty
+// schema, deletes a collection schema.
+message SchemaChange {
+  string collection = 1;
+  // CollectionSchema as JSON (validated in apply).
+  bytes schema = 2;
+  uint64 expect_version = 3;
+}
+
+// Stored at c/(collection, 's').
+message StoredSchema {
+  bytes schema = 1;
+  uint64 version = 2;
+}
+
+// Stored at c/(collection, 'r', id).
+message StoredRecord {
+  bytes data = 1;
+  // Physical milliseconds of the creating and the last writing command.
+  uint64 created_ms = 2;
+  uint64 updated_ms = 3;
+  // MVCC version of the last write; updates must name it.
+  uint64 version = 4;
+}
+
+message RecordOutcome {
+  repeated string ids = 1;
+  // New version per id; 0 for a delete.
+  repeated uint64 versions = 2;
+}

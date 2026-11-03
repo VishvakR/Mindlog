@@ -328,3 +328,22 @@ export type {
   Supersede,
   TermCount,
 } from './gen/mindlog/v1/memory_pb.js';
+export {
+  RecordOpKind,
+  RecordOpKindSchema,
+  RecordOpSchema,
+  RecordOutcomeSchema,
+  RecordWriteSchema,
+  SchemaChangeSchema,
+  StoredRecordSchema,
+  StoredSchemaSchema,
+  file_mindlog_v1_collections,
+} from './gen/mindlog/v1/collections_pb.js';
+export type {
+  RecordOp,
+  RecordOutcome,
+  RecordWrite,
+  SchemaChange,
+  StoredRecord,
+  StoredSchema,
+} from './gen/mindlog/v1/collections_pb.js';

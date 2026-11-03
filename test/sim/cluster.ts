@@ -70,6 +70,8 @@ import { checkRegister } from './linearizability.js';
 import { Bank } from './bank.js';
 import { BranchLoad } from './branch-load.js';
 import { LifecycleLoad } from './lifecycle-load.js';
+import { CollectionsLoad } from './collections-load.js';
+import { recordWriteHandler, schemaChangeHandler } from '@mindlog/collections';
 import { MemoryLoad } from './memory-load.js';
 import { SimDisk } from './sim-disk.js';
 import { SimNetwork } from './sim-network.js';
@@ -121,6 +123,8 @@ export interface ScenarioOptions {
   readonly branches: boolean;
   /** Adds the lifecycle workload to the memory workload (phase 8). */
   readonly lifecycle: boolean;
+  /** The collections workload (phase 9). */
+  readonly collections: boolean;
 }
 
 export interface SimResult {
@@ -142,6 +146,8 @@ export interface SimResult {
     bank: { committed: number; aborted: number; audits: number };
     /** Memory workload: memories remembered and forgotten (acknowledged). */
     memory: { remembered: number; forgotten: number; lifecycle?: Record<string, number> };
+    /** Collections workload: acknowledged creates, updates, deletes and refused writes. */
+    collections?: Record<string, number>;
     /** At the end: ranges, and replicas created by PD operators (ids from 1000). */
     ranges: number;
     placed: number;
@@ -216,7 +222,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
   // The cold tier is an object store every node shares (phase 8).
   const coldTier = new MemoryBlobStore();
   const violations: string[] = [];
-  const stats = {
+  const stats: SimResult['stats'] = {
     events: 0,
     ops: 0,
     unknown: 0,
@@ -291,6 +297,8 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       jobCompleteHandler,
       cacheSetHandler(liveMemory),
       cacheInvalidateHandler,
+      recordWriteHandler,
+      schemaChangeHandler,
       ...PD_HANDLERS,
       ...(o.bank > 0
         ? [
@@ -783,6 +791,40 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     }
   }
 
+  const collections = o.collections
+    ? new CollectionsLoad({
+        world,
+        nodes: () =>
+          nodes.flatMap((n) =>
+            n.up
+              ? [
+                  {
+                    id: n.id,
+                    store: n.up.store,
+                    stateStore: n.up.stateStore,
+                    stamper: n.up.stamper,
+                  },
+                ]
+              : [],
+          ),
+        say,
+        violate,
+      })
+    : undefined;
+  if (collections) {
+    world.at(1000, () => void collections.setup());
+    const every = (lo: number, hi: number, work: () => Promise<void>): void => {
+      const tick = (): void => {
+        if (!clientsOn) return;
+        void work().finally(() => {
+          world.at(world.now + world.between(lo, hi), tick);
+        });
+      };
+      world.at(world.now + world.between(lo, hi), tick);
+    };
+    for (let w = 0; w < 3; w++) every(30, 150, () => collections.step());
+  }
+
   // ---- run ----
   for (const node of nodes) world.at(0, () => void boot(node));
   for (let c = 0; c < o.clients; c++) client(c);
@@ -829,6 +871,9 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
 
   async function finalChecks(): Promise<void> {
     if (bank) await bankSettle(bank);
+    if (collections)
+      for (let pass = 0; pass < 10 && collections.inFlight > 0; pass++)
+        await world.run(world.now + 5000, checkStep);
     if (memory)
       for (let pass = 0; pass < 10 && memory.inFlight > 0; pass++)
         await world.run(world.now + 5000, checkStep);
@@ -933,6 +978,10 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       if (problem) violate(`${key}: ${problem}`);
     }
     if (bank) await bankChecks(bank);
+    if (collections) {
+      await collections.check();
+      stats.collections = collections.counts;
+    }
     if (memory) {
       await memory.check();
       await branches?.check();
@@ -1054,6 +1103,7 @@ export function scenario(seed: bigint) {
     memory: 0,
     branches: false,
     lifecycle: false,
+    collections: false,
   };
   const dsl = {
     pd: (spare = 0) => {
@@ -1067,6 +1117,7 @@ export function scenario(seed: bigint) {
     memory: (users = 4) => ((o.memory = users), dsl),
     branches: () => ((o.branches = true), dsl),
     lifecycle: () => ((o.lifecycle = true), dsl),
+    collections: () => ((o.collections = true), dsl),
     nodes: (n: number) => ((o.nodes = n), dsl),
     clients: (n: number) => ((o.clients = n), dsl),
     keys: (n: number) => ((o.keys = n), dsl),

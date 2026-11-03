@@ -5,7 +5,9 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
   "references": [
     {
       "path": "../adapter-http"
@@ -75,6 +77,9 @@
     },
     {
       "path": "../txn"
+    },
+    {
+      "path": "../collections"
     }
   ]
 }

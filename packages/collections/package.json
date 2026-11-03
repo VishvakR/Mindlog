@@ -1,0 +1,35 @@
+{
+  "name": "@mindlog/collections",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Full-stack collections: schemas, field types, record and schema commands with indexes and unique claims (PLAN 16, ADR-0034)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/collections/"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@mindlog/core": "workspace:*",
+    "@mindlog/jobs": "workspace:*",
+    "@mindlog/proto": "workspace:*",
+    "@mindlog/rules": "workspace:*",
+    "@mindlog/statemachine": "workspace:*",
+    "@mindlog/storage": "workspace:*",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@mindlog/eventbus": "workspace:*",
+    "@mindlog/multiraft": "workspace:*"
+  }
+}

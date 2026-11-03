@@ -84,6 +84,9 @@
     },
     {
       "path": "packages/rules"
+    },
+    {
+      "path": "packages/collections"
     }
   ]
 }

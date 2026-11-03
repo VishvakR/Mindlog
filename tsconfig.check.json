@@ -171,6 +171,12 @@
     },
     {
       "path": "packages/rules/test"
+    },
+    {
+      "path": "packages/collections"
+    },
+    {
+      "path": "packages/collections/test"
     }
   ]
 }

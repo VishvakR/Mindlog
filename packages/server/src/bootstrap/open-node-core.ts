@@ -1,3 +1,4 @@
+import { recordWriteHandler, schemaChangeHandler } from '@mindlog/collections';
 import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type {
@@ -240,6 +241,9 @@ export async function openNodeCore(
     // Memory lifecycle (ADR-0033): every v8 binary applies it; proposing waits for cluster version 8.
     memoryMaintainHandler,
     memoryRecallStatsHandler,
+    // Collections (ADR-0034): every v9 binary applies them; proposing waits for cluster version 9.
+    recordWriteHandler,
+    schemaChangeHandler,
     ...(txnOn
       ? [
           txnPrewriteHandler(registry),

@@ -38,6 +38,9 @@ importers:
       '@mindlog/cache':
         specifier: workspace:*
         version: link:packages/cache
+      '@mindlog/collections':
+        specifier: workspace:*
+        version: link:packages/collections
       '@mindlog/consolidation':
         specifier: workspace:*
         version: link:packages/consolidation
@@ -74,6 +77,9 @@ importers:
       '@mindlog/raft':
         specifier: workspace:*
         version: link:packages/raft
+      '@mindlog/rules':
+        specifier: workspace:*
+        version: link:packages/rules
       '@mindlog/server':
         specifier: workspace:*
         version: link:packages/server
@@ -288,6 +294,40 @@ importers:
       '@mindlog/storage':
         specifier: workspace:*
         version: link:../storage
+    devDependencies:
+      '@mindlog/eventbus':
+        specifier: workspace:*
+        version: link:../eventbus
+      '@mindlog/multiraft':
+        specifier: workspace:*
+        version: link:../multiraft
+
+  packages/collections:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.16.0
+        version: 2.16.0
+      '@mindlog/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mindlog/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@mindlog/proto':
+        specifier: workspace:*
+        version: link:../proto
+      '@mindlog/rules':
+        specifier: workspace:*
+        version: link:../rules
+      '@mindlog/statemachine':
+        specifier: workspace:*
+        version: link:../statemachine
+      '@mindlog/storage':
+        specifier: workspace:*
+        version: link:../storage
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@mindlog/eventbus':
         specifier: workspace:*
@@ -649,6 +689,9 @@ importers:
       '@mindlog/cache':
         specifier: workspace:*
         version: link:../cache
+      '@mindlog/collections':
+        specifier: workspace:*
+        version: link:../collections
       '@mindlog/consolidation':
         specifier: workspace:*
         version: link:../consolidation

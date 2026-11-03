@@ -26,13 +26,17 @@ const WITH_BRANCH = process.env.SIM_BRANCH === '1';
 // SIM_LIFE=1 adds the lifecycle workload (recall stats, cold tier moves, evolve and pin; phase 8) to the memory workload.
 const WITH_LIFE = process.env.SIM_LIFE === '1';
 
+// SIM_COLL=1 adds the collections workload (records with a unique index; phase 9) to every seed.
+const WITH_COLL = process.env.SIM_COLL === '1';
+
 async function violations(seed: bigint): Promise<string[]> {
   const nodes = seed % 2n === 0n ? 5 : 3;
   const sized = WITH_PD ? scenario(seed).nodes(5).pd(2) : scenario(seed).nodes(nodes);
   const banked = WITH_BANK ? sized.bank(8) : sized;
   const memory = WITH_MEM || WITH_BRANCH || WITH_LIFE ? banked.memory(4) : banked;
   const branched = WITH_BRANCH ? memory.branches() : memory;
-  const base = WITH_LIFE ? branched.lifecycle() : branched;
+  const lived = WITH_LIFE ? branched.lifecycle() : branched;
+  const base = WITH_COLL ? lived.collections() : lived;
   const result = await base.verbose(process.env.SIM_VERBOSE === '1').run();
   return result.violations.map((v) => `replay: SIM_SEED=${seed} SIM_VERBOSE=1 pnpm sim → ${v}`);
 }
@@ -105,6 +109,20 @@ describe('simulator', () => {
         remembered += result.stats.memory.remembered;
       }
       expect(remembered).toBeGreaterThan(0);
+    },
+  );
+
+  test(
+    'collection unique indexes and index rows match their records under faults',
+    { timeout: 300_000 },
+    async () => {
+      let created = 0;
+      for (const seed of [1n, 2n, 3n]) {
+        const result = await scenario(seed).nodes(3).collections().run();
+        expect(result.violations).toEqual([]);
+        created += result.stats.collections?.['created'] ?? 0;
+      }
+      expect(created).toBeGreaterThan(0);
     },
   );
 

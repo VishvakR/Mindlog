@@ -28,11 +28,11 @@ describe('Command envelope', () => {
     expect(decoded.hlc).toBe(max);
   });
 
-  test('uses body numbers 10-13, 20-25 (memory), 30-32 (branches), 40-41 (cache), 60-63 (transactions), 71-72 (jobs), 80-82 (ranges), 90-96 (placement driver) and keeps the rest of 14-99 free', () => {
+  test('uses body numbers 10-13, 20-25 (memory), 30-32 (branches), 40-41 (cache), 50-51 (collections), 60-63 (transactions), 71-72 (jobs), 80-82 (ranges), 90-96 (placement driver) and keeps the rest of 14-99 free', () => {
     const bodyNumbers = CommandSchema.fields.map((f) => f.number).filter((n) => n >= 10);
     expect(bodyNumbers).toEqual([
-      10, 11, 12, 13, 20, 21, 22, 23, 24, 25, 30, 31, 32, 40, 41, 60, 61, 62, 63, 71, 72, 80, 81,
-      82, 90, 91, 92, 93, 94, 95, 96,
+      10, 11, 12, 13, 20, 21, 22, 23, 24, 25, 30, 31, 32, 40, 41, 50, 51, 60, 61, 62, 63, 71, 72,
+      80, 81, 82, 90, 91, 92, 93, 94, 95, 96,
     ]);
   });
 

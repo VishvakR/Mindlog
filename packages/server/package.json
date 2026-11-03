@@ -30,6 +30,7 @@
     "@mindlog/adapter-resp": "workspace:*",
     "@mindlog/blob": "workspace:*",
     "@mindlog/cache": "workspace:*",
+    "@mindlog/collections": "workspace:*",
     "@mindlog/consolidation": "workspace:*",
     "@mindlog/core": "workspace:*",
     "@mindlog/eventbus": "workspace:*",

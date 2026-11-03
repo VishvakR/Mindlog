@@ -11,7 +11,11 @@ import { z } from 'zod';
 
 // Memory request schemas (PLAN 15), shared by RESP, REST, MCP and node-to-node forwarding.
 
-const name = z.string().max(128);
+// Control characters are reserved: collection job scopes start with one (ADR-0034).
+const name = z
+  .string()
+  .max(128)
+  .refine((s) => !Array.from(s).some((c) => c.charCodeAt(0) < 32), 'no control characters');
 
 export const memoryScopeSchema = z.strictObject({
   /** '' is the tenant-wide scope. */

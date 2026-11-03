@@ -3,6 +3,7 @@ syntax = "proto3";
 package mindlog.v1;
 
 import "mindlog/v1/cache.proto";
+import "mindlog/v1/collections.proto";
 import "mindlog/v1/common.proto";
 import "mindlog/v1/jobs.proto";
 import "mindlog/v1/kv.proto";
@@ -25,6 +26,8 @@ message Command {
   string branch = 4;
   // Tenant whose keyspace the command touches (CLAUDE.md rule 10).
   string tenant = 5;
+  // Agent acting for `principal` with a delegated token (ADR-0035); empty otherwise.
+  string actor = 6;
 
   // Bodies use field numbers 10-99 (PLAN 6.1): kv 10-13, memory 20-25,
   // branches 30-32, cache 40-41, collections 50-52, transactions 60-62,
@@ -46,6 +49,8 @@ message Command {
     BranchDrop branch_drop = 32;
     CacheSet cache_set = 40;
     CacheInvalidate cache_invalidate = 41;
+    RecordWrite record_write = 50;
+    SchemaChange schema_change = 51;
     TxnPrewrite txn_prewrite = 60;
     TxnCommit txn_commit = 61;
     TxnRollback txn_rollback = 62;
@@ -67,7 +72,8 @@ message Command {
   reserved 14 to 19;
   reserved 26 to 29;
   reserved 33 to 39;
-  reserved 42 to 59;
+  reserved 42 to 49;
+  reserved 52 to 59;
   reserved 64 to 70;
   reserved 73 to 79;
   reserved 83 to 89;
@@ -94,5 +100,6 @@ message CommandResult {
     TxnOutcome txn = 3;
     MemoryOutcome memory = 4;
     JobOutcome job = 5;
+    RecordOutcome record = 6;
   }
 }

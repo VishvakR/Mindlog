@@ -6,6 +6,8 @@ import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { CacheInvalidate, CacheSet } from "./cache_pb.js";
 import { file_mindlog_v1_cache } from "./cache_pb.js";
+import type { RecordOutcome, RecordWrite, SchemaChange } from "./collections_pb.js";
+import { file_mindlog_v1_collections } from "./collections_pb.js";
 import type { ErrorDetail } from "./common_pb.js";
 import { file_mindlog_v1_common } from "./common_pb.js";
 import type { JobComplete, JobLease, JobOutcome } from "./jobs_pb.js";
@@ -26,7 +28,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/commands.proto.
  */
 export const file_mindlog_v1_commands: GenFile = /*@__PURE__*/
-  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIt4MCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIxCg1tZW1vcnlfY29tbWl0GBQgASgLMhgubWluZGxvZy52MS5NZW1vcnlDb21taXRIABI1Cg9tZW1vcnlfbWFpbnRhaW4YFSABKAsyGi5taW5kbG9nLnYxLk1lbW9yeU1haW50YWluSAASMQoNbWVtb3J5X2ZvcmdldBgWIAEoCzIYLm1pbmRsb2cudjEuTWVtb3J5Rm9yZ2V0SAASPAoTbWVtb3J5X3JlY2FsbF9zdGF0cxgXIAEoCzIdLm1pbmRsb2cudjEuTWVtb3J5UmVjYWxsU3RhdHNIABI3ChBjb25mbGljdF9yZXNvbHZlGBggASgLMhsubWluZGxvZy52MS5Db25mbGljdFJlc29sdmVIABIvCgxtZW1vcnlfdHJ1c3QYGSABKAsyFy5taW5kbG9nLnYxLk1lbW9yeVRydXN0SAASMQoNYnJhbmNoX2NyZWF0ZRgeIAEoCzIYLm1pbmRsb2cudjEuQnJhbmNoQ3JlYXRlSAASLwoMYnJhbmNoX21lcmdlGB8gASgLMhcubWluZGxvZy52MS5CcmFuY2hNZXJnZUgAEi0KC2JyYW5jaF9kcm9wGCAgASgLMhYubWluZGxvZy52MS5CcmFuY2hEcm9wSAASKQoJY2FjaGVfc2V0GCggASgLMhQubWluZGxvZy52MS5DYWNoZVNldEgAEjcKEGNhY2hlX2ludmFsaWRhdGUYKSABKAsyGy5taW5kbG9nLnYxLkNhY2hlSW52YWxpZGF0ZUgAEi8KDHR4bl9wcmV3cml0ZRg8IAEoCzIXLm1pbmRsb2cudjEuVHhuUHJld3JpdGVIABIrCgp0eG5fY29tbWl0GD0gASgLMhUubWluZGxvZy52MS5UeG5Db21taXRIABIvCgx0eG5fcm9sbGJhY2sYPiABKAsyFy5taW5kbG9nLnYxLlR4blJvbGxiYWNrSAASKQoJdHhuX2NoZWNrGD8gASgLMhQubWluZGxvZy52MS5UeG5DaGVja0gAEikKCWpvYl9sZWFzZRhHIAEoCzIULm1pbmRsb2cudjEuSm9iTGVhc2VIABIvCgxqb2JfY29tcGxldGUYSCABKAsyFy5taW5kbG9nLnYxLkpvYkNvbXBsZXRlSAASIgoFc3BsaXQYUCABKAsyES5taW5kbG9nLnYxLlNwbGl0SAASJAoGZnJlZXplGFEgASgLMhIubWluZGxvZy52MS5GcmVlemVIABIiCgVtZXJnZRhSIAEoCzIRLm1pbmRsb2cudjEuTWVyZ2VIABIuCgxwZF9hbGxvY19pZHMYWiABKAsyFi5taW5kbG9nLnYxLlBkQWxsb2NJZHNIABIsCgtwZF9wdXRfbm9kZRhbIAEoCzIVLm1pbmRsb2cudjEuUGRQdXROb2RlSAASLgoMcGRfcHV0X3JhbmdlGFwgASgLMhYubWluZGxvZy52MS5QZFB1dFJhbmdlSAASNAoPcGRfcmVtb3ZlX3JhbmdlGF0gASgLMhkubWluZGxvZy52MS5QZFJlbW92ZVJhbmdlSAASKgoKcGRfc2V0X3RzbxheIAEoCzIULm1pbmRsb2cudjEuUGRTZXRUc29IABIyCg5wZF9zZXRfdmVyc2lvbhhfIAEoCzIYLm1pbmRsb2cudjEuUGRTZXRWZXJzaW9uSAASOgoScGRfcmVjb3JkX29wZXJhdG9yGGAgASgLMhwubWluZGxvZy52MS5QZFJlY29yZE9wZXJhdG9ySABCBgoEYm9keUoECA4QFEoECBoQHkoECCEQKEoECCoQPEoECEAQR0oECEkQUEoECFMQWkoECGEQZCJMCgtHY1RocmVzaG9sZBIXCgtiZWxvd19pbmRleBgBIAEoBEICGAESDQoFbGltaXQYAiABKA0SFQoNYmVsb3dfdmVyc2lvbhgDIAEoBCLiAQoNQ29tbWFuZFJlc3VsdBIhCgJrdhgBIAEoCzITLm1pbmRsb2cudjEuS3ZSZXBseUgAEigKBWVycm9yGAIgASgLMhcubWluZGxvZy52MS5FcnJvckRldGFpbEgAEiUKA3R4bhgDIAEoCzIWLm1pbmRsb2cudjEuVHhuT3V0Y29tZUgAEisKBm1lbW9yeRgEIAEoCzIZLm1pbmRsb2cudjEuTWVtb3J5T3V0Y29tZUgAEiUKA2pvYhgFIAEoCzIWLm1pbmRsb2cudjEuSm9iT3V0Y29tZUgAQgkKB291dGNvbWViBnByb3RvMw", [file_mindlog_v1_cache, file_mindlog_v1_common, file_mindlog_v1_jobs, file_mindlog_v1_kv, file_mindlog_v1_memory, file_mindlog_v1_pd, file_mindlog_v1_range, file_mindlog_v1_txn]);
+  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxItcNCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEg0KBWFjdG9yGAYgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIxCg1tZW1vcnlfY29tbWl0GBQgASgLMhgubWluZGxvZy52MS5NZW1vcnlDb21taXRIABI1Cg9tZW1vcnlfbWFpbnRhaW4YFSABKAsyGi5taW5kbG9nLnYxLk1lbW9yeU1haW50YWluSAASMQoNbWVtb3J5X2ZvcmdldBgWIAEoCzIYLm1pbmRsb2cudjEuTWVtb3J5Rm9yZ2V0SAASPAoTbWVtb3J5X3JlY2FsbF9zdGF0cxgXIAEoCzIdLm1pbmRsb2cudjEuTWVtb3J5UmVjYWxsU3RhdHNIABI3ChBjb25mbGljdF9yZXNvbHZlGBggASgLMhsubWluZGxvZy52MS5Db25mbGljdFJlc29sdmVIABIvCgxtZW1vcnlfdHJ1c3QYGSABKAsyFy5taW5kbG9nLnYxLk1lbW9yeVRydXN0SAASMQoNYnJhbmNoX2NyZWF0ZRgeIAEoCzIYLm1pbmRsb2cudjEuQnJhbmNoQ3JlYXRlSAASLwoMYnJhbmNoX21lcmdlGB8gASgLMhcubWluZGxvZy52MS5CcmFuY2hNZXJnZUgAEi0KC2JyYW5jaF9kcm9wGCAgASgLMhYubWluZGxvZy52MS5CcmFuY2hEcm9wSAASKQoJY2FjaGVfc2V0GCggASgLMhQubWluZGxvZy52MS5DYWNoZVNldEgAEjcKEGNhY2hlX2ludmFsaWRhdGUYKSABKAsyGy5taW5kbG9nLnYxLkNhY2hlSW52YWxpZGF0ZUgAEi8KDHJlY29yZF93cml0ZRgyIAEoCzIXLm1pbmRsb2cudjEuUmVjb3JkV3JpdGVIABIxCg1zY2hlbWFfY2hhbmdlGDMgASgLMhgubWluZGxvZy52MS5TY2hlbWFDaGFuZ2VIABIvCgx0eG5fcHJld3JpdGUYPCABKAsyFy5taW5kbG9nLnYxLlR4blByZXdyaXRlSAASKwoKdHhuX2NvbW1pdBg9IAEoCzIVLm1pbmRsb2cudjEuVHhuQ29tbWl0SAASLwoMdHhuX3JvbGxiYWNrGD4gASgLMhcubWluZGxvZy52MS5UeG5Sb2xsYmFja0gAEikKCXR4bl9jaGVjaxg/IAEoCzIULm1pbmRsb2cudjEuVHhuQ2hlY2tIABIpCglqb2JfbGVhc2UYRyABKAsyFC5taW5kbG9nLnYxLkpvYkxlYXNlSAASLwoMam9iX2NvbXBsZXRlGEggASgLMhcubWluZGxvZy52MS5Kb2JDb21wbGV0ZUgAEiIKBXNwbGl0GFAgASgLMhEubWluZGxvZy52MS5TcGxpdEgAEiQKBmZyZWV6ZRhRIAEoCzISLm1pbmRsb2cudjEuRnJlZXplSAASIgoFbWVyZ2UYUiABKAsyES5taW5kbG9nLnYxLk1lcmdlSAASLgoMcGRfYWxsb2NfaWRzGFogASgLMhYubWluZGxvZy52MS5QZEFsbG9jSWRzSAASLAoLcGRfcHV0X25vZGUYWyABKAsyFS5taW5kbG9nLnYxLlBkUHV0Tm9kZUgAEi4KDHBkX3B1dF9yYW5nZRhcIAEoCzIWLm1pbmRsb2cudjEuUGRQdXRSYW5nZUgAEjQKD3BkX3JlbW92ZV9yYW5nZRhdIAEoCzIZLm1pbmRsb2cudjEuUGRSZW1vdmVSYW5nZUgAEioKCnBkX3NldF90c28YXiABKAsyFC5taW5kbG9nLnYxLlBkU2V0VHNvSAASMgoOcGRfc2V0X3ZlcnNpb24YXyABKAsyGC5taW5kbG9nLnYxLlBkU2V0VmVyc2lvbkgAEjoKEnBkX3JlY29yZF9vcGVyYXRvchhgIAEoCzIcLm1pbmRsb2cudjEuUGRSZWNvcmRPcGVyYXRvckgAQgYKBGJvZHlKBAgOEBRKBAgaEB5KBAghEChKBAgqEDJKBAg0EDxKBAhAEEdKBAhJEFBKBAhTEFpKBAhhEGQiTAoLR2NUaHJlc2hvbGQSFwoLYmVsb3dfaW5kZXgYASABKARCAhgBEg0KBWxpbWl0GAIgASgNEhUKDWJlbG93X3ZlcnNpb24YAyABKAQijwIKDUNvbW1hbmRSZXN1bHQSIQoCa3YYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHlIABIoCgVlcnJvchgCIAEoCzIXLm1pbmRsb2cudjEuRXJyb3JEZXRhaWxIABIlCgN0eG4YAyABKAsyFi5taW5kbG9nLnYxLlR4bk91dGNvbWVIABIrCgZtZW1vcnkYBCABKAsyGS5taW5kbG9nLnYxLk1lbW9yeU91dGNvbWVIABIlCgNqb2IYBSABKAsyFi5taW5kbG9nLnYxLkpvYk91dGNvbWVIABIrCgZyZWNvcmQYBiABKAsyGS5taW5kbG9nLnYxLlJlY29yZE91dGNvbWVIAEIJCgdvdXRjb21lYgZwcm90bzM", [file_mindlog_v1_cache, file_mindlog_v1_collections, file_mindlog_v1_common, file_mindlog_v1_jobs, file_mindlog_v1_kv, file_mindlog_v1_memory, file_mindlog_v1_pd, file_mindlog_v1_range, file_mindlog_v1_txn]);
 
 /**
  * Envelope of every replicated command in a range's Raft log (PLAN 6.1,
@@ -70,6 +72,13 @@ export type Command = Message<"mindlog.v1.Command"> & {
    * @generated from field: string tenant = 5;
    */
   tenant: string;
+
+  /**
+   * Agent acting for `principal` with a delegated token (ADR-0035); empty otherwise.
+   *
+   * @generated from field: string actor = 6;
+   */
+  actor: string;
 
   /**
    * Bodies use field numbers 10-99 (PLAN 6.1): kv 10-13, memory 20-25,
@@ -169,6 +178,18 @@ export type Command = Message<"mindlog.v1.Command"> & {
      */
     value: CacheInvalidate;
     case: "cacheInvalidate";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.RecordWrite record_write = 50;
+     */
+    value: RecordWrite;
+    case: "recordWrite";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.SchemaChange schema_change = 51;
+     */
+    value: SchemaChange;
+    case: "schemaChange";
   } | {
     /**
      * @generated from field: mindlog.v1.TxnPrewrite txn_prewrite = 60;
@@ -351,6 +372,12 @@ export type CommandResult = Message<"mindlog.v1.CommandResult"> & {
      */
     value: JobOutcome;
     case: "job";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.RecordOutcome record = 6;
+     */
+    value: RecordOutcome;
+    case: "record";
   } | { case: undefined; value?: undefined };
 };
 

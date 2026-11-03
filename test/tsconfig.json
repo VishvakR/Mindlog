@@ -5,7 +5,14 @@
     "outDir": "../dist-test/root",
     "tsBuildInfoFile": "../dist-test/root/.tsbuildinfo"
   },
-  "include": ["architecture", "bench", "compat", "integration", "sim", "support"],
+  "include": [
+    "architecture",
+    "bench",
+    "compat",
+    "integration",
+    "sim",
+    "support"
+  ],
   "references": [
     {
       "path": "../packages/blob"
@@ -57,6 +64,12 @@
     },
     {
       "path": "../packages/index-text"
+    },
+    {
+      "path": "../packages/collections"
+    },
+    {
+      "path": "../packages/rules"
     }
   ]
 }

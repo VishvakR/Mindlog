@@ -378,9 +378,7 @@ The `/` in prose such as `k/(key, 'h', field)` is notation for consecutive eleme
 | `t` | (scope, term, memoryId) | BM25 postings (value = term frequency + doc length) |
 | `g` | ('out'\|'in', scope, src, relation, dst) | Graph edges |
 | `e` | (scope, entityId) | Entity nodes (name, type, aliases, summary, embedding) |
-| `c` | (collection, recordId) | Collection records (full-stack mode) |
-| `x` | (indexName, value, primaryKey) | Secondary indexes |
-| `u` | (collection, field, value) | Unique-constraint keys |
+| `c` | (collection, sub-tag, …) | All data of a collection (full-stack mode): schema `'s'`, records `'r'`, index rows `'x'`, unique claims `'u'`, jobs `'j'` (ADR-0034 replaced the separate `x u` families and `s/schema` so a collection never splits across ranges) |
 | `q` | (scope, promptHash) | Semantic cache entries |
 | `j` | (queue, state, jobId) | Durable jobs |
 | `s` | (subsystem, …) | System: schemas, branches, conflicts, idempotency table, range descriptors, users, API keys, audit log |
@@ -459,7 +457,7 @@ message Command {
     MemoryRecallStats recall_stats = 23; ConflictResolve conflict_resolve = 24; Quarantine quarantine = 25;
     BranchCreate branch_create = 30; BranchMerge branch_merge = 31; BranchDrop branch_drop = 32;
     CacheSet cache_set = 40; CacheInvalidate cache_invalidate = 41;
-    RecordWrite record_write = 50; SchemaChange schema_change = 51; FileMeta file_meta = 52;
+    RecordWrite record_write = 50; SchemaChange schema_change = 51; // 52 reserved (ADR-0034)
     TxnPrewrite prewrite = 60; TxnCommit txn_commit = 61; TxnRollback txn_rollback = 62;
     JobEnqueue job_enqueue = 70; JobLease job_lease = 71; JobComplete job_complete = 72;
     SplitTrigger split = 80; MergeTrigger merge = 81; ConfChange conf_change = 82;
@@ -1102,8 +1100,8 @@ PocketBase-inspired; optional; enabled per tenant.
 ### 16.1 Collections
 
 - Types: `base`, `auth`, `view`.
-- Schema stored at `s/schema/(collection)` and changed only through `SchemaChange` commands (versioned; migrations are files under `migrations/` applied in order and recorded).
-- Records under `c/(collection, id)`; ids are 15-char random strings (PocketBase-style) or ULIDs (config).
+- Schema stored at `c/(collection,'s')` (ADR-0034) and changed only through `SchemaChange` commands (versioned; migrations are files under `migrations/` applied in order and recorded).
+- Records under `c/(collection, 'r', id)`; ids are 15-char random strings (PocketBase-style) or ULIDs (config).
 - System fields: `id`, `created`, `updated`; auth collections add `email`, `emailVisibility`, `verified`, `password` (hash), `tokenKey`.
 
 ### 16.2 Field types
@@ -1143,7 +1141,7 @@ literal     = string | number | "true" | "false" | "null" ;
 
 ### 16.4 Authentication
 
-- Password (argon2id), OTP via email (SMTP config; offline deployments can log OTPs to console in dev), OAuth2 (Google, GitHub, generic OIDC) with PKCE.
+- Password (argon2id), always on and offline. Opt-in per auth collection, off by default (ADR-0035): OTP via email (SMTP config; offline deployments can log OTPs to console in dev), OAuth2 (Google, GitHub, generic OIDC) with PKCE.
 - Tokens: short-lived JWT access tokens (15 min) signed with a rotating key set; refresh tokens stored hashed in `s/session/…`; changing `tokenKey` revokes all sessions of a user.
 - API keys for services and agents: prefix-identified, hashed at rest, scoped (`collections:read`, `memory:write:tenant/user/*`), expirable.
 - Email verification and password reset flows; rate-limited.

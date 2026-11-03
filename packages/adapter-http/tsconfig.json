@@ -6,5 +6,21 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src"],
-  "references": [{ "path": "../adapter-resp" }, { "path": "../core" }, { "path": "../services" }]
+  "references": [
+    {
+      "path": "../adapter-resp"
+    },
+    {
+      "path": "../auth"
+    },
+    {
+      "path": "../collections"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../services"
+    }
+  ]
 }

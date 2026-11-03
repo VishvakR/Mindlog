@@ -18,6 +18,9 @@ import { healthRoutes } from './routes/health-routes.js';
 import { kvRoutes } from './routes/kv-routes.js';
 import { realtimeRoutes } from './routes/realtime-routes.js';
 import { superuserRoutes } from './routes/superuser-routes.js';
+import { collectionsRoutes } from './routes/collections-routes.js';
+import { recordsRoutes } from './routes/records-routes.js';
+import { recordAuthRoutes } from './routes/record-auth-routes.js';
 
 const BEARER = 'bearer.';
 
@@ -138,6 +141,9 @@ export class HttpServer {
     clusterRoutes(app, this.#routes, deps);
     memoryRoutes(app, this.#routes, deps);
     apiKeyRoutes(app, this.#routes, deps);
+    collectionsRoutes(app, this.#routes, deps);
+    recordsRoutes(app, this.#routes, deps);
+    recordAuthRoutes(app, this.#routes, deps);
     consoleRoutes(app, deps);
     realtimeRoutes(app, deps);
     const document = () => openApiDocument(this.#routes, deps.version);

@@ -28,6 +28,7 @@
     "@mindlog/adapter-http": "workspace:*",
     "@mindlog/adapter-mcp": "workspace:*",
     "@mindlog/adapter-resp": "workspace:*",
+    "@mindlog/auth": "workspace:*",
     "@mindlog/blob": "workspace:*",
     "@mindlog/cache": "workspace:*",
     "@mindlog/collections": "workspace:*",

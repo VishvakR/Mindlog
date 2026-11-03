@@ -33,6 +33,7 @@ import type { HeldLock } from '@mindlog/txn';
 import type { NodeCore } from './open-node-core.js';
 import { openNodeCore } from './open-node-core.js';
 import { RangeJobs } from './range-jobs.js';
+import { openAppAuth } from './open-app-auth.js';
 import { mindlogVersion, serverInfo } from './server-info.js';
 
 export interface NodeOptions {
@@ -56,6 +57,8 @@ export interface RunningNode {
   readonly replica: Replica;
   readonly logger: Logger;
   readonly metrics: Metrics;
+  /** Dashboard superusers (ADR-0024). */
+  readonly admin: AdminService;
   /** Log entries replayed into state at startup (ADR-0005). */
   readonly replayed: number;
   /** Stops accepting, finishes in-flight work, flushes state and closes the stores. */
@@ -181,6 +184,13 @@ export async function startNode(
   let httpAddress = '';
   const admin = new AdminService({ service, clock });
   const apiKeys = new ApiKeyService({ service, clock });
+  const appAuth = openAppAuth({
+    config,
+    collections: core.collections,
+    kv: service,
+    clock,
+    logger,
+  });
   const httpOptions: HttpServerOptions = {
     host: config.listen.http.host,
     port: config.listen.http.port,
@@ -194,6 +204,10 @@ export async function startNode(
     memory: core.memory,
     changes: core.changes,
     apiKeys,
+    collections: core.collections,
+    appAuth,
+    defaultTenant: config.collections.defaultTenant,
+    authRateLimit: { burst: config.limits.authBurst, perMinute: config.limits.authPerMinute },
     resp: { server: context, handlers, limits },
     prometheus:
       metrics instanceof PromMetrics
@@ -289,6 +303,7 @@ export async function startNode(
     http: httpBound.value,
     mcp: mcpBound.value,
     apiKeys,
+    admin,
     internal: core.transport?.address,
     replica,
     logger,

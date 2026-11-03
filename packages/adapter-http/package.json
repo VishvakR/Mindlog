@@ -22,6 +22,8 @@
     "@fastify/static": "^10.1.6",
     "@fastify/websocket": "^11.3.4",
     "@mindlog/adapter-resp": "workspace:*",
+    "@mindlog/auth": "workspace:*",
+    "@mindlog/collections": "workspace:*",
     "@mindlog/core": "workspace:*",
     "@mindlog/services": "workspace:*",
     "fastify": "^5.12.5",

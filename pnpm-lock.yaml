@@ -161,6 +161,12 @@ importers:
       '@mindlog/adapter-resp':
         specifier: workspace:*
         version: link:../adapter-resp
+      '@mindlog/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@mindlog/collections':
+        specifier: workspace:*
+        version: link:../collections
       '@mindlog/core':
         specifier: workspace:*
         version: link:../core
@@ -689,6 +695,9 @@ importers:
       '@mindlog/adapter-resp':
         specifier: workspace:*
         version: link:../adapter-resp
+      '@mindlog/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@mindlog/blob':
         specifier: workspace:*
         version: link:../blob

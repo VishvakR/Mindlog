@@ -12,6 +12,8 @@ import type {
   KvBrowser,
   KvService,
   MemoryService,
+  AppAuthService,
+  CollectionService,
 } from '@mindlog/services';
 
 export interface HttpServerOptions {
@@ -32,6 +34,14 @@ export interface HttpServerDeps {
   readonly cluster: ClusterDirectory;
   /** Memory operations (PLAN 15.3); absent on nodes without a memory engine. */
   readonly memory?: MemoryService;
+  /** Full-stack collections and records (PLAN 16); absent turns those routes off. */
+  readonly collections?: CollectionService;
+  /** End-user auth of auth collections (ADR-0035). */
+  readonly appAuth?: AppAuthService;
+  /** Auth requests per client address (default 20, then 30 a minute). */
+  readonly authRateLimit?: { readonly burst: number; readonly perMinute: number };
+  /** Tenant of full-stack requests that name none. */
+  readonly defaultTenant?: string;
   /** The memory change stream `/api/realtime` serves (PLAN 13.5). */
   readonly changes?: ChangeFeed;
   /** What the WebSocket console needs to run RESP connections. */

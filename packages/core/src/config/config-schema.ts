@@ -284,6 +284,9 @@ export const configSchema = z.strictObject({
       // Commands queued inside one MULTI.
       maxTransactionCommands: z.number().int().min(1).default(10_000),
       maxPendingProposals: z.number().int().min(1).default(10_000),
+      // Sign-in and auth requests per client address: a burst, then a steady rate (PLAN 16.4).
+      authBurst: z.number().int().min(1).default(20),
+      authPerMinute: z.number().int().min(1).default(30),
     })
     .prefault({}),
   auth: z

@@ -8,7 +8,7 @@ import { PROBLEM_CONTENT_TYPE, toProblem } from './problem.js';
 
 /** One documented route: drives both registration and the OpenAPI document. */
 export interface RouteSpec<B extends z.ZodType, Q extends z.ZodType, R extends z.ZodType> {
-  readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** Fastify path, e.g. `/api/kv/keys/:key`. */
   readonly path: string;
   readonly summary: string;

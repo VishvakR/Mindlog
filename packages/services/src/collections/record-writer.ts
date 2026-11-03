@@ -231,7 +231,7 @@ export class RecordWriter {
       if (f?.type !== 'file') problems[name] = 'not a file field';
       else data[name] = isMulti(f) ? [...asStrings(data[name]), ...files] : (files.at(-1) ?? '');
     }
-    if (isAuth) await this.#authFields(existing, body, data, problems);
+    if (isAuth) await this.#authFields(schema, existing, body, data, problems);
     const relations = await this.#checkRelations(fields, data, existing);
     Object.assign(problems, relations);
     if (Object.keys(problems).length > 0) return invalid(problems);
@@ -249,12 +249,13 @@ export class RecordWriter {
 
   /** Passwords, token keys and the fields only superusers (or `manageRule`) may change. */
   async #authFields(
+    schema: CollectionSchema,
     existing: RawRecord | undefined,
     body: Body,
     data: Body,
     problems: Record<string, string>,
   ): Promise<void> {
-    const manager = isSuperuser(this.reader.ctx);
+    const manager = await this.#manages(schema, existing);
     const password = body['password'];
     if (password !== undefined) {
       if (typeof password !== 'string' || password.length < 8)
@@ -291,6 +292,15 @@ export class RecordWriter {
     }
     if (data['email'] === '' && problems['email'] === undefined)
       problems['email'] = 'cannot be blank';
+  }
+
+  /** Superusers, and requesters who pass `manageRule` for the record, manage its auth fields (PocketBase). */
+  async #manages(schema: CollectionSchema, existing: RawRecord | undefined): Promise<boolean> {
+    if (isSuperuser(this.reader.ctx)) return true;
+    if (schema.manageRule === null) return false;
+    const record = existing ? ruleRecord(schema.name, existing) : null;
+    const allowed = await this.reader.allows(schema.manageRule, schema.name, record);
+    return allowed.ok && allowed.value;
   }
 
   async #checkRelations(

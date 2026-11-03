@@ -165,6 +165,12 @@
     },
     {
       "path": "packages/adapter-mcp/test"
+    },
+    {
+      "path": "packages/rules"
+    },
+    {
+      "path": "packages/rules/test"
     }
   ]
 }

@@ -1,0 +1,24 @@
+{
+  "name": "@mindlog/rules",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PocketBase-compatible filter and access-rule language: lexer, parser, checker, planner and evaluator (ADR-0018)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. packages/rules/"
+  },
+  "dependencies": {
+    "@mindlog/core": "workspace:*"
+  }
+}

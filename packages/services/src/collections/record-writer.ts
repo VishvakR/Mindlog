@@ -8,6 +8,7 @@ import { RECORD_ID, fieldNormalize, fieldZero, isMulti, storedFields } from '@mi
 import type { JobSpec } from '@mindlog/proto';
 import { RecordOpKind, RecordOpSchema, RecordWriteSchema } from '@mindlog/proto';
 import { formatDate } from '@mindlog/rules';
+import { cascadeJob, fileJanitorJob, holds, referencesTo } from './collection-jobs.js';
 import type { CollectionRanges, ProposeOutcome, RawRecord } from './collection-ranges.js';
 import type { RecordReader, RecordView } from './record-reader.js';
 import { isSuperuser, ruleRecord } from './record-reader.js';
@@ -27,6 +28,8 @@ export interface WriteExtras {
   /** File field values to set (names already uploaded), applied after modifiers. */
   readonly files?: Readonly<Record<string, readonly string[]>>;
   readonly enqueue?: readonly JobSpec[];
+  /** Stores the uploaded blobs; called once the rules passed, before proposing. */
+  readonly persist?: () => Promise<Result<void, MindlogError>>;
 }
 
 export interface WriteResult {
@@ -97,14 +100,12 @@ export class RecordWriter {
     );
     if (!allowed.ok) return allowed;
     if (!allowed.value) return err(mindlogError('INVALID_ARGUMENT', 'Failed to create record.'));
-    const written = await this.#propose(
-      collection,
-      RecordOpKind.CREATE,
-      id,
-      data.value.data,
-      0n,
-      extras.enqueue,
-    );
+    const stored = await extras.persist?.();
+    if (stored && !stored.ok) return stored;
+    const written = await this.#propose(collection, RecordOpKind.CREATE, id, data.value.data, 0n, [
+      ...(extras.enqueue ?? []),
+      ...this.#fileJobs(schema.value, undefined, data.value.data, extras),
+    ]);
     if (!written.ok) return written;
     const raw = { ...draft, version: written.value.versions[0] ?? '0' };
     return ok({ record: this.reader.present(collection, raw), raw, degraded: data.value.degraded });
@@ -125,16 +126,23 @@ export class RecordWriter {
       if (!existing.ok) return existing;
       const data = await this.#build(schema.value, existing.value, body, extras);
       if (!data.ok) return data;
+      const stored = await extras.persist?.();
+      if (stored && !stored.ok) return stored;
       const written = await this.#propose(
         collection,
         RecordOpKind.UPDATE,
         id,
         data.value.data,
         BigInt(existing.value.version),
-        extras.enqueue,
+        [
+          ...(extras.enqueue ?? []),
+          ...this.#fileJobs(schema.value, existing.value.data, data.value.data, extras),
+        ],
       );
-      if (!written.ok && written.error.code === 'CONFLICT' && attempt < MAX_CONFLICT_RETRIES)
+      if (!written.ok && written.error.code === 'CONFLICT' && attempt < MAX_CONFLICT_RETRIES) {
+        this.reader.forget(collection, id);
         continue;
+      }
       if (!written.ok) return written;
       const raw: RawRecord = {
         ...existing.value,
@@ -150,11 +158,7 @@ export class RecordWriter {
     }
   }
 
-  async delete(
-    collection: string,
-    id: string,
-    enqueue: readonly JobSpec[] = [],
-  ): Promise<Result<RawRecord, MindlogError>> {
+  async delete(collection: string, id: string): Promise<Result<RawRecord, MindlogError>> {
     const schema = this.reader.schema(collection);
     if (!schema.ok) return schema;
     if (schema.value.type === 'view')
@@ -162,16 +166,35 @@ export class RecordWriter {
     for (let attempt = 0; ; attempt++) {
       const existing = await this.#existing(collection, id, schema.value.deleteRule);
       if (!existing.ok) return existing;
+      const references = referencesTo(this.reader.catalog, collection);
+      for (const { schema: from, field } of references) {
+        if (!field.required || field.cascadeDelete) continue;
+        const using = await this.reader.matching(from.name, holds(field.name, id), 1);
+        if (!using.ok) return using;
+        if (using.value.length > 0)
+          return err(
+            mindlogError(
+              'INVALID_ARGUMENT',
+              `The record is required by ${from.name}.${field.name}.`,
+            ),
+          );
+      }
+      // The old data travels in the op so the change feed can check rules against the deleted record.
       const written = await this.#propose(
         collection,
         RecordOpKind.DELETE,
         id,
-        undefined,
+        existing.value.data,
         BigInt(existing.value.version),
-        enqueue,
+        [
+          ...(references.length > 0 ? [cascadeJob(id)] : []),
+          ...this.#fileJobs(schema.value, existing.value.data, undefined, {}),
+        ],
       );
-      if (!written.ok && written.error.code === 'CONFLICT' && attempt < MAX_CONFLICT_RETRIES)
+      if (!written.ok && written.error.code === 'CONFLICT' && attempt < MAX_CONFLICT_RETRIES) {
+        this.reader.forget(collection, id);
         continue;
+      }
       return written.ok ? ok(existing.value) : written;
     }
   }
@@ -225,6 +248,14 @@ export class RecordWriter {
         const problem = applyValue(f, data, key, body[key]);
         if (problem !== undefined) problems[key] = problem;
       }
+    }
+    // A file field only keeps names the record already has: a client naming another
+    // record's file would otherwise gain access to it through this record's rules.
+    for (const f of fields) {
+      if (f.type !== 'file') continue;
+      const had = new Set(existing ? asStrings(existing.data[f.name]) : []);
+      if (asStrings(data[f.name]).some((n) => !had.has(n)))
+        problems[f.name] = 'files must be uploaded';
     }
     for (const [name, files] of Object.entries(extras.files ?? {})) {
       const f = fields.find((x) => x.name === name);
@@ -292,6 +323,22 @@ export class RecordWriter {
     }
     if (data['email'] === '' && problems['email'] === undefined)
       problems['email'] = 'cannot be blank';
+  }
+
+  /** A janitor run when this write uploads files or stops naming some. */
+  #fileJobs(
+    schema: CollectionSchema,
+    before: Body | undefined,
+    after: Body | undefined,
+    extras: WriteExtras,
+  ): JobSpec[] {
+    const names = (d: Body | undefined) =>
+      storedFields(schema).flatMap((f) => (f.type === 'file' ? asStrings(d?.[f.name]) : []));
+    const kept = new Set(names(after));
+    const dropped = names(before).some((n) => !kept.has(n));
+    return dropped || Object.keys(extras.files ?? {}).length > 0
+      ? [fileJanitorJob(this.d.nowMs())]
+      : [];
   }
 
   /** Superusers, and requesters who pass `manageRule` for the record, manage its auth fields (PocketBase). */

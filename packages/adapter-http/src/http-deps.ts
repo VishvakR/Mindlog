@@ -14,6 +14,7 @@ import type {
   MemoryService,
   AppAuthService,
   CollectionService,
+  RecordFiles,
 } from '@mindlog/services';
 
 export interface HttpServerOptions {
@@ -36,6 +37,8 @@ export interface HttpServerDeps {
   readonly memory?: MemoryService;
   /** Full-stack collections and records (PLAN 16); absent turns those routes off. */
   readonly collections?: CollectionService;
+  /** Record files (PLAN 16.5); absent turns uploads off. */
+  readonly files?: RecordFiles;
   /** End-user auth of auth collections (ADR-0035). */
   readonly appAuth?: AppAuthService;
   /** Auth requests per client address (default 20, then 30 a minute). */

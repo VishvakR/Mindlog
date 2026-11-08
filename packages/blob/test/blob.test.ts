@@ -92,7 +92,21 @@ async function fakeS3(opts: { fail?: number } = {}) {
         return;
       }
       const key = decodeURIComponent(url.pathname);
-      if (req.method === 'PUT') {
+      if (url.searchParams.get('list-type') === '2') {
+        // One key per page, so listing has to follow the continuation token.
+        const bucket = `${key}/`;
+        const all = [...objects.keys()]
+          .filter((k) => k.startsWith(`${bucket}${url.searchParams.get('prefix') ?? ''}`))
+          .sort();
+        const at = Number(url.searchParams.get('continuation-token') ?? 0);
+        const more = at + 1 < all.length;
+        const item = all[at] === undefined ? '' : `<Key>${all[at].slice(bucket.length)}</Key>`;
+        res
+          .writeHead(200)
+          .end(
+            `<R><IsTruncated>${String(more)}</IsTruncated>${more ? `<NextContinuationToken>${String(at + 1)}</NextContinuationToken>` : ''}${item}</R>`,
+          );
+      } else if (req.method === 'PUT') {
         objects.set(key, body);
         res.writeHead(200).end();
       } else if (req.method === 'GET') {

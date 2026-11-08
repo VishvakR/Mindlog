@@ -54,7 +54,11 @@ export function signRequest(
   const canonical = [
     method,
     url.pathname,
-    '',
+    // SigV4 wants the query sorted and RFC 3986 encoded.
+    [...url.searchParams]
+      .map(([k, v]) => `${encodeSegment(k)}=${encodeSegment(v)}`)
+      .sort()
+      .join('&'),
     `host:${url.host}`,
     `x-amz-content-sha256:${hash}`,
     `x-amz-date:${date}`,
@@ -138,5 +142,40 @@ export class S3BlobStore implements BlobStore {
     if (!res.value.ok && res.value.status !== 404) return this.#fail(res.value, `delete ${key}`);
     await res.value.arrayBuffer();
     return ok(undefined);
+  }
+
+  /** ListObjectsV2, page by page. */
+  async list(prefix: string): Promise<Result<string[], MindlogError>> {
+    const k = checkKey(prefix);
+    if (!k.ok) return k;
+    const keys: string[] = [];
+    let token: string | undefined;
+    do {
+      const url = new URL(`/${encodeSegment(this.#o.bucket)}`, this.#o.endpoint);
+      url.searchParams.set('list-type', '2');
+      url.searchParams.set('prefix', `${prefix}/`);
+      if (token !== undefined) url.searchParams.set('continuation-token', token);
+      const empty = new Uint8Array();
+      const headers = signRequest(this.#o, 'GET', url, empty, Number(this.#o.clock.now()));
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          headers,
+          signal: AbortSignal.timeout(this.#o.timeoutMs ?? 10_000),
+        });
+      } catch (cause) {
+        return err(mindlogError('UNAVAILABLE', `blob store list: ${String(cause)}`, { cause }));
+      }
+      if (!res.ok) return this.#fail(res, `list ${prefix}`);
+      const xml = await res.text();
+      // Keys are limited to [A-Za-z0-9._-/] by checkKey, so no XML entities appear in them.
+      for (const m of xml.matchAll(/<Key>([^<]*)<\/Key>/g)) keys.push(m[1] ?? '');
+      token = /<IsTruncated>true<\/IsTruncated>/.test(xml)
+        ? /<NextContinuationToken>([^<]*)<\/NextContinuationToken>/
+            .exec(xml)?.[1]
+            ?.replace(/&amp;/g, '&')
+        : undefined;
+    } while (token !== undefined);
+    return ok(keys.sort());
   }
 }

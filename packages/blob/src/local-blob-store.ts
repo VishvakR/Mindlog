@@ -1,5 +1,5 @@
-import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { mkdir, open, readFile, readdir, rename, rm } from 'node:fs/promises';
+import { dirname, join, relative, sep } from 'node:path';
 import type { MindlogError, Result } from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
 import type { BlobStore } from './blob-store.js';
@@ -60,6 +60,24 @@ export class LocalBlobStore implements BlobStore {
       return ok(undefined);
     } catch (cause) {
       return io(`cannot delete blob ${key}`, cause);
+    }
+  }
+
+  async list(prefix: string): Promise<Result<string[], MindlogError>> {
+    const k = checkKey(prefix);
+    if (!k.ok) return k;
+    try {
+      const entries = await readdir(join(this.#root, prefix), {
+        recursive: true,
+        withFileTypes: true,
+      });
+      const keys = entries
+        .filter((e) => e.isFile() && !e.name.endsWith('.tmp'))
+        .map((e) => relative(this.#root, join(e.parentPath, e.name)).split(sep).join('/'));
+      return ok(keys.sort());
+    } catch (cause) {
+      if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return ok([]);
+      return io(`cannot list blobs ${prefix}`, cause);
     }
   }
 }

@@ -72,6 +72,7 @@
     "ioredis": "6.0.0",
     "madge": "^8.0.0",
     "prettier": "^3.9.10",
+    "sharp": "^0.35.5",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.1",
     "vite": "^8.3.4",

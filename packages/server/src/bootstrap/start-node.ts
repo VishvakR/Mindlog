@@ -22,6 +22,8 @@ import {
 } from '@mindlog/core';
 import {
   AdminService,
+  RecordFiles,
+  collectionWorkers,
   ApiKeyService,
   ClusterDirectory,
   ClusterService,
@@ -34,6 +36,8 @@ import type { NodeCore } from './open-node-core.js';
 import { openNodeCore } from './open-node-core.js';
 import { RangeJobs } from './range-jobs.js';
 import { openAppAuth } from './open-app-auth.js';
+import { openBlobStore } from './open-memory.js';
+import { sharpThumbnailer } from './sharp-thumbnailer.js';
 import { mindlogVersion, serverInfo } from './server-info.js';
 
 export interface NodeOptions {
@@ -191,6 +195,15 @@ export async function startNode(
     clock,
     logger,
   });
+  const files = new RecordFiles({
+    collections: core.collections,
+    blob: openBlobStore(config, clock),
+    auth: appAuth,
+    clock,
+    thumbnailer: sharpThumbnailer,
+  });
+  for (const w of collectionWorkers({ collections: core.collections, files }))
+    core.workers.register(w);
   const httpOptions: HttpServerOptions = {
     host: config.listen.http.host,
     port: config.listen.http.port,
@@ -206,6 +219,7 @@ export async function startNode(
     apiKeys,
     collections: core.collections,
     appAuth,
+    files,
     defaultTenant: config.collections.defaultTenant,
     authRateLimit: { burst: config.limits.authBurst, perMinute: config.limits.authPerMinute },
     resp: { server: context, handlers, limits },

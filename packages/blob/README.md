@@ -4,7 +4,7 @@ Blob storage behind one port (PLAN 10.4 cold tier, 16.5 files; ADR-0033).
 
 ## Public API
 
-- **`BlobStore`**: `put(key, bytes)`, `get(key)` (undefined when missing) and `delete(key)` (missing is fine), each returning `Promise<Result<…, MindlogError>>`. A `put` is durable when it resolves.
+- **`BlobStore`**: `put(key, bytes)`, `get(key)` (undefined when missing) and `delete(key)` (missing is fine) and `list(prefix)` (keys under `prefix/`, sorted), each returning `Promise<Result<…, MindlogError>>`. A `put` is durable when it resolves.
 - **`LocalBlobStore(root)`**: files under a directory; a put writes a temporary file, fsyncs it and renames it into place.
 - **`S3BlobStore(options)`**: an S3-compatible bucket (MinIO) over `fetch`, path-style URLs, with our own AWS Signature V4 (`signRequest`, `signingKey`): no AWS SDK. Network errors and 5xx answers are `UNAVAILABLE`.
 - **`MemoryBlobStore`**: in memory, for tests and the simulator.

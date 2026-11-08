@@ -1,4 +1,5 @@
 import type { AddressInfo } from 'node:net';
+import fastifyMultipart from '@fastify/multipart';
 import fastifyWebsocket from '@fastify/websocket';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import Fastify from 'fastify';
@@ -20,6 +21,7 @@ import { realtimeRoutes } from './routes/realtime-routes.js';
 import { superuserRoutes } from './routes/superuser-routes.js';
 import { collectionsRoutes } from './routes/collections-routes.js';
 import { recordsRoutes } from './routes/records-routes.js';
+import { filesRoutes } from './routes/files-routes.js';
 import { recordAuthRoutes } from './routes/record-auth-routes.js';
 
 const BEARER = 'bearer.';
@@ -64,6 +66,9 @@ export class HttpServer {
         handleProtocols: (protocols) =>
           protocols.has(CONSOLE_PROTOCOL) ? CONSOLE_PROTOCOL : false,
       },
+    });
+    await app.register(fastifyMultipart, {
+      limits: { fileSize: deps.options.bodyLimit, files: 32, fields: 256, fieldSize: 1024 * 1024 },
     });
     const latency = deps.metrics.histogram({
       name: 'mindlog_http_request_latency_seconds',
@@ -144,6 +149,7 @@ export class HttpServer {
     collectionsRoutes(app, this.#routes, deps);
     recordsRoutes(app, this.#routes, deps);
     recordAuthRoutes(app, this.#routes, deps);
+    filesRoutes(app, deps);
     consoleRoutes(app, deps);
     realtimeRoutes(app, deps);
     const document = () => openApiDocument(this.#routes, deps.version);

@@ -5,6 +5,7 @@ import type { HttpServerDeps } from '../http-deps.js';
 import { contextOf } from '../identity.js';
 import type { AnyRouteSpec } from '../route.js';
 import { defineRoute } from '../route.js';
+import { multipartOf } from './files-routes.js';
 
 const record = z.record(z.string(), z.unknown());
 const listQuery = z.object({
@@ -95,6 +96,16 @@ export function recordsRoutes(
       if (!c) return missing();
       const ctx = await contextOf(request, deps);
       if (!ctx.ok) return ctx;
+      if (deps.files && request.isMultipart()) {
+        const form = await multipartOf(request);
+        const made = await deps.files.create(
+          ctx.value,
+          params['collection'] ?? '',
+          form.body,
+          form.uploads,
+        );
+        return made.ok ? ok(made.value.record) : made;
+      }
       const made = await c.create(ctx.value, params['collection'] ?? '', body);
       return made.ok ? ok(made.value.record) : made;
     },
@@ -115,6 +126,17 @@ export function recordsRoutes(
       if (!c) return missing();
       const ctx = await contextOf(request, deps);
       if (!ctx.ok) return ctx;
+      if (deps.files && request.isMultipart()) {
+        const form = await multipartOf(request);
+        const done = await deps.files.update(
+          ctx.value,
+          params['collection'] ?? '',
+          params['id'] ?? '',
+          form.body,
+          form.uploads,
+        );
+        return done.ok ? ok(done.value.record) : done;
+      }
       const updated = await c.update(
         ctx.value,
         params['collection'] ?? '',

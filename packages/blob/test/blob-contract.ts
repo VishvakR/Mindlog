@@ -24,6 +24,16 @@ export function blobContract(name: string, open: () => Promise<BlobStore>, prefi
     expect(await store.get(`${prefix}bin/x`)).toEqual({ ok: true, value: data });
   });
 
+  test(`${name}: lists the keys under a directory`, async () => {
+    const store = await open();
+    for (const key of ['ls/b/2', 'ls/a/1', 'lsx/3']) await store.put(`${prefix}${key}`, bytes('x'));
+    expect(await store.list(`${prefix}ls`)).toEqual({
+      ok: true,
+      value: [`${prefix}ls/a/1`, `${prefix}ls/b/2`],
+    });
+    expect(await store.list(`${prefix}nothing`)).toEqual({ ok: true, value: [] });
+  });
+
   test(`${name}: unsafe keys are refused`, async () => {
     const store = await open();
     for (const key of ['', '../x', 'a/../b', '/abs', 'a//b', 'sp ace', 'a/./b'])

@@ -21,6 +21,7 @@
   "dependencies": {
     "@bufbuild/protobuf": "^2.16.0",
     "@mindlog/auth": "workspace:*",
+    "@mindlog/blob": "workspace:*",
     "@mindlog/cache": "workspace:*",
     "@mindlog/collections": "workspace:*",
     "@mindlog/core": "workspace:*",

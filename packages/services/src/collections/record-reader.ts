@@ -146,6 +146,11 @@ export class RecordReader {
     return ok(out);
   }
 
+  /** Drops a cached record, to read it again after a version conflict. */
+  forget(collection: string, id: string): void {
+    this.#records.delete(`${collection}/${id}`);
+  }
+
   /** The `@request.auth` record, or null. */
   authRecord(): Promise<RecordData | null> {
     this.#auth ??= (async () => {

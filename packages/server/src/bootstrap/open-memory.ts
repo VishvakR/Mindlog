@@ -36,7 +36,11 @@ const PPR_QUEUE = 64;
 
 /** The cold tier's blob store (PLAN 10.4), or none when the tier is off. */
 function openColdStore(config: MindlogConfig, clock: Clock): BlobStore | undefined {
-  if (!config.storage.coldTier.enabled) return undefined;
+  return config.storage.coldTier.enabled ? openBlobStore(config, clock) : undefined;
+}
+
+/** The node's configured blob store (`blob.default`). */
+export function openBlobStore(config: MindlogConfig, clock: Clock): BlobStore {
   const b = config.blob.default;
   if (b.type === 'local') return new LocalBlobStore(resolve(config.node.dataDir, b.path));
   return new S3BlobStore({ ...b, clock });

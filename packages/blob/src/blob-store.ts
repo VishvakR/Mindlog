@@ -11,6 +11,8 @@ export interface BlobStore {
   get(key: string): Promise<Result<Uint8Array | undefined, MindlogError>>;
   /** Deleting a missing blob succeeds. */
   delete(key: string): Promise<Result<void, MindlogError>>;
+  /** Every key under the `prefix/` directory, sorted. */
+  list(prefix: string): Promise<Result<string[], MindlogError>>;
 }
 
 const KEY = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
@@ -44,6 +46,12 @@ export class MemoryBlobStore implements BlobStore {
     if (!k.ok) return Promise.resolve(k);
     this.#blobs.delete(key);
     return Promise.resolve(ok(undefined));
+  }
+
+  list(prefix: string): Promise<Result<string[], MindlogError>> {
+    const k = checkKey(prefix);
+    if (!k.ok) return Promise.resolve(k);
+    return Promise.resolve(ok(this.keys().filter((key) => key.startsWith(`${prefix}/`))));
   }
 
   /** Every stored key, sorted. */

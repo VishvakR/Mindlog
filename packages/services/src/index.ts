@@ -117,5 +117,7 @@ export { AppAuthService, eq } from './collections/app-auth.js';
 export { JwtKeySet } from './collections/key-set.js';
 export type { ServedFile, Thumbnailer, Upload } from './collections/record-files.js';
 export { RecordFiles } from './collections/record-files.js';
+export type { RealtimeMessage } from './collections/record-broker.js';
+export { RecordBroker } from './collections/record-broker.js';
 export { CASCADE_JOB, FILES_JOB } from './collections/collection-jobs.js';
 export { collectionWorkers } from './collections/collection-workers.js';

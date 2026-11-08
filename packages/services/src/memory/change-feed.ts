@@ -1,4 +1,6 @@
+import { collectionScope } from '@mindlog/jobs';
 import { hlcMs } from '@mindlog/memory';
+import { RecordOpKind } from '@mindlog/proto';
 import type { CommandApplied, EventBus, Unsubscribe } from '@mindlog/eventbus';
 
 // Change streams (PLAN 6.3, 13.5): what memory commands changed, as events a
@@ -13,6 +15,9 @@ export const CHANGE_TYPES = [
   'branch.created',
   'branch.merged',
   'branch.dropped',
+  'record.created',
+  'record.updated',
+  'record.deleted',
 ] as const;
 export type ChangeType = (typeof CHANGE_TYPES)[number];
 
@@ -29,6 +34,10 @@ export interface ChangeEvent {
   readonly principal: string;
   /** Physical time of the command (HLC). */
   readonly atMs: number;
+  /** Record events: the collection (`user` is its job scope, which no memory subscriber can name). */
+  readonly collection?: string;
+  /** Record deletes: the fields it had, to check rules against. */
+  readonly deleted?: Record<string, unknown>;
 }
 
 /** The subscriber's cursor is older than what this node still holds: re-read state, then follow. */
@@ -40,6 +49,8 @@ export interface ChangeFilter {
   readonly tenant: string;
   readonly user: string;
 }
+
+const decoder = new TextDecoder();
 
 /** The change events of one applied command; none for failed or repeated commands. */
 export function changesOf(e: CommandApplied): ChangeEvent[] {
@@ -107,6 +118,24 @@ export function changesOf(e: CommandApplied): ChangeEvent[] {
     case 'branchDrop':
       add('branch.dropped', body.value.user, [body.value.name]);
       break;
+    case 'recordWrite': {
+      const { collection, ops } = body.value;
+      const user = collectionScope(collection);
+      for (const op of ops) {
+        const type =
+          op.kind === RecordOpKind.CREATE
+            ? 'record.created'
+            : op.kind === RecordOpKind.DELETE
+              ? 'record.deleted'
+              : 'record.updated';
+        const deleted =
+          op.kind === RecordOpKind.DELETE && op.data.length > 0
+            ? { deleted: JSON.parse(decoder.decode(op.data)) as Record<string, unknown> }
+            : {};
+        out.push({ ...base, type, user, ids: [op.id], collection, ...deleted });
+      }
+      break;
+    }
     default:
   }
   return out;

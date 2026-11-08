@@ -22,6 +22,7 @@ import {
 } from '@mindlog/core';
 import {
   AdminService,
+  RecordBroker,
   RecordFiles,
   collectionWorkers,
   ApiKeyService,
@@ -220,6 +221,7 @@ export async function startNode(
     collections: core.collections,
     appAuth,
     files,
+    broker: new RecordBroker({ collections: core.collections, feed: core.changes, clock }),
     defaultTenant: config.collections.defaultTenant,
     authRateLimit: { burst: config.limits.authBurst, perMinute: config.limits.authPerMinute },
     resp: { server: context, handlers, limits },

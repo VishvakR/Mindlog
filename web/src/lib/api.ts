@@ -99,13 +99,19 @@ export const setUnauthorizedHandler = (fn: () => void): void => {
   onUnauthorized = fn;
 };
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+export async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  extraHeaders: Record<string, string> = {},
+): Promise<T> {
   const token = session.token();
   const res = await fetch(`/api${path}`, {
     method,
     headers: {
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      ...extraHeaders,
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });

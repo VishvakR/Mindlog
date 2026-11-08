@@ -3,6 +3,7 @@ import { AppShell } from '@/components/app-shell';
 import { session } from '@/lib/api';
 import { BranchesPage } from '@/pages/branches-page';
 import { ClusterPage } from '@/pages/cluster-page';
+import { CollectionsPage } from '@/pages/collections-page';
 import { ConflictsPage } from '@/pages/conflicts-page';
 import { ConsolePage } from '@/pages/console-page';
 import { DataPage } from '@/pages/data-page';
@@ -40,6 +41,7 @@ export const router = createBrowserRouter(
             { path: 'time-travel', element: <TimeTravelPage /> },
             { path: 'live', element: <LivePage /> },
             { path: 'jobs', element: <JobsPage /> },
+            { path: 'collections', element: <CollectionsPage /> },
             { path: 'data', element: <DataPage /> },
             { path: 'console', element: <ConsolePage /> },
             { path: 'settings', element: <SettingsPage /> },

@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
+  Boxes,
   Brain,
   Database,
   GitBranch,
@@ -33,6 +34,12 @@ export const NAV: NavItem[] = [
   { to: '/time-travel', label: 'Time travel', icon: History, description: 'Memory as it was' },
   { to: '/live', label: 'Live feed', icon: Radio, description: 'Changes as they commit' },
   { to: '/jobs', label: 'Jobs', icon: ListChecks, description: 'Consolidation and forgetting' },
+  {
+    to: '/collections',
+    label: 'Collections',
+    icon: Boxes,
+    description: 'App data, rules and users',
+  },
   { to: '/data', label: 'Data', icon: Database, description: 'Browse and edit keys' },
   { to: '/console', label: 'Console', icon: SquareTerminal, description: 'Run Redis commands' },
   { to: '/settings', label: 'Settings', icon: Settings, description: 'Effective configuration' },

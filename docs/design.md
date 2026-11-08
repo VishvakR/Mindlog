@@ -145,7 +145,7 @@ flowchart TB
     raft["raft (pure)"]; multiraft["multiraft"]; sm["statemachine"]; transport["transport"]; pd["pd"]
   end
   subgraph L5["Storage and indexes — behind ports"]
-    storage["storage (KvStore)"]; blob["blob"]; iv["index-vector"]; it["index-text"]; ig["index-graph"]; is["index-secondary"]
+    storage["storage (KvStore)"]; blob["blob"]; iv["index-vector"]; it["index-text"]; ig["index-graph"]
   end
   subgraph L6["Core — shared foundations"]
     core["core"]; proto["proto"]; eventbus["eventbus"]
@@ -527,6 +527,28 @@ These follow directly from the replicated log. Prior art exists for each one on 
 
 ---
 
+### 12.1 Full-stack collections (phase 9)
+
+```mermaid
+sequenceDiagram
+  participant C as App (SDK)
+  participant H as Node taking the request
+  participant L as Leader of the collection's range
+  participant B as Blob store
+  C->>H: POST /api/collections/todos/records
+  H->>H: identity, rules as the requester, modifiers, password hash, embedding
+  H->>B: put uploaded files (only after the rules passed)
+  H->>L: RecordWrite (fenced by the version read) + jobs
+  L->>L: apply: validate, unique claims, index rows, enqueue jobs
+  L-->>H: versions
+  H-->>C: the record, as the requester may see it
+  L--)C: realtime event, checked against the rule as each subscriber
+```
+
+- **One key prefix per collection** (ADR-0034): schema, records, index rows, unique claims and jobs live under `c/(collection, …)`, so a split never separates them and a unique check is one apply.
+- **Rules run where the request is**, as the requester, with relations and `@collection` rows read through the router. A list plans an index from the top-level conjuncts and re-checks the whole rule on every candidate.
+- **Jobs do what crosses collections**: relation cascades, view refreshes, after hooks, cron and the file janitor are enqueued in the write that causes them.
+
 ## 13. Interfaces and errors
 
 | Interface | Shape | Notes |
@@ -622,7 +644,7 @@ Every new failure path gets a simulator scenario.
 | Compatibility, fuzzing, chaos, load | Redis client suites, parser fuzzers, Docker + `tc`/iptables, redis-benchmark/memtier | Nightly / weekly / per release |
 | AI evaluation | LongMemEval, LoCoMo, ablations, conflict F1, cache hit/false-hit | Per change to the memory engine |
 
-### 18.2 What exists today (phase 8)
+### 18.2 What exists today (phase 9)
 
 | Area | Status |
 |---|---|
@@ -641,23 +663,27 @@ Every new failure path gets a simulator scenario.
 | `@mindlog/index-vector`, `index-text`, `index-graph` | Exact flat vector index; tokenizer, Porter stemmer and BM25; entity ids, bounded graph walks, PPR, label propagation and Louvain |
 | `@mindlog/blob` | `BlobStore` port: local disk, S3/MinIO with our own SigV4, in-memory; one contract suite (ADR-0033) |
 | `@mindlog/consolidation` | The scope tick and the lifecycle workers: sleep-time on branches, evolution, dedup, themes, entity summaries, forgetting into the cold tier, re-embedding, cache janitor; per-tenant model budget (ADR-0033) |
-| `@mindlog/jobs` | Durable jobs in the scope's range (ADR-0017): replicated leases fenced by attempt, backoff, deferrals, dead letters, the leader-only runner |
+| `@mindlog/rules` | PocketBase-compatible rule and filter language (ADR-0018): lexer, parser, schema checker, completion, index planner, evaluator |
+| `@mindlog/collections` | Schemas, field types as plugins, `RecordWrite` and `SchemaChange` apply with index rows and unique claims under one key prefix (ADR-0034), view computation, cron parsing |
+| `@mindlog/auth` | argon2id, HS256 JWTs, identities, rate limiting, opt-in SMTP mailer and OIDC client (ADR-0035) |
+| `@mindlog/sdk` | TypeScript client: records, sign-in, files, delegated tokens, realtime |
+| `@mindlog/jobs` | Durable jobs in the scope's or collection's range (ADR-0017): replicated leases fenced by attempt, backoff, deferrals, dead letters, the leader-only runner |
 | `@mindlog/memory` | Memory engine: apply with indexes, ingestion and recall pipelines (recipes, PPR, rerank, MMR, packing), vector cache, degraded mode, the enrich worker; conflict detection and review, trust policy and taint cascade, `ASOF`/`VALID_AT`, branches with overlay reads and planned merges; lifecycle apply (recall stats, tiers, evolution, pins), cold-tier reads, tool traces, `.mcube` and COGX import/export |
 | `@mindlog/branching` | State-based CRDTs (LWW register, PN-counter, add-wins OR-set) and the pure branch merge planner |
 | `@mindlog/cache` | Semantic cache in the scope's range, dependencies dropped inside apply (ADR-0012) |
 | `@mindlog/adapter-mcp` | MCP over Streamable HTTP on :8765 (API keys, Host checks) and a stdio relay: memory, cache, conflict and branch tools, resources with listen subscriptions, `recall-context` |
 | `@mindlog/transport` | `ConnectTransport`: Raft messages and snapshot chunks over Connect gRPC on HTTP/2 (ADR-0025); `KvForwarder` and `KvForwardService` for calls forwarded to a range's leader |
 | `@mindlog/kv` | 100 Redis commands over generations (strings, keys, expiry, hashes, lists, sets, sorted sets, JSON subset), `SET … IFEQ`, SCAN cursors, replicated expiry and GC jobs (leader only) |
-| `@mindlog/services` | `KvService`: sessions, static AUTH, reads behind the `ReadBarrier`, writes through the Proposer or, with a router, `RoutedKv` (fan-out, scatter, cross-range transactions); MULTI/EXEC/WATCH, spans and metrics. `ClusterDirectory`: PD's cluster view and operator actions for the dashboard. `ClusterService`: `CLUSTER.*` admin commands. `MemoryService`: memory requests routed to each user scope's leader, shared Zod schemas. `ChangeFeed`: the memory change stream. `ApiKeyService`: hashed API keys for agents. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024) |
+| `@mindlog/services` | `KvService`: sessions, static AUTH, reads behind the `ReadBarrier`, writes through the Proposer or, with a router, `RoutedKv` (fan-out, scatter, cross-range transactions); MULTI/EXEC/WATCH, spans and metrics. `ClusterDirectory`: PD's cluster view and operator actions for the dashboard. `ClusterService`: `CLUSTER.*` admin commands. `MemoryService`: memory requests routed to each user scope's leader, shared Zod schemas. `ChangeFeed`: the memory change stream. `ApiKeyService`: hashed API keys for agents. `KvBrowser`: typed key reads and atomic replace for REST. `AdminService`: superusers in `$system`, scrypt, HMAC bearer tokens (ADR-0024). `CollectionService`, `AppAuthService`, `RecordFiles`, `RecordBroker` and the collection job workers: full-stack mode (PLAN 16) |
 | `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server, `resp.command` spans, `MEM.*` (incl. review, branches, lifecycle and `MEM.WATCH` push messages) and `CACHE.*`, preauthenticated connections for the console |
-| `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, `/api/memory/*`, `/api/realtime` (SSE), `/api/admin/api-keys`, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
-| `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, cluster (nodes, ranges, placement decisions), memory explorer (with quarantine review), recall playground, knowledge graph, conflicts inbox, branches, time travel, live feed, jobs (lifecycle counts, export/import), version history and cold-tier marks, data browser with typed editors, console, settings |
+| `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, `/api/memory/*`, `/api/realtime` (SSE), `/api/admin/api-keys`, `/api/collections/*`, `/api/files/*`, record subscriptions on `/api/realtime`, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
+| `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, cluster (nodes, ranges, placement decisions), memory explorer (with quarantine review), recall playground, knowledge graph, conflicts inbox, branches, time travel, live feed, jobs (lifecycle counts, export/import), version history and cold-tier marks, collections (schemas, rule editor, records), data browser with typed editors, console, settings |
 | `@mindlog/server` | Composition root: `mindlog-server` as a one-voter range (`--single-node`) or a cluster member (`cluster.peers`), `superuser upsert`, `apikey create|list|revoke`, `mcp` (stdio relay), graceful shutdown, `mindlog-maelstrom` node binary |
 | Python | `model_service`: gRPC `ModelsService` on ONNX Runtime (MiniLM embeddings and reranker, DeBERTa NLI, GLiNER, extractive or GGUF summaries), micro-batching, admission control, models only from `models/` (ADR-0020); `demo_agents` (two-session MCP demo, the phase 7 multi-agent demo); `evals` (LongMemEval, LoCoMo, cache, conflict set, sleep-time before/after); redis-py compatibility suite |
 | Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger; `chaos`: 3-node cluster; `cluster` and `cluster-join`: 3 nodes that also run the placement driver, plus a fourth; `offline`: node, model service and demo agent on a network with no route out), `scripts/chaos/`, `scripts/load-and-rebalance.sh` (kill the leader, partition a node), Grafana dashboard in `deploy/grafana/` |
-| Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`; faults: splits, merges, leader transfers, membership, clock skew; `SIM_PD=1` placement driver, `SIM_BANK=1` bank transfers across ranges, `SIM_MEM=1` memory workload, `SIM_BRANCH=1` branches, `SIM_LIFE=1` lifecycle), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts`, `test/integration/degraded.test.ts`, `test/bench/recall.test.ts`, `test/bench/lifecycle.test.ts` (30-day forgetting vs LRU) |
+| Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`; faults: splits, merges, leader transfers, membership, clock skew; `SIM_PD=1` placement driver, `SIM_BANK=1` bank transfers across ranges, `SIM_MEM=1` memory workload, `SIM_BRANCH=1` branches, `SIM_LIFE=1` lifecycle, `SIM_COLL=1` collections), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts`, `test/integration/degraded.test.ts`, `test/bench/recall.test.ts`, `test/bench/lifecycle.test.ts` (30-day forgetting vs LRU) |
 | CI | Lint, typecheck, tests (TS, web, Python), protobuf drift and breaking checks, Conventional Commits, gate job (redis-py, kill -9 durability, redis-benchmark, 3-node failover), 1,000 simulator seeds; nightly Maelstrom and 100,000 seeds |
-| Gates | Phases 0 to 8 (`docs/phases/phase-N.md`) |
+| Gates | Phases 0 to 9 (`docs/phases/phase-N.md`) |
 
 Everything else in this document is designed but not built yet; it arrives phase by phase (PLAN 24).
 

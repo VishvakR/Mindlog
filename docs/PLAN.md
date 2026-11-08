@@ -1150,7 +1150,7 @@ literal     = string | number | "true" | "false" | "null" ;
 ### 16.5 Files
 
 - `BlobStore` port: local disk (single node) or S3-compatible (MinIO for offline clusters).
-- Upload flow: stream to blob store under a content hash → propose `RecordWrite` with file metadata → on failure, a janitor job removes orphan blobs.
+- Upload flow: after the rules pass, write to the blob store under a per-upload name (as built; a content hash in the original plan) → propose `RecordWrite` with file metadata → on failure, a janitor job removes orphan blobs.
 - Download: `/api/files/{collection}/{recordId}/{filename}` with rule check (`viewRule`) and optional short-lived file tokens for protected files; image thumbnails generated lazily (sharp) and cached.
 
 ### 16.6 Realtime
@@ -1159,7 +1159,7 @@ literal     = string | number | "true" | "false" | "null" ;
 
 ### 16.7 View collections
 
-Defined with a small JSON pipeline instead of SQL: `[{ from: "posts" }, { join: { collection: "comments", on: "comments.post = posts.id", type: "left" } }, { group: ["posts.id", "posts.name"], aggregate: { totalComments: "count(comments.id)" } }]`. Maintained incrementally by a view maintainer subscribed to the change stream, materialized under `c/(view, id)`, so views get realtime events (an improvement over PocketBase views).
+Defined with a small JSON pipeline instead of SQL: `[{ from: "posts" }, { join: { collection: "comments", on: "comments.post = posts.id", type: "left" } }, { group: ["posts.id", "posts.name"], aggregate: { totalComments: "count(comments.id)" } }]`. Maintained incrementally by a view maintainer subscribed to the change stream, materialized under `c/(view, id)`, so views get realtime events (an improvement over PocketBase views). As built: refresh jobs enqueued in each source write recompute the view and write only the rows that differ (see `docs/phases/phase-9.md`).
 
 ### 16.8 Hooks, jobs, migrations
 
@@ -1680,7 +1680,7 @@ References: [R-letta-sleeptime], [R-a-mem], [R-memorybank], [R-memos], [R-cognee
 
 Tasks
 - [ ] `@mindlog/rules`: lexer, parser, type checker, planner, evaluator; grammar fuzzer; planner-equivalence property tests.
-- [ ] `@mindlog/collections`: schemas, field types, validation, modifiers, relations + expand, unique indexes (2PC across ranges), migrations.
+- [ ] `@mindlog/collections`: schemas, field types, validation, modifiers, relations + expand, unique indexes (single-range, ADR-0034), migrations.
 - [ ] Auth: password (argon2id), OTP, OAuth2 (PKCE), JWT + refresh, API keys, delegated agent tokens.
 - [ ] Files: BlobStore local + S3 (MinIO), protected files, thumbnails, orphan janitor.
 - [ ] Realtime SSE with per-subscriber rule filtering; view collections with incremental maintenance; hooks in worker sandbox; scheduled jobs.

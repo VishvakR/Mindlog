@@ -161,7 +161,8 @@ export class CollectionsLoad {
         version,
       );
       if (r === 'ok') {
-        this.acked.set(id, del ? null : slug);
+        // An update's answer can arrive after a later delete's; the delete stands.
+        if (del || this.acked.get(id) !== null) this.acked.set(id, del ? null : slug);
         this.counts[del ? 'deleted' : 'updated']++;
       } else if (r === 'unknown' && del) this.#maybeDeleted.add(id);
     } finally {
@@ -181,11 +182,15 @@ export class CollectionsLoad {
       data: data === undefined ? new Uint8Array() : enc.encode(JSON.stringify(data)),
       expectVersion,
     });
+    const started = this.#d.world.now;
     const r = await this.#propose((s) =>
       s.stamp(TENANT, 'sim', {
         case: 'recordWrite',
         value: { collection: COLLECTION, ops: [op], enqueue: [] },
       }),
+    );
+    this.#d.say(
+      `collections: ${RecordOpKind[kind]} ${id} v${String(expectVersion)} → ${r === undefined ? 'unknown' : r.outcome.case === 'error' ? r.outcome.value.code : 'ok'} (from ${started.toFixed(0)})`,
     );
     if (r === undefined) return 'unknown';
     if (r.outcome.case === 'record') return 'ok';

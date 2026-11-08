@@ -22,7 +22,12 @@ import {
   kvWriteHandler,
 } from '@mindlog/kv';
 import { startSingleNode } from '@mindlog/multiraft';
-import type { RangeRouter, RangeTarget, RequestContext } from '@mindlog/services';
+import type {
+  CollectionServiceDeps,
+  RangeRouter,
+  RangeTarget,
+  RequestContext,
+} from '@mindlog/services';
 import {
   AppAuthService,
   CollectionService,
@@ -57,7 +62,13 @@ export class OutboxMailer implements Mailer {
  * served by a `CollectionService` and an `AppAuthService`. With `remote` the
  * service holds no replica: calls are forwarded to a stand-in that does.
  */
-export async function collectionsNode(options: { remote?: boolean; mailer?: boolean } = {}) {
+export async function collectionsNode(
+  options: {
+    remote?: boolean;
+    mailer?: boolean;
+    deps?: Partial<CollectionServiceDeps>;
+  } = {},
+) {
   const clock = new ManualClock(1_760_000_000_000n);
   const logger = new MemoryLogger();
   const metrics = new MemoryMetrics();
@@ -140,7 +151,7 @@ export async function collectionsNode(options: { remote?: boolean; mailer?: bool
     local: () => (local ? target : undefined),
     any: () => target,
   };
-  const collections = new CollectionService({ router, stamper, clock });
+  const collections = new CollectionService({ router, stamper, clock, ...options.deps });
   holder.service = new CollectionService({
     router: { ...router, local: () => target },
     stamper,

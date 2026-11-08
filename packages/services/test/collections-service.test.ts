@@ -1,6 +1,9 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { describe, expect, test } from 'vitest';
 import type { CollectionInput } from '@mindlog/collections';
 import type { RequestContext } from '@mindlog/services';
+import { AppAuthService } from '@mindlog/services';
 import { collectionsNode } from './support/collections-node.js';
 
 const users: CollectionInput = {
@@ -324,5 +327,88 @@ describe('app auth', () => {
         })
       ).ok,
     ).toBe(false);
+  });
+});
+
+describe('opt-in OAuth2 and email verification', () => {
+  async function provider() {
+    const server = createServer((req, res) => {
+      res.setHeader('content-type', 'application/json');
+      if (req.url === '/token') res.end(JSON.stringify({ access_token: 'at' }));
+      else
+        res.end(
+          JSON.stringify({ sub: 'ext-9', email: 'New@X.io', email_verified: true, name: 'New' }),
+        );
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const base = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`;
+    const fake = {
+      name: 'fake',
+      authUrl: `${base}/auth`,
+      tokenUrl: `${base}/token`,
+      userInfoUrl: `${base}/me`,
+      clientId: 'c',
+      clientSecret: 's',
+      scopes: ['openid'],
+    };
+    return { fake, close: () => server.close() };
+  }
+
+  test('a provider signs in a new user once, and a forged state is refused', async () => {
+    const n = await setup();
+    const { fake, close } = await provider();
+    const auth = new AppAuthService({
+      collections: n.collections,
+      kv: n.kv,
+      clock: n.clock,
+      providers: new Map([['fake', () => Promise.resolve({ ok: true as const, value: fake })]]),
+    });
+    expect(
+      (await auth.authWithOAuth2('acme', 'users', { provider: 'fake', code: 'x', state: 'y' })).ok,
+    ).toBe(false);
+    const current = await n.collections.getCollection(n.superuser, 'users');
+    if (!current.ok) throw new Error('schema');
+    await n.collections.saveCollection(
+      n.superuser,
+      { ...users, auth: { oauth2: { enabled: true, providers: ['fake'] } } },
+      current.value.version,
+    );
+    const methods = await auth.authMethods('acme', 'users', 'http://app/cb');
+    if (!methods.ok) throw new Error(methods.error.message);
+    const [entry] = methods.value.oauth2.providers;
+    expect(entry?.authUrl).toContain('code_challenge_method=S256');
+    const state = entry?.state ?? '';
+    const forged = await auth.authWithOAuth2('acme', 'users', {
+      provider: 'fake',
+      code: 'c',
+      state: `${state}x`,
+    });
+    expect(forged.ok).toBe(false);
+    const first = await auth.authWithOAuth2('acme', 'users', {
+      provider: 'fake',
+      code: 'c',
+      state,
+    });
+    if (!first.ok) throw new Error(first.error.message);
+    expect(first.value.record).toMatchObject({ email: 'new@x.io', verified: true });
+    const again = await auth.authWithOAuth2('acme', 'users', {
+      provider: 'fake',
+      code: 'c',
+      state,
+    });
+    expect(again.ok && again.value.record['id']).toBe(first.value.record['id']);
+    close();
+  });
+
+  test('verification mail confirms an email; other collections refuse the token', async () => {
+    const n = await setup({ mailer: true });
+    expect((await n.auth.requestVerification('acme', 'users', 'ann@x.io')).ok).toBe(true);
+    expect((await n.auth.requestVerification('acme', 'users', 'nobody@x.io')).ok).toBe(true);
+    expect(n.mailer?.sent).toHaveLength(1);
+    const token = /token: (\S+)/.exec(n.mailer?.sent[0]?.text ?? '')?.[1] ?? '';
+    expect((await n.auth.confirmVerification('acme', 'todos', token)).ok).toBe(false);
+    expect((await n.auth.confirmVerification('acme', 'users', token)).ok).toBe(true);
+    const me = await n.collections.view(n.as(n.ann), 'users', n.ann);
+    expect(me.ok && me.value['verified']).toBe(true);
   });
 });

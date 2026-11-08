@@ -147,9 +147,7 @@ export async function exchangeCode(
     let verified = info['email_verified'] === true;
     if (p.name === 'github') {
       // GitHub keeps private emails behind /user/emails.
-      const emails = (await (
-        await fetchImpl(`${p.userInfoUrl}/emails`, { headers: auth })
-      ).json());
+      const emails = await (await fetchImpl(`${p.userInfoUrl}/emails`, { headers: auth })).json();
       const primary = Array.isArray(emails)
         ? (emails as Record<string, unknown>[]).find(
             (e) => e['primary'] === true && e['verified'] === true,

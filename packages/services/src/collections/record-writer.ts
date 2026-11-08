@@ -4,11 +4,24 @@ import type { MindlogError, Result } from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
 import { actorOf, hashPassword, randomSecret, recordId, verifyPassword } from '@mindlog/auth';
 import type { CollectionSchema, FieldDef } from '@mindlog/collections';
-import { RECORD_ID, fieldNormalize, fieldZero, isMulti, storedFields } from '@mindlog/collections';
+import {
+  RECORD_ID,
+  fieldNormalize,
+  fieldZero,
+  isMulti,
+  storedFields,
+  viewSources,
+} from '@mindlog/collections';
 import type { JobSpec } from '@mindlog/proto';
 import { RecordOpKind, RecordOpSchema, RecordWriteSchema } from '@mindlog/proto';
 import { formatDate } from '@mindlog/rules';
-import { cascadeJob, fileJanitorJob, holds, referencesTo } from './collection-jobs.js';
+import {
+  cascadeJob,
+  fileJanitorJob,
+  holds,
+  referencesTo,
+  viewRefreshJob,
+} from './collection-jobs.js';
 import type { CollectionRanges, ProposeOutcome, RawRecord } from './collection-ranges.js';
 import type { RecordReader, RecordView } from './record-reader.js';
 import { isSuperuser, ruleRecord } from './record-reader.js';
@@ -394,6 +407,14 @@ export class RecordWriter {
     return degraded;
   }
 
+  /** Every write to a collection that views read refreshes them, durably, with the write. */
+  #viewJobs(collection: string): JobSpec[] {
+    const read = [...this.reader.catalog.values()].some(
+      ({ schema }) => schema.view && viewSources(schema.view).includes(collection),
+    );
+    return read ? [viewRefreshJob(this.d.nowMs())] : [];
+  }
+
   async #propose(
     collection: string,
     kind: RecordOpKind,
@@ -413,7 +434,7 @@ export class RecordWriter {
           expectVersion,
         }),
       ],
-      enqueue: [...enqueue],
+      enqueue: [...enqueue, ...this.#viewJobs(collection)],
     });
     return this.d.ranges.run<ProposeOutcome>(
       this.reader.caller,

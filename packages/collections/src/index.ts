@@ -32,6 +32,7 @@ export { fieldNormalize, fieldValidate, fieldZero, specOf } from './fields/regis
 export { FILE_NAME, RECORD_ID } from './fields/list-fields.js';
 export { sanitizeHtml } from './fields/sanitize-html.js';
 export { normalizeDate } from './fields/text-fields.js';
+export { checkView, computeView, viewSources } from './view.js';
 export type { IndexEntry, RecordFields, RecordMeta } from './record-data.js';
 export { completeRecord, indexEntries } from './record-data.js';
 export {

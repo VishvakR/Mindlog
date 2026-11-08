@@ -3,7 +3,15 @@ import { randomBytes } from 'node:crypto';
 import type { Clock, MindlogError, Result } from '@mindlog/core';
 import { err, isUserTenant, mindlogError, ok } from '@mindlog/core';
 import type { CollectionInput, CollectionSchema } from '@mindlog/collections';
-import { NAME, checkSchema, parseSchema, schemaView, storedFields } from '@mindlog/collections';
+import {
+  NAME,
+  checkSchema,
+  checkView,
+  parseSchema,
+  schemaView,
+  storedFields,
+  viewSources,
+} from '@mindlog/collections';
 import { SchemaChangeSchema } from '@mindlog/proto';
 import type { Completions, Expr, RuleIssue } from '@mindlog/rules';
 import { checkRule, completeRule, compareValues } from '@mindlog/rules';
@@ -12,6 +20,7 @@ import { replies } from '@mindlog/kv';
 import type { KvReply } from '@mindlog/proto';
 import type { Caller, RangeCall, RangeRouter } from '../kv/range-router.js';
 import { Catalog } from './catalog.js';
+import { refreshView } from './view-refresh.js';
 import { CollectionRanges } from './collection-ranges.js';
 import type { ProposeOutcome, RawRecord, StoredCollection } from './collection-ranges.js';
 import type { RecordView, RequestContext } from './record-reader.js';
@@ -184,6 +193,12 @@ export class CollectionService {
     });
     const out = await this.#proposeSchema(caller, schema.value.name, change);
     if (!out.ok) return out;
+    if (schema.value.view) {
+      const reader = await this.reader(ctx);
+      if (!reader.ok) return reader;
+      const built = await this.refresh(reader.value, schema.value);
+      if (!built.ok) return built;
+    }
     return ok({ schema: schema.value, version: out.value.versions[0] ?? '0' });
   }
 
@@ -202,6 +217,10 @@ export class CollectionService {
         c.schema.name !== name &&
         storedFields(c.schema).some((f) => f.type === 'relation' && f.collection === name),
     );
+    const views = [...all.value.values()].filter(
+      (c) => c.schema.view && viewSources(c.schema.view).includes(name),
+    );
+    users.push(...views);
     if (users.length > 0) {
       return err(
         mindlogError(
@@ -217,6 +236,11 @@ export class CollectionService {
     });
     const out = await this.#proposeSchema(caller, name, change);
     return out.ok ? ok(undefined) : out;
+  }
+
+  /** Recomputes a view's materialized rows. */
+  refresh(reader: RecordReader, view: CollectionSchema): Promise<Result<void, MindlogError>> {
+    return refreshView(reader, this.ranges, view);
   }
 
   async #proposeSchema(
@@ -265,8 +289,7 @@ export class CollectionService {
       if (f.type === 'relation' && !schemas.has(f.collection))
         problems[`fields.${String(i)}.collection`] = `no collection ${f.collection}`;
     }
-    if (schema.view && !schemas.has(schema.view.from))
-      problems['view.from'] = `no collection ${schema.view.from}`;
+    Object.assign(problems, checkView(schema, schemas));
     return problems;
   }
 

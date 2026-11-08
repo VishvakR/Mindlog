@@ -1,7 +1,8 @@
 import { ok } from '@mindlog/core';
 import { COLLECTION_SCOPE } from '@mindlog/jobs';
 import type { Worker } from '@mindlog/jobs';
-import { CASCADE_JOB, FILES_JOB, holds, referencesTo } from './collection-jobs.js';
+import { viewSources } from '@mindlog/collections';
+import { CASCADE_JOB, FILES_JOB, VIEW_JOB, holds, referencesTo } from './collection-jobs.js';
 import type { CollectionService } from './collection-service.js';
 import type { RecordFiles } from './record-files.js';
 import type { RequestContext } from './record-reader.js';
@@ -45,5 +46,19 @@ export function collectionWorkers(d: {
       return swept && !swept.ok ? swept : ok({ completed: false });
     },
   };
-  return [cascade, janitor];
+  const views: Worker = {
+    kind: VIEW_JOB,
+    async run({ tenant, user }) {
+      const source = user.slice(COLLECTION_SCOPE.length);
+      const reader = await d.collections.reader(system(tenant));
+      if (!reader.ok) return reader;
+      for (const { schema } of reader.value.catalog.values()) {
+        if (!schema.view || !viewSources(schema.view).includes(source)) continue;
+        const done = await d.collections.refresh(reader.value, schema);
+        if (!done.ok) return done;
+      }
+      return ok({ completed: false });
+    },
+  };
+  return [cascade, janitor, views];
 }

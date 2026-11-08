@@ -8,6 +8,7 @@ import type { StoredCollection } from './collection-ranges.js';
 
 export const FILES_JOB = 'collections.files';
 export const CASCADE_JOB = 'collections.cascade';
+export const VIEW_JOB = 'collections.view';
 
 /** Orphan files younger than this may belong to an upload that has not been proposed yet. */
 export const FILE_GRACE_MS = 10 * 60_000;
@@ -22,6 +23,16 @@ export function fileJanitorJob(nowMs: number): JobSpec {
     id: `files-${String(bucket)}`,
     kind: FILES_JOB,
     runAtMs: BigInt((bucket + 1) * BUCKET_MS + FILE_GRACE_MS),
+  });
+}
+
+/** Refreshes the views reading a collection; one per second and collection, after the write. */
+export function viewRefreshJob(nowMs: number): JobSpec {
+  const second = Math.floor(nowMs / 1000);
+  return create(JobSpecSchema, {
+    id: `view-${String(second)}`,
+    kind: VIEW_JOB,
+    runAtMs: BigInt((second + 1) * 1000),
   });
 }
 

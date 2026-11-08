@@ -59,6 +59,7 @@ export default {
         'compat',
         'deps',
         'deploy',
+        'examples',
       ],
     ],
   },

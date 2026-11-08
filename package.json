@@ -22,7 +22,7 @@
     "proto:gen": "scripts/gen-proto.sh",
     "proto:breaking": "buf breaking --against \".git#branch=main\"",
     "build": "tsc -b && pnpm --filter @mindlog/web build",
-    "typecheck": "tsc -b tsconfig.check.json && pnpm --filter @mindlog/web typecheck",
+    "typecheck": "tsc -b tsconfig.check.json && pnpm --filter @mindlog/web typecheck && pnpm --filter todo-app typecheck",
     "lint:cycles": "madge --circular packages",
     "fuzz:resp": "FUZZ_RUNS=${FUZZ_RUNS:-200000} vitest run --testTimeout=3600000 packages/adapter-resp/test/fuzz",
     "dev": "pnpm --filter @mindlog/web build && tsc -b packages/server && node packages/server/dist/bin.js --single-node",

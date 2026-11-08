@@ -1,0 +1,20 @@
+{
+  "name": "todo-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A todo app built on Mindlog alone: sign-in, per-user data, attachments and live updates",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "agent": "node src/agent.ts",
+    "demo": "node src/demo.ts"
+  },
+  "dependencies": {
+    "@mindlog/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vite": "^8.3.4"
+  }
+}

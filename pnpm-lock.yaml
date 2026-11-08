@@ -80,6 +80,9 @@ importers:
       '@mindlog/rules':
         specifier: workspace:*
         version: link:packages/rules
+      '@mindlog/sdk':
+        specifier: workspace:*
+        version: link:packages/sdk-ts
       '@mindlog/server':
         specifier: workspace:*
         version: link:packages/server
@@ -686,6 +689,8 @@ importers:
       '@mindlog/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/sdk-ts: {}
 
   packages/server:
     dependencies:

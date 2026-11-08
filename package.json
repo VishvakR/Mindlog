@@ -53,6 +53,7 @@
     "@mindlog/proto": "workspace:*",
     "@mindlog/raft": "workspace:*",
     "@mindlog/rules": "workspace:*",
+    "@mindlog/sdk": "workspace:*",
     "@mindlog/server": "workspace:*",
     "@mindlog/services": "workspace:*",
     "@mindlog/statemachine": "workspace:*",

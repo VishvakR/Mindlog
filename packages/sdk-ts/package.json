@@ -1,0 +1,21 @@
+{
+  "name": "@mindlog/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript client for Mindlog collections, auth, files and realtime (PLAN 15, 16)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@mindlog/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run --root ../.. test/integration/sdk.test.ts"
+  }
+}

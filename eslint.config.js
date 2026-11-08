@@ -29,6 +29,7 @@ const LAYERS = [
   ['replication', ['raft', 'multiraft', 'statemachine', 'transport', 'pd']],
   ['storage', ['storage', 'blob', 'index-vector', 'index-text', 'index-graph', 'index-secondary']],
   ['core', ['core', 'proto', 'eventbus']],
+  ['clients', ['sdk-ts']],
 ];
 
 const layerElements = LAYERS.map(([type, pkgs]) => ({

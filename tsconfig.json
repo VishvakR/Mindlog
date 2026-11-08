@@ -90,6 +90,9 @@
     },
     {
       "path": "packages/auth"
+    },
+    {
+      "path": "packages/sdk-ts"
     }
   ]
 }

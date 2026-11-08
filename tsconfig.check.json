@@ -183,6 +183,9 @@
     },
     {
       "path": "packages/auth/test"
+    },
+    {
+      "path": "packages/sdk-ts"
     }
   ]
 }

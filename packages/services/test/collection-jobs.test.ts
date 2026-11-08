@@ -3,7 +3,18 @@ import { describe, expect, test } from 'vitest';
 import { MemoryBlobStore } from '@mindlog/blob';
 import { collectionScope } from '@mindlog/jobs';
 import { JobSchema } from '@mindlog/proto';
-import { CASCADE_JOB, FILES_JOB, RecordFiles, collectionWorkers } from '@mindlog/services';
+import { mindlogError } from '@mindlog/core';
+import type { RecordHooks } from '@mindlog/services';
+import {
+  CASCADE_JOB,
+  CRON_COLLECTION,
+  CRON_JOB,
+  FILES_JOB,
+  RecordFiles,
+  collectionWorkers,
+  cronRecordId,
+  ensureCrons,
+} from '@mindlog/services';
 import { TENANT, collectionsNode } from './support/collections-node.js';
 
 const ok = <T>(r: { ok: true; value: T } | { ok: false; error: { message: string } }): T => {
@@ -116,5 +127,75 @@ describe('file janitor', () => {
     ]);
     expect(bad.ok).toBe(false);
     expect(n.blob.keys()).toEqual([]);
+  });
+});
+
+describe('cron chain', () => {
+  const fakeHooks = (fail = false) => {
+    let runs = 0;
+    const crons = [{ name: 'tick', expr: '* * * * *' }];
+    return {
+      runs: () => runs,
+      list: crons,
+      hooks: {
+        has: () => false,
+        run: () => Promise.resolve({ ok: true as const, value: {} }),
+        crons: () => crons,
+        runCron: () => {
+          runs++;
+          return Promise.resolve(
+            fail
+              ? { ok: false as const, error: mindlogError('INTERNAL', 'boom') }
+              : { ok: true as const, value: undefined },
+          );
+        },
+      } satisfies RecordHooks,
+    };
+  };
+
+  async function chain(fail: boolean) {
+    const n = await collectionsNode();
+    const f = fakeHooks(fail);
+    ok(await ensureCrons(n.collections, f.hooks, TENANT, n.clock));
+    ok(await ensureCrons(n.collections, f.hooks, TENANT, n.clock));
+    const worker = collectionWorkers({
+      collections: n.collections,
+      hooks: f.hooks,
+      clock: n.clock,
+    }).find((w) => w.kind === CRON_JOB);
+    const run = async () => {
+      const job = create(JobSchema, {
+        id: 'j',
+        kind: CRON_JOB,
+        payload: new TextEncoder().encode('tick'),
+        runAtMs: n.clock.now(),
+      });
+      return (worker as NonNullable<typeof worker>).run({
+        rangeId: 1n,
+        tenant: TENANT,
+        user: collectionScope(CRON_COLLECTION),
+        job,
+        attempt: 1,
+      });
+    };
+    return { n, f, run };
+  }
+
+  test('starts once, and records each run; a failing cron keeps its schedule', async () => {
+    const { n, f, run } = await chain(true);
+    expect(ok(await n.collections.list(n.superuser, CRON_COLLECTION)).totalItems).toBe(1);
+    n.clock.advance(1000n);
+    expect((await run()).ok).toBe(true);
+    expect(f.runs()).toBe(1);
+    const rec = ok(await n.collections.view(n.superuser, CRON_COLLECTION, cronRecordId('tick')));
+    expect(rec['lastMs']).toBe(Number(n.clock.now()));
+  });
+
+  test('a cron removed from the hooks ends its chain', async () => {
+    const { n, f, run } = await chain(false);
+    f.list.length = 0;
+    expect((await run()).ok).toBe(true);
+    expect(f.runs()).toBe(0);
+    expect(ok(await n.collections.list(n.superuser, CRON_COLLECTION)).totalItems).toBe(0);
   });
 });

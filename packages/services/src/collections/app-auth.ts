@@ -21,7 +21,7 @@ import type { RawRecord } from './collection-ranges.js';
 import type { CollectionService } from './collection-service.js';
 import { JwtKeySet } from './key-set.js';
 import type { RecordView, RequestContext } from './record-reader.js';
-import { callerOf } from './record-reader.js';
+import { callerOf, ruleRecord } from './record-reader.js';
 
 export interface AppAuthDeps {
   readonly collections: CollectionService;
@@ -240,6 +240,12 @@ export class AppAuthService {
     collection: string,
     user: RawRecord,
   ): Promise<Result<AuthResponse, MindlogError>> {
+    const hooks = this.d.collections.hooks;
+    if (hooks?.has('onAuth', collection, 'before')) {
+      const record = ruleRecord(collection, user);
+      const ran = await hooks.run({ event: 'onAuth', collection, phase: 'before', record });
+      if (!ran.ok) return ran;
+    }
     const token = await this.sign(
       { sub: user.id, col: collection, ten: tenant, typ: 'access' },
       user,

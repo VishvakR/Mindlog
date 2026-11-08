@@ -143,6 +143,19 @@ export class RecordFiles {
     if (!schema.ok) return schema;
     const prepared = this.#prepare(schema.value, uploads);
     if (!prepared.ok) return prepared;
+    const hooks = this.d.collections.hooks;
+    if (hooks?.has('onFileUpload', collection, 'before')) {
+      for (const u of uploads) {
+        const file = {
+          field: u.field,
+          filename: u.filename,
+          mimetype: u.mimetype,
+          size: u.bytes.length,
+        };
+        const ran = await hooks.run({ event: 'onFileUpload', collection, phase: 'before', file });
+        if (!ran.ok) return ran;
+      }
+    }
     const prefix = dir('files', ctx.tenant, collection);
     let persisted = false;
     const result = await run({

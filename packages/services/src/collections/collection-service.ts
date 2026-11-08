@@ -20,6 +20,7 @@ import { replies } from '@mindlog/kv';
 import type { KvReply } from '@mindlog/proto';
 import type { Caller, RangeCall, RangeRouter } from '../kv/range-router.js';
 import { Catalog } from './catalog.js';
+import type { RecordHooks } from './record-hooks.js';
 import { refreshView } from './view-refresh.js';
 import { CollectionRanges } from './collection-ranges.js';
 import type { ProposeOutcome, RawRecord, StoredCollection } from './collection-ranges.js';
@@ -37,6 +38,8 @@ export interface CollectionServiceDeps {
   readonly clock: Clock;
   /** The cluster version PD reports; writes need `COLLECTIONS_CLUSTER_VERSION`. Absent: always met. */
   readonly clusterVersion?: () => number;
+  /** The operator's hooks (PLAN 16.8). */
+  readonly hooks?: RecordHooks;
   /** Fills `vector` fields; without it they stay empty. */
   readonly embedder?: TextEmbedder;
   /** Tenants with full-stack mode on (PLAN 16: enabled per tenant). Absent: every user tenant. */
@@ -85,6 +88,10 @@ export class CollectionService {
     this.catalog = new Catalog({ ranges: this.ranges, clock: d.clock });
   }
 
+  get hooks(): RecordHooks | undefined {
+    return this.d.hooks;
+  }
+
   #now = (): number => Number(this.d.clock.now());
 
   #available(ctx: RequestContext, write: boolean): Result<void, MindlogError> {
@@ -122,6 +129,7 @@ export class CollectionService {
         ranges: this.ranges,
         nowMs: this.#now,
         ...(this.d.embedder ? { embedder: this.d.embedder } : {}),
+        ...(this.d.hooks ? { hooks: this.d.hooks } : {}),
       }),
     );
   }

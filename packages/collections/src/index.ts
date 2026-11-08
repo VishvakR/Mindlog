@@ -33,6 +33,8 @@ export { FILE_NAME, RECORD_ID } from './fields/list-fields.js';
 export { sanitizeHtml } from './fields/sanitize-html.js';
 export { normalizeDate } from './fields/text-fields.js';
 export { checkView, computeView, viewSources } from './view.js';
+export type { Cron } from './cron.js';
+export { nextFire, parseCron } from './cron.js';
 export type { IndexEntry, RecordFields, RecordMeta } from './record-data.js';
 export { completeRecord, indexEntries } from './record-data.js';
 export {

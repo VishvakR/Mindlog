@@ -84,6 +84,7 @@ import {
 } from '@mindlog/txn';
 import type { PdRole } from './open-pd.js';
 import { BINARY_VERSION, openPdRole } from './open-pd.js';
+import { WorkerHooks } from './open-hooks.js';
 import { openMemory } from './open-memory.js';
 
 export interface CoreDeps {
@@ -199,6 +200,9 @@ export async function openNodeCore(
   deps: CoreDeps,
 ): Promise<Result<NodeCore, MindlogError>> {
   const { logger, metrics, clock, tracer } = deps;
+  // First, so a broken hook stops the start before any store is opened.
+  const hooks = await WorkerHooks.open(config.collections.hooksDir, logger);
+  if (!hooks.ok) return hooks;
   const raftId = BigInt(config.node.raftId);
   const single = isSingleNode(config);
   if (
@@ -467,6 +471,7 @@ export async function openNodeCore(
     clock,
     clusterVersion,
     embedder: memory.models,
+    ...(hooks.value ? { hooks: hooks.value } : {}),
     enabled: (tenant) =>
       config.collections.enabled && (tenants.length === 0 || tenants.includes(tenant)),
   });
@@ -500,6 +505,7 @@ export async function openNodeCore(
       await machine.flush();
       await Promise.all([logStore.close(), stateStore.close()]);
       await memory.close();
+      await hooks.value?.close();
     },
   });
 }

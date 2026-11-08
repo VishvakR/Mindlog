@@ -25,6 +25,7 @@ import {
   RecordBroker,
   RecordFiles,
   collectionWorkers,
+  ensureCrons,
   ApiKeyService,
   ClusterDirectory,
   ClusterService,
@@ -39,6 +40,7 @@ import { RangeJobs } from './range-jobs.js';
 import { openAppAuth } from './open-app-auth.js';
 import { openBlobStore } from './open-memory.js';
 import { sharpThumbnailer } from './sharp-thumbnailer.js';
+import { runMigrations } from './run-migrations.js';
 import { mindlogVersion, serverInfo } from './server-info.js';
 
 export interface NodeOptions {
@@ -89,6 +91,22 @@ function respLimits(config: MindlogConfig): ConnectionLimits {
 }
 
 /** The configuration as the dashboard shows it, secrets replaced. */
+/** Retries while a new node has no leader or cluster version yet (about a minute). */
+async function withRetries(
+  run: () => Promise<Result<void, MindlogError>>,
+): Promise<Result<void, MindlogError>> {
+  for (let attempt = 0; ; attempt++) {
+    const result = await run();
+    if (
+      result.ok ||
+      !['UNAVAILABLE', 'NOT_LEADER', 'RANGE_MOVED'].includes(result.error.code) ||
+      attempt >= 60
+    )
+      return result;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+
 export function redactedSettings(config: MindlogConfig): Record<string, unknown> {
   return {
     ...config,
@@ -203,7 +221,14 @@ export async function startNode(
     clock,
     thumbnailer: sharpThumbnailer,
   });
-  for (const w of collectionWorkers({ collections: core.collections, files }))
+  const hooks = core.collections.hooks;
+  for (const w of collectionWorkers({
+    collections: core.collections,
+    files,
+    clock,
+    logger,
+    ...(hooks ? { hooks } : {}),
+  }))
     core.workers.register(w);
   const httpOptions: HttpServerOptions = {
     host: config.listen.http.host,
@@ -281,7 +306,6 @@ export async function startNode(
       : {}),
   });
   jobs.start();
-  ready = true;
   logger.info('node started', {
     nodeId: config.node.id,
     dataDir: core.dataDir,
@@ -313,6 +337,19 @@ export async function startNode(
     await tracing.shutdown();
     logger.info('node stopped', { nodeId: config.node.id, appliedIndex: machine.appliedIndex });
   };
+  const tenant = config.collections.defaultTenant;
+  const migrated = await withRetries(() =>
+    runMigrations(config.collections.migrationsDir, core.collections, tenant, logger),
+  );
+  if (!migrated.ok) {
+    await close();
+    return migrated;
+  }
+  if (hooks) {
+    const crons = await withRetries(() => ensureCrons(core.collections, hooks, tenant, clock));
+    if (!crons.ok) logger.error('cron jobs were not started', { err: crons.error.message });
+  }
+  ready = true;
   return ok({
     config,
     resp: respBound.value,

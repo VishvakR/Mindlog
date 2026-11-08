@@ -13,9 +13,10 @@ import {
   viewSources,
 } from '@mindlog/collections';
 import type { JobSpec } from '@mindlog/proto';
-import { RecordOpKind, RecordOpSchema, RecordWriteSchema } from '@mindlog/proto';
+import { JobSpecSchema, RecordOpKind, RecordOpSchema, RecordWriteSchema } from '@mindlog/proto';
 import { formatDate } from '@mindlog/rules';
 import {
+  HOOK_JOB,
   cascadeJob,
   fileJanitorJob,
   holds,
@@ -23,6 +24,7 @@ import {
   viewRefreshJob,
 } from './collection-jobs.js';
 import type { CollectionRanges, ProposeOutcome, RawRecord } from './collection-ranges.js';
+import type { HookEvent, RecordHooks } from './record-hooks.js';
 import type { RecordReader, RecordView } from './record-reader.js';
 import { isSuperuser, ruleRecord } from './record-reader.js';
 
@@ -69,7 +71,7 @@ const invalid = (fields: Record<string, string>, message = 'Failed to validate r
 /**
  * Creates, updates and deletes records as the requester (PLAN 16): rules,
  * field modifiers, password hashing, autodates, vectors and relation checks
- * on the leader's side, then one fenced `RecordWrite`.
+ * before proposing, then one fenced `RecordWrite`.
  */
 export class RecordWriter {
   constructor(
@@ -77,6 +79,7 @@ export class RecordWriter {
     private readonly d: {
       readonly ranges: CollectionRanges;
       readonly embedder?: TextEmbedder;
+      readonly hooks?: RecordHooks;
       readonly nowMs: () => number;
     },
   ) {}
@@ -113,15 +116,28 @@ export class RecordWriter {
     );
     if (!allowed.ok) return allowed;
     if (!allowed.value) return err(mindlogError('INVALID_ARGUMENT', 'Failed to create record.'));
+    const hooked = await this.#before('onRecordCreate', collection, body, draft);
+    if (!hooked.ok) return hooked;
+    const final =
+      hooked.value === body
+        ? data
+        : await this.#build(schema.value, undefined, hooked.value, extras);
+    if (!final.ok) return final;
     const stored = await extras.persist?.();
     if (stored && !stored.ok) return stored;
-    const written = await this.#propose(collection, RecordOpKind.CREATE, id, data.value.data, 0n, [
+    const created = { ...draft, data: final.value.data };
+    const written = await this.#propose(collection, RecordOpKind.CREATE, id, final.value.data, 0n, [
       ...(extras.enqueue ?? []),
-      ...this.#fileJobs(schema.value, undefined, data.value.data, extras),
+      ...this.#fileJobs(schema.value, undefined, final.value.data, extras),
+      ...this.#afterJobs('onRecordCreate', collection, created),
     ]);
     if (!written.ok) return written;
-    const raw = { ...draft, version: written.value.versions[0] ?? '0' };
-    return ok({ record: this.reader.present(collection, raw), raw, degraded: data.value.degraded });
+    const raw = { ...created, version: written.value.versions[0] ?? '0' };
+    return ok({
+      record: this.reader.present(collection, raw),
+      raw,
+      degraded: final.value.degraded,
+    });
   }
 
   async update(
@@ -137,7 +153,9 @@ export class RecordWriter {
     for (let attempt = 0; ; attempt++) {
       const existing = await this.#existing(collection, id, schema.value.updateRule, body);
       if (!existing.ok) return existing;
-      const data = await this.#build(schema.value, existing.value, body, extras);
+      const hooked = await this.#before('onRecordUpdate', collection, body, existing.value);
+      if (!hooked.ok) return hooked;
+      const data = await this.#build(schema.value, existing.value, hooked.value, extras);
       if (!data.ok) return data;
       const stored = await extras.persist?.();
       if (stored && !stored.ok) return stored;
@@ -150,6 +168,10 @@ export class RecordWriter {
         [
           ...(extras.enqueue ?? []),
           ...this.#fileJobs(schema.value, existing.value.data, data.value.data, extras),
+          ...this.#afterJobs('onRecordUpdate', collection, {
+            ...existing.value,
+            data: data.value.data,
+          }),
         ],
       );
       if (!written.ok && written.error.code === 'CONFLICT' && attempt < MAX_CONFLICT_RETRIES) {
@@ -179,6 +201,8 @@ export class RecordWriter {
     for (let attempt = 0; ; attempt++) {
       const existing = await this.#existing(collection, id, schema.value.deleteRule);
       if (!existing.ok) return existing;
+      const hooked = await this.#before('onRecordDelete', collection, {}, existing.value);
+      if (!hooked.ok) return hooked;
       const references = referencesTo(this.reader.catalog, collection);
       for (const { schema: from, field } of references) {
         if (!field.required || field.cascadeDelete) continue;
@@ -202,6 +226,7 @@ export class RecordWriter {
         [
           ...(references.length > 0 ? [cascadeJob(id)] : []),
           ...this.#fileJobs(schema.value, existing.value.data, undefined, {}),
+          ...this.#afterJobs('onRecordDelete', collection, existing.value),
         ],
       );
       if (!written.ok && written.error.code === 'CONFLICT' && attempt < MAX_CONFLICT_RETRIES) {
@@ -336,6 +361,44 @@ export class RecordWriter {
     }
     if (data['email'] === '' && problems['email'] === undefined)
       problems['email'] = 'cannot be blank';
+  }
+
+  /** Runs before hooks after the rules passed; system collections have none. */
+  async #before(
+    event: HookEvent,
+    collection: string,
+    body: Body,
+    record: RawRecord,
+  ): Promise<Result<Body, MindlogError>> {
+    const hooks = this.d.hooks;
+    if (!hooks || collection.startsWith('_') || !hooks.has(event, collection, 'before'))
+      return ok(body);
+    const ran = await hooks.run({
+      event,
+      collection,
+      phase: 'before',
+      body,
+      record: ruleRecord(collection, record),
+    });
+    return ran.ok ? ok({ ...ran.value }) : ran;
+  }
+
+  /** After hooks are jobs of the write, so they run even if this node dies right after it. */
+  #afterJobs(event: HookEvent, collection: string, record: RawRecord): JobSpec[] {
+    if (
+      !this.d.hooks ||
+      collection.startsWith('_') ||
+      !this.d.hooks.has(event, collection, 'after')
+    )
+      return [];
+    const call = { event, collection, phase: 'after', record: ruleRecord(collection, record) };
+    return [
+      create(JobSpecSchema, {
+        id: `hook-${recordId()}`,
+        kind: HOOK_JOB,
+        payload: new TextEncoder().encode(JSON.stringify(call)),
+      }),
+    ];
   }
 
   /** A janitor run when this write uploads files or stops naming some. */

@@ -9,6 +9,8 @@ import type { StoredCollection } from './collection-ranges.js';
 export const FILES_JOB = 'collections.files';
 export const CASCADE_JOB = 'collections.cascade';
 export const VIEW_JOB = 'collections.view';
+export const HOOK_JOB = 'collections.hook';
+export const CRON_JOB = 'collections.cron';
 
 /** Orphan files younger than this may belong to an upload that has not been proposed yet. */
 export const FILE_GRACE_MS = 10 * 60_000;

@@ -10,6 +10,8 @@ Full-stack collections (PLAN 16, ADR-0034): PocketBase-style schemas and records
 - **Apply handlers**:
   - `recordWriteHandler` (`RecordWrite`, body 50): up to 100 ops on one collection, all or nothing. Creates, updates (fenced by `expect_version`), deletes, and upserts (view rows only). It fills zero values, validates every field, maintains index rows, and refuses a unique value another record holds. It may finish the job that produced it and enqueue jobs.
   - `schemaChangeHandler` (`SchemaChange`, body 51): create (`expect_version = 0`), replace or delete, fenced by version. Index or field changes rewrite every record (up to 10,000; larger is refused) and fail if existing records break a new unique index.
+- **Views** (`computeView`, `checkView`): a join, group and select over other collections, materialized as ordinary rows; row ids hash the group key.
+- **Cron** (`parseCron`, `nextFire`): five UTC fields with `* , - /`.
 - **Auth collections** add `email` (unique when not empty), `emailVisibility`, `verified`, `password` (argon2id PHC string, hashed on the leader) and `tokenKey`.
 
 ## Invariants

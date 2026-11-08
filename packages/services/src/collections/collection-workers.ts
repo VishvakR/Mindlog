@@ -1,8 +1,19 @@
+import type { Clock, Logger } from '@mindlog/core';
 import { ok } from '@mindlog/core';
 import { COLLECTION_SCOPE } from '@mindlog/jobs';
 import type { Worker } from '@mindlog/jobs';
 import { viewSources } from '@mindlog/collections';
-import { CASCADE_JOB, FILES_JOB, VIEW_JOB, holds, referencesTo } from './collection-jobs.js';
+import {
+  CASCADE_JOB,
+  CRON_JOB,
+  FILES_JOB,
+  HOOK_JOB,
+  VIEW_JOB,
+  holds,
+  referencesTo,
+} from './collection-jobs.js';
+import { CRON_COLLECTION, cronJob, cronRecordId } from './crons.js';
+import type { HookCall, RecordHooks } from './record-hooks.js';
 import type { CollectionService } from './collection-service.js';
 import type { RecordFiles } from './record-files.js';
 import type { RequestContext } from './record-reader.js';
@@ -13,6 +24,9 @@ const decoder = new TextDecoder();
 export function collectionWorkers(d: {
   readonly collections: CollectionService;
   readonly files?: RecordFiles;
+  readonly hooks?: RecordHooks;
+  readonly clock?: Clock;
+  readonly logger?: Logger;
 }): Worker[] {
   const system = (tenant: string): RequestContext => ({
     identity: { kind: 'superuser', email: 'system:jobs' },
@@ -60,5 +74,43 @@ export function collectionWorkers(d: {
       return ok({ completed: false });
     },
   };
-  return [cascade, janitor, views];
+  const hooks = d.hooks;
+  const clock = d.clock;
+  if (!hooks || !clock) return [cascade, janitor, views];
+  const after: Worker = {
+    kind: HOOK_JOB,
+    async run({ job }) {
+      const ran = await hooks.run(JSON.parse(decoder.decode(job.payload)) as HookCall);
+      return ran.ok ? ok({ completed: false }) : ran;
+    },
+  };
+  const cron: Worker = {
+    kind: CRON_JOB,
+    async run({ tenant, job }) {
+      const name = decoder.decode(job.payload);
+      const ctx = system(tenant);
+      const id = cronRecordId(name);
+      const entry = hooks.crons().find((c) => c.name === name);
+      if (!entry) {
+        const removed = await d.collections.delete(ctx, CRON_COLLECTION, id);
+        return removed.ok || removed.error.code === 'NOT_FOUND'
+          ? ok({ completed: false })
+          : removed;
+      }
+      const ran = await hooks.runCron(name);
+      // A failing run must not end the schedule.
+      if (!ran.ok) d.logger?.error('cron failed', { name, err: ran.error.message });
+      const now = Number(clock.now());
+      const next = cronJob(name, entry.expr, Math.max(now, Number(job.runAtMs)));
+      const saved = await d.collections.update(
+        ctx,
+        CRON_COLLECTION,
+        id,
+        { expr: entry.expr, lastMs: now },
+        next ? { enqueue: [next] } : {},
+      );
+      return saved.ok || saved.error.code === 'NOT_FOUND' ? ok({ completed: false }) : saved;
+    },
+  };
+  return [cascade, janitor, views, after, cron];
 }

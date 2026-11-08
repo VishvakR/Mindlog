@@ -35,6 +35,8 @@ execute(session, argv)
 - `RecordWriter` resolves field modifiers, hashes passwords (and rotates `tokenKey`), sets autodates, embeds `vector` fields (degraded without models), checks relations exist, then proposes one `RecordWrite` fenced by the version it read; a `CONFLICT` is retried.
 - `Catalog` caches the tenant's schemas for 2 s (`shortcut:`).
 - **`AppAuthService`**: password sign-in with 15-minute HS256 access tokens (`JwtKeySet` in `$system`) and rotating refresh tokens (`_sessions`), delegated agent tokens, file tokens, and the opt-in OTP (`_otps`), verification, password reset and OAuth2 (`_externalAuths`) flows. System collections are created on first use.
+- **Jobs** (`collectionWorkers`) live in the collection's range: relation cascades, the file janitor, view refresh, after hooks and cron. `RecordFiles` writes blobs after the rules passed and before proposing; `RecordBroker` filters realtime events per subscriber.
+- **Hooks** are the `RecordHooks` port: before hooks run after the rule check and may change the body or refuse; after hooks are jobs enqueued in the write; `ensureCrons` starts one self-rescheduling job per cron.
 - Writes need cluster version 9 (`COLLECTIONS_CLUSTER_VERSION`).
 
 ## Invariants

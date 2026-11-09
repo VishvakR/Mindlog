@@ -52,6 +52,8 @@ export { resolveConfig } from './config/resolve-config.js';
 
 export type { LogFields, Logger } from './logging/logger.js';
 export { LOG_LEVELS } from './logging/logger.js';
+export type { RecentLog } from './logging/recent-logs.js';
+export { RecentLogs } from './logging/recent-logs.js';
 export type { LogEntry } from './logging/memory-logger.js';
 export { MemoryLogger } from './logging/memory-logger.js';
 export type { LoggerOptions } from './logging/pino-logger.js';

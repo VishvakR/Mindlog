@@ -29,9 +29,9 @@ message Command {
   // Agent acting for `principal` with a delegated token (ADR-0035); empty otherwise.
   string actor = 6;
 
-  // Bodies use field numbers 10-99 (PLAN 6.1): kv 10-13, memory 20-25,
+  // Bodies use field numbers 10-119 (PLAN 6.1): kv 10-13, memory 20-25,
   // branches 30-32, cache 40-41, collections 50-52, transactions 60-62,
-  // jobs 70-72, ranges 80-82, admin 90. Unused numbers stay reserved until
+  // jobs 70-72, ranges 80-82, admin 90, audit and tenants 100-104. Unused numbers stay reserved until
   // their body lands, behind a cluster version (PLAN 19.5).
   oneof body {
     KvWrite kv_write = 10;
@@ -67,6 +67,10 @@ message Command {
     PdSetTso pd_set_tso = 94;
     PdSetVersion pd_set_version = 95;
     PdRecordOperator pd_record_operator = 96;
+    AuditAppend audit_append = 100;
+    AuditExpire audit_expire = 101;
+    TenantPurge tenant_purge = 102;
+    AuditOutboxAck audit_outbox_ack = 104;
   }
 
   reserved 14 to 19;
@@ -102,4 +106,42 @@ message CommandResult {
     JobOutcome job = 5;
     RecordOutcome record = 6;
   }
+}
+
+// One security-relevant event (PLAN 18.5).
+message AuditRecord {
+  string tenant = 1;
+  string id = 2;
+  string principal = 3;
+  string actor = 4;
+  string action = 5;
+  string resource = 6;
+  bytes request_id = 7;
+  bool ok = 8;
+  uint64 at_ms = 9;
+  // Why, for a refused request.
+  string detail = 10;
+}
+
+// Places audit records in their tenant's audit range.
+message AuditAppend {
+  repeated AuditRecord records = 1;
+}
+
+// Deletes up to `limit` rows of one tenant's audit day past retention.
+message AuditExpire {
+  string tenant = 1;
+  uint64 day = 2;
+  uint32 limit = 3;
+}
+
+// Removes this range's outbox rows written at or before a version.
+message AuditOutboxAck {
+  uint64 through_version = 1;
+}
+
+// Removes one batch of a deleted tenant's rows from this range (PLAN 18.3).
+message TenantPurge {
+  string tenant = 1;
+  uint32 limit = 2;
 }

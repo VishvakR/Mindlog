@@ -18,6 +18,7 @@ import {
 } from '@mindlog/proto';
 import type { KvReader, KvStore, WriteBatch } from '@mindlog/storage';
 import { MvccTxn } from '@mindlog/storage';
+import { auditRecordOf, writeAuditOutbox } from '../audit/audit.js';
 import { IdempotencyTable } from '../system/idempotency-table.js';
 import {
   appliedIndexKey,
@@ -465,6 +466,14 @@ export class StateMachine {
     });
     txn.writeTo(batch);
     this.#bytes += txn.bytes;
+    const audit = auditRecordOf(
+      command,
+      result,
+      this.#rangeId,
+      index,
+      hlcPhysical(command.hlc as Hlc),
+    );
+    if (audit) writeAuditOutbox(batch, this.#rangeId, version, audit);
     return result;
   }
 

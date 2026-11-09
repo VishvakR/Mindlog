@@ -15,6 +15,7 @@ import {
   OtelTracer,
   PromMetrics,
   SystemClock,
+  RecentLogs,
   createLogger,
   err,
   initTracing,
@@ -161,8 +162,11 @@ export async function startNode(
   config: MindlogConfig,
   options: NodeOptions = {},
 ): Promise<Result<RunningNode, MindlogError>> {
-  const logger =
-    options.logger ?? createLogger({ level: config.observability.logLevel, name: 'mindlog' });
+  const logs = new RecentLogs(
+    options.logger ?? createLogger({ level: config.observability.logLevel, name: 'mindlog' }),
+    () => Date.now(),
+  );
+  const logger: Logger = logs;
   const metrics = options.metrics ?? new PromMetrics();
   if (metrics instanceof PromMetrics && !options.metrics) metrics.collectProcessMetrics();
   const clock = options.clock ?? new SystemClock();
@@ -212,7 +216,9 @@ export async function startNode(
   const admin = new AdminService({ service, clock });
   const apiKeys = new ApiKeyService({ service, clock });
   const tenants = new TenantService({ service, clock });
-  const access = new AccessControl(tenants);
+  const access = new AccessControl(tenants, (event) => {
+    core.audit.record(event);
+  });
   const governor = new TenantGovernor({
     tenant: (name) => tenants.cached(name),
     clock,
@@ -237,6 +243,12 @@ export async function startNode(
       });
     },
     governor,
+    async () => {
+      const listed = await tenants.list();
+      return listed.ok
+        ? listed.value.map((t) => ({ name: t.name, days: t.auditRetentionDays }))
+        : [];
+    },
   );
   const appAuth = openAppAuth({
     config,
@@ -271,6 +283,7 @@ export async function startNode(
     tenants,
     access,
     governor,
+    audit: core.audit,
     kv: service,
     browser: new KvBrowser(service),
     cluster: new ClusterDirectory(core.pdAdmin),
@@ -296,6 +309,7 @@ export async function startNode(
     ready: () => ready,
     overview: () => overview(core, context, config, () => httpAddress),
     settings: () => redactedSettings(config),
+    recentLogs: (limit) => logs.recent(limit),
     dashboardDir: options.dashboardDir ?? DEFAULT_DASHBOARD_DIR,
     options: httpOptions,
   });

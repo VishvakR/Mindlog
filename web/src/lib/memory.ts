@@ -1,4 +1,5 @@
 // Types of the /api/memory routes and pure helpers for the memory pages.
+import { session } from './api';
 
 export interface MemoryScope {
   user: string;
@@ -260,7 +261,7 @@ export interface ScopeValue {
 }
 
 export const initialScope = (): ScopeValue => ({
-  tenant: 'default',
+  tenant: session.tenant() ?? 'default',
   scope: { user: '' },
   text: '',
 });

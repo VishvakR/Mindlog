@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/sidebar';
 import { api, session, setUnauthorizedHandler } from '@/lib/api';
 import { CommandPalette } from './command-palette';
-import { NAV } from './nav';
+import { NAV, navFor } from './nav';
 import { ThemeToggle } from './theme-toggle';
 
 function NodeStatus() {
@@ -53,6 +53,11 @@ export function AppShell() {
     void navigate('/login', { replace: true });
   };
   useEffect(() => {
+    // Set here too, so a reload keeps a member's limits in step with the server.
+    if (me.data) session.saveTenant(me.data.tenant);
+    if (me.data?.tenant && pathname === '/') void navigate('/memory', { replace: true });
+  }, [me.data, pathname, navigate]);
+  useEffect(() => {
     setUnauthorizedHandler(() => void navigate('/login', { replace: true }));
   }, [navigate]);
 
@@ -80,7 +85,7 @@ export function AppShell() {
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                {NAV.map((item) => (
+                {navFor(session.tenant() !== null).map((item) => (
                   <SidebarMenuItem key={item.to}>
                     <SidebarMenuButton
                       tooltip={item.label}

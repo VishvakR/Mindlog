@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import type { MindlogError, Result } from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
 import type { HttpServerDeps } from './http-deps.js';
+import { auditAdminChange } from './audit-admin.js';
 import { identityOf } from './identity.js';
 import { openApiDocument } from './openapi.js';
 import type { AnyRouteSpec } from './route.js';
@@ -14,6 +15,7 @@ import { adminRoutes } from './routes/admin-routes.js';
 import { clusterRoutes } from './routes/cluster-routes.js';
 import { memoryRoutes } from './routes/memory-routes.js';
 import { apiKeyRoutes } from './routes/api-key-routes.js';
+import { auditRoutes } from './routes/audit-routes.js';
 import { tenantRoutes } from './routes/tenant-routes.js';
 import { CONSOLE_PROTOCOL, consoleRoutes } from './routes/console-routes.js';
 import { dashboardRoutes, isSpaRoute } from './routes/dashboard-routes.js';
@@ -119,6 +121,7 @@ export class HttpServer {
         status,
       });
       if (reply.statusCode >= 400) errors.inc(1, { route, status });
+      auditAdminChange(request, reply.statusCode, deps);
     });
     // Each handler runs inside an `http.request` span, so service spans nest under it.
     app.addHook('onRoute', (route) => {
@@ -163,6 +166,7 @@ export class HttpServer {
     memoryRoutes(app, this.#routes, deps);
     apiKeyRoutes(app, this.#routes, deps);
     tenantRoutes(app, this.#routes, deps);
+    auditRoutes(app, this.#routes, deps);
     collectionsRoutes(app, this.#routes, deps);
     recordsRoutes(app, this.#routes, deps);
     recordAuthRoutes(app, this.#routes, deps);

@@ -11,7 +11,8 @@ import {
   CommandList,
   CommandShortcut,
 } from '@/components/ui/command';
-import { NAV } from './nav';
+import { session } from '@/lib/api';
+import { navFor } from './nav';
 
 /** ⌘K / Ctrl+K: jump to a page, open a key by name, switch theme or log out. */
 export function CommandPalette({ onLogout }: { onLogout: () => void }) {
@@ -52,7 +53,7 @@ export function CommandPalette({ onLogout }: { onLogout: () => void }) {
       <CommandList>
         <CommandEmpty>Nothing matches.</CommandEmpty>
         <CommandGroup heading="Pages">
-          {NAV.map((item) => (
+          {navFor(session.tenant() !== null).map((item) => (
             <CommandItem key={item.to} onSelect={() => run(() => void navigate(item.to))}>
               <item.icon />
               {item.label}

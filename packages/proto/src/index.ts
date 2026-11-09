@@ -8,7 +8,18 @@ export {
   GcThresholdSchema,
   file_mindlog_v1_commands,
 } from './gen/mindlog/v1/commands_pb.js';
-export type { Command, CommandResult, GcThreshold } from './gen/mindlog/v1/commands_pb.js';
+export type {
+  AuditRecord,
+  Command,
+  CommandResult,
+  GcThreshold,
+  TenantPurge,
+} from './gen/mindlog/v1/commands_pb.js';
+export {
+  AuditAppendSchema,
+  AuditRecordSchema,
+  TenantPurgeSchema,
+} from './gen/mindlog/v1/commands_pb.js';
 export {
   ErrorDetailSchema,
   HlcSchema,

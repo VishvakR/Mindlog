@@ -2,6 +2,8 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
   Boxes,
+  Building2,
+  ScrollText,
   Brain,
   Database,
   GitBranch,
@@ -21,11 +23,25 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   description: string;
+  /** Hidden from accounts limited to one tenant: the API would refuse them. */
+  operator?: boolean;
 }
 
 export const NAV: NavItem[] = [
-  { to: '/', label: 'Overview', icon: Activity, description: 'Node health and activity' },
-  { to: '/cluster', label: 'Cluster', icon: Network, description: 'Nodes, ranges and placement' },
+  {
+    to: '/',
+    label: 'Overview',
+    icon: Activity,
+    description: 'Node health and activity',
+    operator: true,
+  },
+  {
+    to: '/cluster',
+    label: 'Cluster',
+    icon: Network,
+    description: 'Nodes, ranges and placement',
+    operator: true,
+  },
   { to: '/memory', label: 'Memory', icon: Brain, description: 'What agents remembered' },
   { to: '/recall', label: 'Recall', icon: Search, description: 'Try recall with its scores' },
   { to: '/graph', label: 'Graph', icon: Share2, description: 'Entities and relations' },
@@ -41,6 +57,29 @@ export const NAV: NavItem[] = [
     description: 'App data, rules and users',
   },
   { to: '/data', label: 'Data', icon: Database, description: 'Browse and edit keys' },
-  { to: '/console', label: 'Console', icon: SquareTerminal, description: 'Run Redis commands' },
-  { to: '/settings', label: 'Settings', icon: Settings, description: 'Effective configuration' },
+  {
+    to: '/tenants',
+    label: 'Tenants',
+    icon: Building2,
+    description: 'Quotas, API keys and members',
+  },
+  { to: '/audit', label: 'Logs & audit', icon: ScrollText, description: 'Who did what' },
+  {
+    to: '/console',
+    label: 'Console',
+    icon: SquareTerminal,
+    description: 'Run Redis commands',
+    operator: true,
+  },
+  {
+    to: '/settings',
+    label: 'Settings',
+    icon: Settings,
+    description: 'Effective configuration',
+    operator: true,
+  },
 ];
+
+/** The pages an account can use; `member` is true for one limited to a tenant. */
+export const navFor = (member: boolean): NavItem[] =>
+  member ? NAV.filter((item) => !item.operator) : NAV;

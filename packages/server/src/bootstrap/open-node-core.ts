@@ -58,12 +58,18 @@ import { StoreRouter, connectForwardCall, fromRequest } from '@mindlog/router';
 import type { ChangeFeed, MemoryService, PdAdmin } from '@mindlog/services';
 import {
   AccessPorts,
+  AUDIT_OP_PREFIX,
+  AuditService,
   COLLECTION_OP_PREFIX,
   CollectionService,
   KvService,
   StaticAuthenticator,
 } from '@mindlog/services';
 import {
+  auditAppendHandler,
+  auditExpireHandler,
+  auditOutboxAckHandler,
+  auditRangeHooks,
   ApplyHandlerRegistry,
   CommandStamper,
   RaftLogStore,
@@ -96,9 +102,12 @@ export interface CoreDeps {
 }
 
 /** Storage, the range replica, the state machine and the KV service, without client listeners. */
+const AUDIT_TICK_MS = 1_000;
+
 export interface NodeCore {
   /** Where the composition root plugs in the tenant registry's checks. */
   readonly access: AccessPorts;
+  readonly audit: AuditService;
   readonly dataDir: string;
   readonly machine: StateMachine;
   /** The range replica: the Proposer and ReadBarrier of this node. */
@@ -243,6 +252,10 @@ export async function openNodeCore(
     memoryForgetHandler,
     jobLeaseHandler,
     jobCompleteHandler,
+    // Audit (ADR-0037): proposing waits for cluster version 10.
+    auditAppendHandler,
+    auditExpireHandler,
+    auditOutboxAckHandler,
     // The semantic cache (ADR-0012): every v6 binary applies it; proposing waits for cluster version 6.
     cacheSetHandler(liveMemory),
     cacheInvalidateHandler,
@@ -287,8 +300,8 @@ export async function openNodeCore(
       store: stateStore,
       handlers,
       rangeHooks: txnOn
-        ? [kvRangeHooks, jobRangeHooks, txnRangeHooks]
-        : [kvRangeHooks, jobRangeHooks],
+        ? [kvRangeHooks, jobRangeHooks, auditRangeHooks, txnRangeHooks]
+        : [kvRangeHooks, jobRangeHooks, auditRangeHooks],
       events,
       clock,
       logger,
@@ -307,8 +320,12 @@ export async function openNodeCore(
   let client: (PdClient & PdAdmin) | undefined;
   let replica: Replica;
   // Forwarded calls arrive on the internal listener before the service exists; they wait for it.
-  const running: { service?: KvService; memory?: MemoryService; collections?: CollectionService } =
-    {};
+  const running: {
+    service?: KvService;
+    memory?: MemoryService;
+    collections?: CollectionService;
+    audit?: AuditService;
+  } = {};
   try {
     const peers = single
       ? [{ id: raftId, address: '' }]
@@ -337,6 +354,10 @@ export async function openNodeCore(
                 forwarded.caller,
                 forwarded.call,
               );
+            if (forwarded.call.kind === 'memory' && forwarded.call.op.startsWith(AUDIT_OP_PREFIX))
+              return running.audit
+                ? running.audit.forwarded(forwarded.rangeId, forwarded.call)
+                : replies.error('UNAVAILABLE', 'the node is starting');
             if (forwarded.call.kind === 'memory')
               return running.memory.forwarded(forwarded.rangeId, forwarded.caller, forwarded.call);
             return running.service.forwarded(forwarded.rangeId, forwarded.caller, forwarded.call);
@@ -492,6 +513,25 @@ export async function openNodeCore(
   running.service = service;
   running.memory = memory.service;
   running.collections = collections;
+  const auditIds = new UlidGenerator(clock, new SystemRandom());
+  const audit = new AuditService({
+    router,
+    stamper,
+    clock,
+    logger,
+    metrics,
+    clusterVersion,
+    ids: () => auditIds.next(),
+    leaders: () =>
+      store
+        .replicas()
+        .filter((r) => r.rangeId !== 0n && r.initialised && r.isLeader())
+        .map((r) => r.rangeId),
+    retention: () => access.tenantRetention(),
+  });
+  running.audit = audit;
+  const auditTimer = setInterval(() => void audit.tick(), AUDIT_TICK_MS);
+  auditTimer.unref();
   const started = store as Store | undefined;
   if (!started) throw new Error('the store opens before the replica');
   return ok({
@@ -506,6 +546,7 @@ export async function openNodeCore(
     stamper,
     stateStore,
     access,
+    audit,
     service,
     memory: memory.service,
     changes: memory.changes,

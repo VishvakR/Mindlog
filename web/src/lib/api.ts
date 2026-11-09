@@ -47,6 +47,57 @@ export interface Superuser {
   email: string;
   created: string;
   updated: string;
+  /** Set on an account limited to one tenant; absent for a superuser. */
+  role?: string;
+  tenant?: string;
+}
+
+export interface Quotas {
+  storageBytes?: number;
+  keys?: number;
+  memories?: number;
+  writeQps?: number;
+  recallQps?: number;
+  modelSecondsPerHour?: number;
+  connections?: number;
+}
+
+export interface TenantInfo {
+  name: string;
+  status: 'active' | 'deleting';
+  created: string;
+  quotas: Quotas;
+  auditRetentionDays: number;
+}
+
+export interface TenantKey {
+  id: string;
+  tenant: string;
+  user?: string;
+  name: string;
+  role: string;
+  scopes?: string[];
+  expiresAt?: number;
+  created: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  tenant: string;
+  principal: string;
+  actor: string;
+  action: string;
+  resource: string;
+  ok: boolean;
+  detail: string;
+  atMs: number;
+}
+
+export interface LogEntry {
+  atMs: number;
+  level: 'info' | 'warn' | 'error' | 'fatal';
+  message: string;
+  fields: Record<string, unknown>;
 }
 
 /** RFC 9457 problem details, as every API error is sent. */
@@ -67,6 +118,7 @@ export class ApiError extends Error {
 }
 
 const TOKEN_KEY = 'mindlog.token';
+const TENANT_KEY = 'mindlog.tenant';
 
 /** The bearer token, kept per browser; storage can be unavailable (private mode). */
 export const session = {
@@ -84,8 +136,25 @@ export const session = {
       // the session then lasts until reload
     }
   },
+  /** The tenant a member is limited to; null for a superuser. */
+  tenant(): string | null {
+    try {
+      return localStorage.getItem(TENANT_KEY);
+    } catch {
+      return null;
+    }
+  },
+  saveTenant(tenant: string | undefined): void {
+    try {
+      if (tenant) localStorage.setItem(TENANT_KEY, tenant);
+      else localStorage.removeItem(TENANT_KEY);
+    } catch {
+      // the dashboard then treats the session as unrestricted and the server still refuses
+    }
+  },
   clear(): void {
     try {
+      localStorage.removeItem(TENANT_KEY);
       localStorage.removeItem(TOKEN_KEY);
     } catch {
       // nothing stored
@@ -194,6 +263,45 @@ export const api = {
     }),
   superuserExists: () => request<{ exists: boolean }>('GET', '/superusers/exists'),
   me: () => request<Superuser>('GET', '/superusers/me'),
+  tenants: () => request<{ tenants: TenantInfo[] }>('GET', '/tenants'),
+  tenantCreate: (name: string) => request<TenantInfo>('POST', '/tenants', { name }),
+  tenantSetQuotas: (tenant: string, quotas: Quotas) =>
+    request<TenantInfo>('PUT', `/tenants/${encodeURIComponent(tenant)}/quotas`, quotas),
+  tenantUsage: (tenant: string) =>
+    request<{ bytes: number; keys: number; memories: number }>(
+      'GET',
+      `/tenants/${encodeURIComponent(tenant)}/usage`,
+    ),
+  tenantKeys: (tenant: string) =>
+    request<{ keys: TenantKey[] }>('GET', `/tenants/${encodeURIComponent(tenant)}/keys`),
+  tenantCreateKey: (tenant: string, input: { name: string; role: string }) =>
+    request<TenantKey & { key: string }>(
+      'POST',
+      `/tenants/${encodeURIComponent(tenant)}/keys`,
+      input,
+    ),
+  tenantRevokeKey: (tenant: string, id: string) =>
+    request<undefined>(
+      'DELETE',
+      `/tenants/${encodeURIComponent(tenant)}/keys/${encodeURIComponent(id)}`,
+    ),
+  tenantMembers: (tenant: string) =>
+    request<{ members: Superuser[] }>('GET', `/tenants/${encodeURIComponent(tenant)}/members`),
+  tenantSaveMember: (tenant: string, input: { email: string; password: string; role: string }) =>
+    request<Superuser>('PUT', `/tenants/${encodeURIComponent(tenant)}/members`, input),
+  tenantRemoveMember: (tenant: string, email: string) =>
+    request<undefined>(
+      'DELETE',
+      `/tenants/${encodeURIComponent(tenant)}/members/${encodeURIComponent(email)}`,
+    ),
+  audit: (tenant: string, cursor?: string) =>
+    request<{ items: AuditEntry[]; cursor?: string }>(
+      'GET',
+      `/tenants/${encodeURIComponent(tenant)}/audit?limit=100${
+        cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''
+      }`,
+    ),
+  logs: () => request<{ entries: LogEntry[] }>('GET', '/admin/logs'),
   overview: () => request<Record<string, unknown>>('GET', '/admin/overview'),
   settings: () => request<Record<string, unknown>>('GET', '/admin/settings'),
   cluster: () => request<ClusterOverview>('GET', '/cluster/overview'),

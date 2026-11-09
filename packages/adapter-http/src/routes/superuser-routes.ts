@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { err, mindlogError, ok } from '@mindlog/core';
+import { SYSTEM_TENANT, err, mindlogError, ok } from '@mindlog/core';
 import { authResultSchema, authWithPasswordBodySchema, superuserSchema } from '@mindlog/services';
 import { z } from 'zod';
 import type { HttpServerDeps } from '../http-deps.js';
@@ -24,7 +24,19 @@ export function superuserRoutes(
       body: authWithPasswordBodySchema,
       response: authResultSchema,
     },
-    ({ body }) => deps.admin.authWithPassword(body.email, body.password),
+    async ({ body }) => {
+      const result = await deps.admin.authWithPassword(body.email, body.password);
+      if (!result.ok)
+        deps.audit?.record({
+          tenant: SYSTEM_TENANT,
+          principal: `login:${body.email.slice(0, 254)}`,
+          action: 'auth.password',
+          resource: 'dashboard',
+          ok: false,
+          detail: result.error.code,
+        });
+      return result;
+    },
   );
   defineRoute(
     app,

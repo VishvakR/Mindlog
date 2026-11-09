@@ -3,10 +3,11 @@ import type {
   ConnectionLimits,
   ServerContext,
 } from '@mindlog/adapter-resp';
-import type { Clock, Logger, Metrics, Tracer } from '@mindlog/core';
+import type { Clock, Logger, Metrics, RecentLog, Tracer } from '@mindlog/core';
 import type {
   AccessControl,
   AdminService,
+  AuditService,
   TenantGovernor,
   TenantService,
   ApiKeyService,
@@ -37,6 +38,8 @@ export interface HttpServerDeps {
   readonly tenants: TenantService;
   /** Per-tenant quotas and usage (PLAN 18.3); absent on harnesses without them. */
   readonly governor?: TenantGovernor;
+  /** The audit log (PLAN 18.5); absent on harnesses without it. */
+  readonly audit?: AuditService;
   /** The application-layer authorization check (PLAN 18.2). */
   readonly access: AccessControl;
   readonly kv: KvService;
@@ -74,6 +77,8 @@ export interface HttpServerDeps {
   /** True once recovery finished and the listeners are up. */
   readonly ready: () => boolean;
   readonly overview: () => Promise<Record<string, unknown>>;
+  /** The latest log entries, newest first, for the dashboard. */
+  readonly recentLogs?: (limit: number) => readonly RecentLog[];
   /** Effective configuration with secrets redacted. */
   readonly settings: () => Record<string, unknown>;
   /** Built dashboard assets; `/_/` explains how to build them when missing. */

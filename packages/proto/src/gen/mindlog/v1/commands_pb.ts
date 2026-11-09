@@ -28,7 +28,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/commands.proto.
  */
 export const file_mindlog_v1_commands: GenFile = /*@__PURE__*/
-  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxItcNCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEg0KBWFjdG9yGAYgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIxCg1tZW1vcnlfY29tbWl0GBQgASgLMhgubWluZGxvZy52MS5NZW1vcnlDb21taXRIABI1Cg9tZW1vcnlfbWFpbnRhaW4YFSABKAsyGi5taW5kbG9nLnYxLk1lbW9yeU1haW50YWluSAASMQoNbWVtb3J5X2ZvcmdldBgWIAEoCzIYLm1pbmRsb2cudjEuTWVtb3J5Rm9yZ2V0SAASPAoTbWVtb3J5X3JlY2FsbF9zdGF0cxgXIAEoCzIdLm1pbmRsb2cudjEuTWVtb3J5UmVjYWxsU3RhdHNIABI3ChBjb25mbGljdF9yZXNvbHZlGBggASgLMhsubWluZGxvZy52MS5Db25mbGljdFJlc29sdmVIABIvCgxtZW1vcnlfdHJ1c3QYGSABKAsyFy5taW5kbG9nLnYxLk1lbW9yeVRydXN0SAASMQoNYnJhbmNoX2NyZWF0ZRgeIAEoCzIYLm1pbmRsb2cudjEuQnJhbmNoQ3JlYXRlSAASLwoMYnJhbmNoX21lcmdlGB8gASgLMhcubWluZGxvZy52MS5CcmFuY2hNZXJnZUgAEi0KC2JyYW5jaF9kcm9wGCAgASgLMhYubWluZGxvZy52MS5CcmFuY2hEcm9wSAASKQoJY2FjaGVfc2V0GCggASgLMhQubWluZGxvZy52MS5DYWNoZVNldEgAEjcKEGNhY2hlX2ludmFsaWRhdGUYKSABKAsyGy5taW5kbG9nLnYxLkNhY2hlSW52YWxpZGF0ZUgAEi8KDHJlY29yZF93cml0ZRgyIAEoCzIXLm1pbmRsb2cudjEuUmVjb3JkV3JpdGVIABIxCg1zY2hlbWFfY2hhbmdlGDMgASgLMhgubWluZGxvZy52MS5TY2hlbWFDaGFuZ2VIABIvCgx0eG5fcHJld3JpdGUYPCABKAsyFy5taW5kbG9nLnYxLlR4blByZXdyaXRlSAASKwoKdHhuX2NvbW1pdBg9IAEoCzIVLm1pbmRsb2cudjEuVHhuQ29tbWl0SAASLwoMdHhuX3JvbGxiYWNrGD4gASgLMhcubWluZGxvZy52MS5UeG5Sb2xsYmFja0gAEikKCXR4bl9jaGVjaxg/IAEoCzIULm1pbmRsb2cudjEuVHhuQ2hlY2tIABIpCglqb2JfbGVhc2UYRyABKAsyFC5taW5kbG9nLnYxLkpvYkxlYXNlSAASLwoMam9iX2NvbXBsZXRlGEggASgLMhcubWluZGxvZy52MS5Kb2JDb21wbGV0ZUgAEiIKBXNwbGl0GFAgASgLMhEubWluZGxvZy52MS5TcGxpdEgAEiQKBmZyZWV6ZRhRIAEoCzISLm1pbmRsb2cudjEuRnJlZXplSAASIgoFbWVyZ2UYUiABKAsyES5taW5kbG9nLnYxLk1lcmdlSAASLgoMcGRfYWxsb2NfaWRzGFogASgLMhYubWluZGxvZy52MS5QZEFsbG9jSWRzSAASLAoLcGRfcHV0X25vZGUYWyABKAsyFS5taW5kbG9nLnYxLlBkUHV0Tm9kZUgAEi4KDHBkX3B1dF9yYW5nZRhcIAEoCzIWLm1pbmRsb2cudjEuUGRQdXRSYW5nZUgAEjQKD3BkX3JlbW92ZV9yYW5nZRhdIAEoCzIZLm1pbmRsb2cudjEuUGRSZW1vdmVSYW5nZUgAEioKCnBkX3NldF90c28YXiABKAsyFC5taW5kbG9nLnYxLlBkU2V0VHNvSAASMgoOcGRfc2V0X3ZlcnNpb24YXyABKAsyGC5taW5kbG9nLnYxLlBkU2V0VmVyc2lvbkgAEjoKEnBkX3JlY29yZF9vcGVyYXRvchhgIAEoCzIcLm1pbmRsb2cudjEuUGRSZWNvcmRPcGVyYXRvckgAQgYKBGJvZHlKBAgOEBRKBAgaEB5KBAghEChKBAgqEDJKBAg0EDxKBAhAEEdKBAhJEFBKBAhTEFpKBAhhEGQiTAoLR2NUaHJlc2hvbGQSFwoLYmVsb3dfaW5kZXgYASABKARCAhgBEg0KBWxpbWl0GAIgASgNEhUKDWJlbG93X3ZlcnNpb24YAyABKAQijwIKDUNvbW1hbmRSZXN1bHQSIQoCa3YYASABKAsyEy5taW5kbG9nLnYxLkt2UmVwbHlIABIoCgVlcnJvchgCIAEoCzIXLm1pbmRsb2cudjEuRXJyb3JEZXRhaWxIABIlCgN0eG4YAyABKAsyFi5taW5kbG9nLnYxLlR4bk91dGNvbWVIABIrCgZtZW1vcnkYBCABKAsyGS5taW5kbG9nLnYxLk1lbW9yeU91dGNvbWVIABIlCgNqb2IYBSABKAsyFi5taW5kbG9nLnYxLkpvYk91dGNvbWVIABIrCgZyZWNvcmQYBiABKAsyGS5taW5kbG9nLnYxLlJlY29yZE91dGNvbWVIAEIJCgdvdXRjb21lYgZwcm90bzM", [file_mindlog_v1_cache, file_mindlog_v1_collections, file_mindlog_v1_common, file_mindlog_v1_jobs, file_mindlog_v1_kv, file_mindlog_v1_memory, file_mindlog_v1_pd, file_mindlog_v1_range, file_mindlog_v1_txn]);
+  fileDesc("ChltaW5kbG9nL3YxL2NvbW1hbmRzLnByb3RvEgptaW5kbG9nLnYxIqIPCgdDb21tYW5kEhIKCnJlcXVlc3RfaWQYASABKAwSEQoJcHJpbmNpcGFsGAIgASgJEgsKA2hsYxgDIAEoBBIOCgZicmFuY2gYBCABKAkSDgoGdGVuYW50GAUgASgJEg0KBWFjdG9yGAYgASgJEicKCGt2X3dyaXRlGAogASgLMhMubWluZGxvZy52MS5LdldyaXRlSAASJwoIa3ZfYmF0Y2gYCyABKAsyEy5taW5kbG9nLnYxLkt2QmF0Y2hIABIkCgZleHBpcmUYDCABKAsyEi5taW5kbG9nLnYxLkV4cGlyZUgAEi8KDGdjX3RocmVzaG9sZBgNIAEoCzIXLm1pbmRsb2cudjEuR2NUaHJlc2hvbGRIABIxCg1tZW1vcnlfY29tbWl0GBQgASgLMhgubWluZGxvZy52MS5NZW1vcnlDb21taXRIABI1Cg9tZW1vcnlfbWFpbnRhaW4YFSABKAsyGi5taW5kbG9nLnYxLk1lbW9yeU1haW50YWluSAASMQoNbWVtb3J5X2ZvcmdldBgWIAEoCzIYLm1pbmRsb2cudjEuTWVtb3J5Rm9yZ2V0SAASPAoTbWVtb3J5X3JlY2FsbF9zdGF0cxgXIAEoCzIdLm1pbmRsb2cudjEuTWVtb3J5UmVjYWxsU3RhdHNIABI3ChBjb25mbGljdF9yZXNvbHZlGBggASgLMhsubWluZGxvZy52MS5Db25mbGljdFJlc29sdmVIABIvCgxtZW1vcnlfdHJ1c3QYGSABKAsyFy5taW5kbG9nLnYxLk1lbW9yeVRydXN0SAASMQoNYnJhbmNoX2NyZWF0ZRgeIAEoCzIYLm1pbmRsb2cudjEuQnJhbmNoQ3JlYXRlSAASLwoMYnJhbmNoX21lcmdlGB8gASgLMhcubWluZGxvZy52MS5CcmFuY2hNZXJnZUgAEi0KC2JyYW5jaF9kcm9wGCAgASgLMhYubWluZGxvZy52MS5CcmFuY2hEcm9wSAASKQoJY2FjaGVfc2V0GCggASgLMhQubWluZGxvZy52MS5DYWNoZVNldEgAEjcKEGNhY2hlX2ludmFsaWRhdGUYKSABKAsyGy5taW5kbG9nLnYxLkNhY2hlSW52YWxpZGF0ZUgAEi8KDHJlY29yZF93cml0ZRgyIAEoCzIXLm1pbmRsb2cudjEuUmVjb3JkV3JpdGVIABIxCg1zY2hlbWFfY2hhbmdlGDMgASgLMhgubWluZGxvZy52MS5TY2hlbWFDaGFuZ2VIABIvCgx0eG5fcHJld3JpdGUYPCABKAsyFy5taW5kbG9nLnYxLlR4blByZXdyaXRlSAASKwoKdHhuX2NvbW1pdBg9IAEoCzIVLm1pbmRsb2cudjEuVHhuQ29tbWl0SAASLwoMdHhuX3JvbGxiYWNrGD4gASgLMhcubWluZGxvZy52MS5UeG5Sb2xsYmFja0gAEikKCXR4bl9jaGVjaxg/IAEoCzIULm1pbmRsb2cudjEuVHhuQ2hlY2tIABIpCglqb2JfbGVhc2UYRyABKAsyFC5taW5kbG9nLnYxLkpvYkxlYXNlSAASLwoMam9iX2NvbXBsZXRlGEggASgLMhcubWluZGxvZy52MS5Kb2JDb21wbGV0ZUgAEiIKBXNwbGl0GFAgASgLMhEubWluZGxvZy52MS5TcGxpdEgAEiQKBmZyZWV6ZRhRIAEoCzISLm1pbmRsb2cudjEuRnJlZXplSAASIgoFbWVyZ2UYUiABKAsyES5taW5kbG9nLnYxLk1lcmdlSAASLgoMcGRfYWxsb2NfaWRzGFogASgLMhYubWluZGxvZy52MS5QZEFsbG9jSWRzSAASLAoLcGRfcHV0X25vZGUYWyABKAsyFS5taW5kbG9nLnYxLlBkUHV0Tm9kZUgAEi4KDHBkX3B1dF9yYW5nZRhcIAEoCzIWLm1pbmRsb2cudjEuUGRQdXRSYW5nZUgAEjQKD3BkX3JlbW92ZV9yYW5nZRhdIAEoCzIZLm1pbmRsb2cudjEuUGRSZW1vdmVSYW5nZUgAEioKCnBkX3NldF90c28YXiABKAsyFC5taW5kbG9nLnYxLlBkU2V0VHNvSAASMgoOcGRfc2V0X3ZlcnNpb24YXyABKAsyGC5taW5kbG9nLnYxLlBkU2V0VmVyc2lvbkgAEjoKEnBkX3JlY29yZF9vcGVyYXRvchhgIAEoCzIcLm1pbmRsb2cudjEuUGRSZWNvcmRPcGVyYXRvckgAEi8KDGF1ZGl0X2FwcGVuZBhkIAEoCzIXLm1pbmRsb2cudjEuQXVkaXRBcHBlbmRIABIvCgxhdWRpdF9leHBpcmUYZSABKAsyFy5taW5kbG9nLnYxLkF1ZGl0RXhwaXJlSAASLwoMdGVuYW50X3B1cmdlGGYgASgLMhcubWluZGxvZy52MS5UZW5hbnRQdXJnZUgAEjYKEGF1ZGl0X291dGJveF9hY2sYaCABKAsyGi5taW5kbG9nLnYxLkF1ZGl0T3V0Ym94QWNrSABCBgoEYm9keUoECA4QFEoECBoQHkoECCEQKEoECCoQMkoECDQQPEoECEAQR0oECEkQUEoECFMQWkoECGEQZCJMCgtHY1RocmVzaG9sZBIXCgtiZWxvd19pbmRleBgBIAEoBEICGAESDQoFbGltaXQYAiABKA0SFQoNYmVsb3dfdmVyc2lvbhgDIAEoBCKPAgoNQ29tbWFuZFJlc3VsdBIhCgJrdhgBIAEoCzITLm1pbmRsb2cudjEuS3ZSZXBseUgAEigKBWVycm9yGAIgASgLMhcubWluZGxvZy52MS5FcnJvckRldGFpbEgAEiUKA3R4bhgDIAEoCzIWLm1pbmRsb2cudjEuVHhuT3V0Y29tZUgAEisKBm1lbW9yeRgEIAEoCzIZLm1pbmRsb2cudjEuTWVtb3J5T3V0Y29tZUgAEiUKA2pvYhgFIAEoCzIWLm1pbmRsb2cudjEuSm9iT3V0Y29tZUgAEisKBnJlY29yZBgGIAEoCzIZLm1pbmRsb2cudjEuUmVjb3JkT3V0Y29tZUgAQgkKB291dGNvbWUirAEKC0F1ZGl0UmVjb3JkEg4KBnRlbmFudBgBIAEoCRIKCgJpZBgCIAEoCRIRCglwcmluY2lwYWwYAyABKAkSDQoFYWN0b3IYBCABKAkSDgoGYWN0aW9uGAUgASgJEhAKCHJlc291cmNlGAYgASgJEhIKCnJlcXVlc3RfaWQYByABKAwSCgoCb2sYCCABKAgSDQoFYXRfbXMYCSABKAQSDgoGZGV0YWlsGAogASgJIjcKC0F1ZGl0QXBwZW5kEigKB3JlY29yZHMYASADKAsyFy5taW5kbG9nLnYxLkF1ZGl0UmVjb3JkIjkKC0F1ZGl0RXhwaXJlEg4KBnRlbmFudBgBIAEoCRILCgNkYXkYAiABKAQSDQoFbGltaXQYAyABKA0iKQoOQXVkaXRPdXRib3hBY2sSFwoPdGhyb3VnaF92ZXJzaW9uGAEgASgEIiwKC1RlbmFudFB1cmdlEg4KBnRlbmFudBgBIAEoCRINCgVsaW1pdBgCIAEoDWIGcHJvdG8z", [file_mindlog_v1_cache, file_mindlog_v1_collections, file_mindlog_v1_common, file_mindlog_v1_jobs, file_mindlog_v1_kv, file_mindlog_v1_memory, file_mindlog_v1_pd, file_mindlog_v1_range, file_mindlog_v1_txn]);
 
 /**
  * Envelope of every replicated command in a range's Raft log (PLAN 6.1,
@@ -81,9 +81,9 @@ export type Command = Message<"mindlog.v1.Command"> & {
   actor: string;
 
   /**
-   * Bodies use field numbers 10-99 (PLAN 6.1): kv 10-13, memory 20-25,
+   * Bodies use field numbers 10-119 (PLAN 6.1): kv 10-13, memory 20-25,
    * branches 30-32, cache 40-41, collections 50-52, transactions 60-62,
-   * jobs 70-72, ranges 80-82, admin 90. Unused numbers stay reserved until
+   * jobs 70-72, ranges 80-82, admin 90, audit and tenants 100-104. Unused numbers stay reserved until
    * their body lands, behind a cluster version (PLAN 19.5).
    *
    * @generated from oneof mindlog.v1.Command.body
@@ -286,6 +286,30 @@ export type Command = Message<"mindlog.v1.Command"> & {
      */
     value: PdRecordOperator;
     case: "pdRecordOperator";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.AuditAppend audit_append = 100;
+     */
+    value: AuditAppend;
+    case: "auditAppend";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.AuditExpire audit_expire = 101;
+     */
+    value: AuditExpire;
+    case: "auditExpire";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.TenantPurge tenant_purge = 102;
+     */
+    value: TenantPurge;
+    case: "tenantPurge";
+  } | {
+    /**
+     * @generated from field: mindlog.v1.AuditOutboxAck audit_outbox_ack = 104;
+     */
+    value: AuditOutboxAck;
+    case: "auditOutboxAck";
   } | { case: undefined; value?: undefined };
 };
 
@@ -387,4 +411,161 @@ export type CommandResult = Message<"mindlog.v1.CommandResult"> & {
  */
 export const CommandResultSchema: GenMessage<CommandResult> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_commands, 2);
+
+/**
+ * One security-relevant event (PLAN 18.5).
+ *
+ * @generated from message mindlog.v1.AuditRecord
+ */
+export type AuditRecord = Message<"mindlog.v1.AuditRecord"> & {
+  /**
+   * @generated from field: string tenant = 1;
+   */
+  tenant: string;
+
+  /**
+   * @generated from field: string id = 2;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string principal = 3;
+   */
+  principal: string;
+
+  /**
+   * @generated from field: string actor = 4;
+   */
+  actor: string;
+
+  /**
+   * @generated from field: string action = 5;
+   */
+  action: string;
+
+  /**
+   * @generated from field: string resource = 6;
+   */
+  resource: string;
+
+  /**
+   * @generated from field: bytes request_id = 7;
+   */
+  requestId: Uint8Array;
+
+  /**
+   * @generated from field: bool ok = 8;
+   */
+  ok: boolean;
+
+  /**
+   * @generated from field: uint64 at_ms = 9;
+   */
+  atMs: bigint;
+
+  /**
+   * Why, for a refused request.
+   *
+   * @generated from field: string detail = 10;
+   */
+  detail: string;
+};
+
+/**
+ * Describes the message mindlog.v1.AuditRecord.
+ * Use `create(AuditRecordSchema)` to create a new message.
+ */
+export const AuditRecordSchema: GenMessage<AuditRecord> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_commands, 3);
+
+/**
+ * Places audit records in their tenant's audit range.
+ *
+ * @generated from message mindlog.v1.AuditAppend
+ */
+export type AuditAppend = Message<"mindlog.v1.AuditAppend"> & {
+  /**
+   * @generated from field: repeated mindlog.v1.AuditRecord records = 1;
+   */
+  records: AuditRecord[];
+};
+
+/**
+ * Describes the message mindlog.v1.AuditAppend.
+ * Use `create(AuditAppendSchema)` to create a new message.
+ */
+export const AuditAppendSchema: GenMessage<AuditAppend> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_commands, 4);
+
+/**
+ * Deletes up to `limit` rows of one tenant's audit day past retention.
+ *
+ * @generated from message mindlog.v1.AuditExpire
+ */
+export type AuditExpire = Message<"mindlog.v1.AuditExpire"> & {
+  /**
+   * @generated from field: string tenant = 1;
+   */
+  tenant: string;
+
+  /**
+   * @generated from field: uint64 day = 2;
+   */
+  day: bigint;
+
+  /**
+   * @generated from field: uint32 limit = 3;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message mindlog.v1.AuditExpire.
+ * Use `create(AuditExpireSchema)` to create a new message.
+ */
+export const AuditExpireSchema: GenMessage<AuditExpire> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_commands, 5);
+
+/**
+ * Removes this range's outbox rows written at or before a version.
+ *
+ * @generated from message mindlog.v1.AuditOutboxAck
+ */
+export type AuditOutboxAck = Message<"mindlog.v1.AuditOutboxAck"> & {
+  /**
+   * @generated from field: uint64 through_version = 1;
+   */
+  throughVersion: bigint;
+};
+
+/**
+ * Describes the message mindlog.v1.AuditOutboxAck.
+ * Use `create(AuditOutboxAckSchema)` to create a new message.
+ */
+export const AuditOutboxAckSchema: GenMessage<AuditOutboxAck> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_commands, 6);
+
+/**
+ * Removes one batch of a deleted tenant's rows from this range (PLAN 18.3).
+ *
+ * @generated from message mindlog.v1.TenantPurge
+ */
+export type TenantPurge = Message<"mindlog.v1.TenantPurge"> & {
+  /**
+   * @generated from field: string tenant = 1;
+   */
+  tenant: string;
+
+  /**
+   * @generated from field: uint32 limit = 2;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message mindlog.v1.TenantPurge.
+ * Use `create(TenantPurgeSchema)` to create a new message.
+ */
+export const TenantPurgeSchema: GenMessage<TenantPurge> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_commands, 7);
 

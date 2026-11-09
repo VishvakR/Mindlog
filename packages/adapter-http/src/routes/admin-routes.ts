@@ -7,7 +7,14 @@ import { defineRoute } from '../route.js';
 
 const anyObject = z.record(z.string(), z.unknown());
 
-/** Node overview and read-only settings for the dashboard. */
+const logEntry = z.object({
+  atMs: z.number(),
+  level: z.string(),
+  message: z.string(),
+  fields: z.record(z.string(), z.unknown()),
+});
+
+/** Node overview, read-only settings and recent logs for the dashboard. */
 export function adminRoutes(
   app: FastifyInstance,
   routes: AnyRouteSpec[],
@@ -36,5 +43,17 @@ export function adminRoutes(
       response: anyObject,
     },
     () => Promise.resolve(ok(deps.settings())),
+  );
+  defineRoute(
+    app,
+    routes,
+    {
+      method: 'GET',
+      path: '/api/admin/logs',
+      summary: 'The latest log entries on this node, newest first, secrets removed',
+      tag: 'admin',
+      response: z.object({ entries: z.array(logEntry) }),
+    },
+    () => Promise.resolve(ok({ entries: [...(deps.recentLogs?.(200) ?? [])] })),
   );
 }

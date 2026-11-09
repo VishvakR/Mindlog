@@ -26,6 +26,8 @@ export type { Authorize } from './tenants/authorize.js';
 export type { VerifyApiKey } from './tenants/access-control.js';
 export { AccessControl, AccessPorts } from './tenants/access-control.js';
 export * from './tenants/schemas.js';
+export type { AuditEntry, AuditEvent, AuditServiceDeps } from './audit/audit-service.js';
+export { AUDIT_CLUSTER_VERSION, AUDIT_OP_PREFIX, AuditService } from './audit/audit-service.js';
 export type { AdmitClass, TenantBudget, TenantDemand, TenantUsage } from './tenants/governor.js';
 export { TenantGovernor } from './tenants/governor.js';
 export type { UsageSamplerDeps } from './tenants/usage-sampler.js';

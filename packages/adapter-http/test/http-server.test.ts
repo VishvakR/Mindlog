@@ -234,6 +234,7 @@ describe('admin and OpenAPI', () => {
     expect(Object.keys(doc.paths).sort()).toEqual([
       '/api/admin/api-keys',
       '/api/admin/api-keys/{id}',
+      '/api/admin/logs',
       '/api/admin/overview',
       '/api/admin/settings',
       '/api/auth/delegate',
@@ -285,6 +286,7 @@ describe('admin and OpenAPI', () => {
       '/api/superusers/me',
       '/api/tenants',
       '/api/tenants/{tenant}',
+      '/api/tenants/{tenant}/audit',
       '/api/tenants/{tenant}/keys',
       '/api/tenants/{tenant}/keys/{id}',
       '/api/tenants/{tenant}/members',

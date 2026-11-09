@@ -24,8 +24,9 @@ export function LoginPage() {
   const exists = useQuery({ queryKey: ['superuser-exists'], queryFn: api.superuserExists });
   const login = useMutation({
     mutationFn: () => api.login(email, password),
-    onSuccess: ({ token }) => {
+    onSuccess: ({ token, superuser }) => {
       session.save(token);
+      session.saveTenant(superuser.tenant);
       void navigate('/', { replace: true });
     },
   });

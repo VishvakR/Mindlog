@@ -30,6 +30,17 @@ export {
 export { localRanges } from './range/local-ranges.js';
 export { loadTombstones, writeTombstone } from './range/tombstones.js';
 export { errorResult } from './apply/command-results.js';
+export type { PendingAudit } from './audit/audit.js';
+export {
+  auditAppendHandler,
+  auditDay,
+  auditDayPrefix,
+  auditExpireHandler,
+  auditKey,
+  auditOutboxAckHandler,
+  auditRangeHooks,
+  readAuditOutbox,
+} from './audit/audit.js';
 export type { AppliedPoint, StateMachineDeps, StateSnapshot } from './apply/state-machine.js';
 export { StateMachine } from './apply/state-machine.js';
 export type { RangeHooks, RawState } from './range/range-commands.js';

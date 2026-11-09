@@ -1,3 +1,5 @@
+import type { Access } from '@mindlog/auth';
+
 /** A MULTI in progress: queued commands, and whether queueing failed. */
 export interface PendingTransaction {
   readonly queued: Uint8Array[][];
@@ -18,6 +20,8 @@ export class Session {
   tenant: string;
   principal = 'anonymous';
   authenticated: boolean;
+  /** Set when an API key authenticated the session; absent is the static user or internal work. */
+  access: Access | undefined;
   transaction: PendingTransaction | undefined;
   readonly watches = new Map<string, WatchedKey>();
 

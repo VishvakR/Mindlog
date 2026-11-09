@@ -31,6 +31,7 @@ export function scopeOf(arg: Uint8Array | undefined): {
 export const caller = (ctx: ConnectionContext) => ({
   tenant: ctx.session.tenant,
   principal: ctx.session.principal,
+  ...(ctx.session.access ? { access: ctx.session.access } : {}),
 });
 
 export function answer<T>(result: Result<T, MindlogError>, render: (value: T) => KvReply): KvReply {

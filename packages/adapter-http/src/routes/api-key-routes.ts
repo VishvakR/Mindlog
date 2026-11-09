@@ -11,6 +11,9 @@ const keyInfo = z.object({
   tenant: z.string(),
   user: z.string().optional(),
   name: z.string(),
+  role: z.string(),
+  scopes: z.array(z.string()).optional(),
+  expiresAt: z.number().optional(),
   created: z.string(),
 });
 

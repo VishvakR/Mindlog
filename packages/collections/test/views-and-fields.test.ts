@@ -28,7 +28,7 @@ describe('computeView', () => {
     { id: 't1', post: 'p1', name: 'x' },
     { id: 't2', post: ['p1', 'p2'], name: 'y' },
   ];
-  const sources = new Map([
+  const sources = new Map<string, Record<string, unknown>[]>([
     ['posts', posts],
     ['tags', tags],
   ]);

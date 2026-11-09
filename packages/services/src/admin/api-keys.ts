@@ -5,6 +5,8 @@ import type { KvReply } from '@mindlog/proto';
 import { z } from 'zod';
 import type { KvService } from '../kv/kv-service.js';
 import { Session } from '../session/session.js';
+import { tenantRoleSchema } from '../tenants/schemas.js';
+import type { TenantRole } from '../tenants/schemas.js';
 import { strings, toRecord } from './kv-strings.js';
 
 export const apiKeyInputSchema = z.strictObject({
@@ -12,16 +14,25 @@ export const apiKeyInputSchema = z.strictObject({
   /** Pins the key to one user scope; absent means every user of the tenant. */
   user: z.string().min(1).max(128).optional(),
   name: z.string().min(1).max(128),
+  /** What the key may do (PLAN 18.2); agents unless stated. */
+  role: tenantRoleSchema.default('agent'),
+  /** Memory scope patterns the key is limited to, such as `team-*`. */
+  scopes: z.array(z.string().min(1).max(128)).min(1).max(64).optional(),
+  /** Milliseconds since the epoch after which the key stops working. */
+  expiresAt: z.number().int().positive().optional(),
 });
 
 export type ApiKeyInput = z.input<typeof apiKeyInputSchema>;
 
-/** Who an API key speaks for. Keys grant memory access only, never admin (CLAUDE.md §12). */
+/** Who an API key speaks for, and what it may do (PLAN 18.2). */
 export interface ApiKeyIdentity {
   readonly id: string;
   readonly tenant: string;
   readonly user?: string;
   readonly name: string;
+  readonly role: TenantRole;
+  readonly scopes?: string[];
+  readonly expiresAt?: number;
 }
 
 export interface ApiKeyInfo extends ApiKeyIdentity {
@@ -82,6 +93,10 @@ export class ApiKeyService {
       tenant: r.tenant ?? '',
       ...(r.user ? { user: r.user } : {}),
       name: r.name ?? '',
+      // Keys made before roles existed have none and act as agents.
+      role: (r.role ?? 'agent') as TenantRole,
+      ...(r.scopes ? { scopes: JSON.parse(r.scopes) as string[] } : {}),
+      ...(r.expiresAt ? { expiresAt: Number(r.expiresAt) } : {}),
       created: new Date(Number(r.created ?? 0)).toISOString(),
     };
   }
@@ -95,7 +110,12 @@ export class ApiKeyService {
           fields: Object.fromEntries(parsed.error.issues.map((i) => [i.path.join('.'), i.message])),
         }),
       );
-    const { tenant, user, name } = parsed.data;
+    const { tenant, user, name, role, scopes, expiresAt } = parsed.data;
+    const extras = {
+      role,
+      ...(scopes ? { scopes: JSON.stringify(scopes) } : {}),
+      ...(expiresAt ? { expiresAt: String(expiresAt) } : {}),
+    };
     const key = PREFIX + randomBytes(32).toString('base64url');
     const id = idOf(key);
     const created = String(this.deps.clock.now());
@@ -112,6 +132,7 @@ export class ApiKeyService {
         'created',
         created,
         ...(user ? ['user', user] : []),
+        ...Object.entries(extras).flat(),
       ],
       ['SADD', INDEX, id],
       ['EXEC'],
@@ -119,7 +140,8 @@ export class ApiKeyService {
       const reply = await this.#runIn(session, ...args);
       if (!reply.ok) return reply;
     }
-    return ok({ ...this.#identity(id, { tenant, name, created, ...(user ? { user } : {}) }), key });
+    const row = { tenant, name, created, ...(user ? { user } : {}), ...extras };
+    return ok({ ...this.#identity(id, row), key });
   }
 
   async verify(key: string): Promise<Result<ApiKeyIdentity, MindlogError>> {
@@ -130,27 +152,36 @@ export class ApiKeyService {
     // Looked up by the key's hash: an unknown or revoked key has no record.
     if (!record.value.tenant) return err(unauthenticated());
     const { created: _created, ...identity } = this.#identity(id, record.value);
+    if (identity.expiresAt !== undefined && identity.expiresAt <= Number(this.deps.clock.now()))
+      return err(unauthenticated());
     return ok(identity);
   }
 
-  async list(): Promise<Result<ApiKeyInfo[], MindlogError>> {
+  /** Keys of one tenant, or all of them. */
+  async list(tenant?: string): Promise<Result<ApiKeyInfo[], MindlogError>> {
     const ids = await this.#run('SMEMBERS', INDEX);
     if (!ids.ok) return ids;
     const out: ApiKeyInfo[] = [];
     for (const id of strings(ids.value).sort()) {
       const record = await this.#record(id);
       if (!record.ok) return record;
-      if (record.value.tenant) out.push(this.#identity(id, record.value));
+      if (record.value.tenant && (tenant === undefined || record.value.tenant === tenant))
+        out.push(this.#identity(id, record.value));
     }
     return ok(out);
   }
 
-  /** Revokes the key whose listed id is `id`; false when there is none. */
-  async revoke(id: string): Promise<Result<boolean, MindlogError>> {
+  /** Revokes the key whose listed id is `id`, within `tenant` if given; false when there is none. */
+  async revoke(id: string, tenant?: string): Promise<Result<boolean, MindlogError>> {
     const ids = await this.#run('SMEMBERS', INDEX);
     if (!ids.ok) return ids;
     const full = strings(ids.value).find((h) => h.slice(0, 16) === id);
     if (!full || id.length < 16) return ok(false);
+    if (tenant !== undefined) {
+      const record = await this.#record(full);
+      if (!record.ok) return record;
+      if (record.value.tenant !== tenant) return ok(false);
+    }
     const session = this.#session();
     for (const args of [['MULTI'], ['DEL', recordKey(full)], ['SREM', INDEX, full], ['EXEC']]) {
       const reply = await this.#runIn(session, ...args);

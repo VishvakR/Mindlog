@@ -1,12 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { accessOf } from '@mindlog/auth';
 import { mindlogError } from '@mindlog/core';
 import type { HttpServerDeps } from '../http-deps.js';
 import { bearerOf, contextOf, identityOf } from '../identity.js';
 import { sendProblem } from '../route.js';
 
 const query = z.strictObject({
-  tenant: z.string().min(1).max(128).default('default'),
+  tenant: z.string().min(1).max(128).optional(),
   user: z.string().max(128),
   from: z.string().max(64).optional(),
 });
@@ -53,7 +54,7 @@ export function realtimeRoutes(app: FastifyInstance, deps: HttpServerDeps): void
     if (!Object.hasOwn(request.query as object, 'user')) return recordStream(request, reply, deps);
     const who = await identityOf(request, deps);
     if (!who.ok) return sendProblem(reply, who.error);
-    if (who.value.identity.kind !== 'superuser')
+    if (who.value.identity.kind === 'anonymous')
       return sendProblem(reply, mindlogError('UNAUTHENTICATED', 'Missing or invalid auth token.'));
     const feed = deps.changes;
     if (!feed)
@@ -64,6 +65,12 @@ export function realtimeRoutes(app: FastifyInstance, deps: HttpServerDeps): void
         reply,
         mindlogError('INVALID_ARGUMENT', parsed.error.issues[0]?.message ?? 'bad query'),
       );
+    const tenant = parsed.data.tenant ?? who.value.tenant;
+    const allowed = await deps.access.check(accessOf(who.value.identity), 'memory.read', {
+      tenant,
+      scope: parsed.data.user,
+    });
+    if (!allowed.ok) return sendProblem(reply, allowed.error);
     const lastId = request.headers['last-event-id'];
     const from =
       (typeof lastId === 'string' && lastId !== '' ? lastId : undefined) ?? parsed.data.from;
@@ -76,17 +83,13 @@ export function realtimeRoutes(app: FastifyInstance, deps: HttpServerDeps): void
       'x-content-type-options': 'nosniff',
     });
     raw.write(': mindlog change stream\n\n');
-    const stop = feed.subscribe(
-      { tenant: parsed.data.tenant, user: parsed.data.user },
-      from,
-      (e) => {
-        raw.write(
-          e.type === 'resync'
-            ? 'event: resync\ndata: {}\n\n'
-            : `id: ${e.cursor}\nevent: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`,
-        );
-      },
-    );
+    const stop = feed.subscribe({ tenant, user: parsed.data.user }, from, (e) => {
+      raw.write(
+        e.type === 'resync'
+          ? 'event: resync\ndata: {}\n\n'
+          : `id: ${e.cursor}\nevent: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`,
+      );
+    });
     const beat = setInterval(() => raw.write(': ping\n\n'), HEARTBEAT_MS);
     request.raw.on('close', () => {
       clearInterval(beat);

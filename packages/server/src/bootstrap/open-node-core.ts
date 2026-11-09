@@ -57,6 +57,7 @@ import { ConnectPdClient } from '@mindlog/pd';
 import { StoreRouter, connectForwardCall, fromRequest } from '@mindlog/router';
 import type { ChangeFeed, MemoryService, PdAdmin } from '@mindlog/services';
 import {
+  AccessPorts,
   COLLECTION_OP_PREFIX,
   CollectionService,
   KvService,
@@ -96,6 +97,8 @@ export interface CoreDeps {
 
 /** Storage, the range replica, the state machine and the KV service, without client listeners. */
 export interface NodeCore {
+  /** Where the composition root plugs in the tenant registry's checks. */
+  readonly access: AccessPorts;
   readonly dataDir: string;
   readonly machine: StateMachine;
   /** The range replica: the Proposer and ReadBarrier of this node. */
@@ -438,6 +441,8 @@ export async function openNodeCore(
     clock,
     send: connectForwardCall(new KvForwarder(), clockSync, () => transport?.self ?? ''),
   });
+  // Filled in by startNode: the tenant registry is built on the KV service it authorizes.
+  const access = new AccessPorts();
   const service = new KvService({
     registry,
     store: stateStore,
@@ -451,6 +456,8 @@ export async function openNodeCore(
     metrics,
     tracer,
     maxTransactionCommands: config.limits.maxTransactionCommands,
+    authorize: (a, action, resource) => access.authorize(a, action, resource),
+    verifyApiKey: (key) => access.verify(key),
   });
   const memory = openMemory({
     config,
@@ -463,6 +470,7 @@ export async function openNodeCore(
     metrics,
     logger,
     tracer,
+    authorize: (a, action, resource) => access.authorize(a, action, resource),
   });
   const tenants = config.collections.tenants;
   const collections = new CollectionService({
@@ -491,6 +499,7 @@ export async function openNodeCore(
     transport,
     stamper,
     stateStore,
+    access,
     service,
     memory: memory.service,
     changes: memory.changes,

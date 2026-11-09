@@ -117,7 +117,7 @@ export const memDropCommand: ConnectionCommand = {
  */
 export const memWatchCommand: ConnectionCommand = {
   name: 'MEM.WATCH',
-  execute: (ctx, argv) => {
+  execute: async (ctx, argv) => {
     const feed = ctx.server.changes;
     if (!feed) return replies.error('UNIMPLEMENTED', 'change streams are not available');
     const o = options(argv, 2, ['FROM'], []);
@@ -125,6 +125,12 @@ export const memWatchCommand: ConnectionCommand = {
     const { user } = scopeOf(argv[1]);
     const filter = { tenant: ctx.session.tenant, user };
     const from = typeof o.FROM === 'string' ? o.FROM : undefined;
+    if (ctx.session.access) {
+      const memory = ctx.server.memory;
+      if (!memory) return replies.error('UNIMPLEMENTED', 'memory commands are not available');
+      const allowed = await memory.authorizeRead(caller(ctx), user);
+      if (!allowed.ok) return replies.error(allowed.error.code, allowed.error.message);
+    }
     // Subscribe after this reply is written, so pushes follow the confirmation.
     setImmediate(() => {
       const stop = feed.subscribe(filter, from, (e) => {

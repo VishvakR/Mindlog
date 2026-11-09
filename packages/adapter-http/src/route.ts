@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { MindlogError, Result } from '@mindlog/core';
 import { mindlogError } from '@mindlog/core';
+import type { Identity } from '@mindlog/auth';
 import type { Superuser } from '@mindlog/services';
 import type { z } from 'zod';
 import type { Problem } from './problem.js';
@@ -13,8 +14,11 @@ export interface RouteSpec<B extends z.ZodType, Q extends z.ZodType, R extends z
   readonly path: string;
   readonly summary: string;
   readonly tag: string;
-  /** Requires a superuser bearer token (default true). */
-  readonly auth?: boolean;
+  /**
+   * `true` (default) needs a superuser token, `false` is public, and `'identity'`
+   * accepts any credential and leaves the decision to the application layer.
+   */
+  readonly auth?: boolean | 'identity';
   readonly body?: B;
   readonly query?: Q;
   /** 200 response body; omitted for 204. */
@@ -28,7 +32,15 @@ export interface RouteInput<B, Q> {
   readonly query: Q;
   readonly params: Readonly<Record<string, string>>;
   readonly superuser: Superuser | undefined;
+  /** Set on `auth: 'identity'` routes. */
+  readonly who: Who | undefined;
   readonly request: FastifyRequest;
+}
+
+/** A verified caller and the tenant its credential resolves to. */
+export interface Who {
+  readonly identity: Identity;
+  readonly tenant: string;
 }
 
 export type AnyRouteSpec = RouteSpec<z.ZodType, z.ZodType, z.ZodType>;
@@ -37,6 +49,7 @@ export type AnyRouteSpec = RouteSpec<z.ZodType, z.ZodType, z.ZodType>;
 declare module 'fastify' {
   interface FastifyRequest {
     superuser?: Superuser;
+    who?: Who;
   }
 }
 
@@ -79,6 +92,7 @@ export function defineRoute<B extends z.ZodType, Q extends z.ZodType, R extends 
         query: query?.data as z.infer<Q>,
         params: request.params as Record<string, string>,
         superuser: request.superuser,
+        who: request.who,
         request,
       });
       if (!result.ok) return sendProblem(reply, result.error);
@@ -89,7 +103,7 @@ export function defineRoute<B extends z.ZodType, Q extends z.ZodType, R extends 
 
 declare module 'fastify' {
   interface FastifyContextConfig {
-    /** False for public routes (health, login, OpenAPI). */
-    auth?: boolean;
+    /** False for public routes (health, login, OpenAPI), 'identity' for per-action checks. */
+    auth?: boolean | 'identity';
   }
 }

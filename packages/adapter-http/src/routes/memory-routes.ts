@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { MindlogError, Result } from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
+import { accessOf, principalOf } from '@mindlog/auth';
 import type { MemoryService } from '@mindlog/services';
 import {
   branchSchema,
@@ -29,7 +30,8 @@ import type { AnyRouteSpec } from '../route.js';
 import { defineRoute } from '../route.js';
 
 const anyObject = z.record(z.string(), z.unknown());
-const tenant = { tenant: z.string().min(1).max(128).default('default') };
+/** Absent means the credential's tenant; only a superuser may name another. */
+const tenant = { tenant: z.string().min(1).max(128).optional() };
 
 type Method =
   | 'remember'
@@ -184,15 +186,23 @@ export function memoryRoutes(
         summary: route.summary,
         tag: 'memory',
         body: route.schema.extend(tenant),
+        auth: 'identity',
         response: anyObject.or(z.null()),
         ...(route.bodyLimit ? { bodyLimit: route.bodyLimit } : {}),
       },
-      async ({ body, superuser }) => {
+      async ({ body, who }) => {
         const memory: MemoryService | undefined = deps.memory;
         if (!memory)
           return err(mindlogError('UNIMPLEMENTED', 'memory is not available on this node'));
-        const { tenant: name, ...input } = body as { tenant: string } & Record<string, unknown>;
-        const caller = { tenant: name, principal: superuser?.email ?? 'http' };
+        if (!who) return err(mindlogError('UNAUTHENTICATED', 'Missing or invalid auth token.'));
+        const { tenant: name, ...input } = body as { tenant?: string } & Record<string, unknown>;
+        const access = accessOf(who.identity);
+        const caller = {
+          tenant: name ?? who.tenant,
+          principal:
+            who.identity.kind === 'superuser' ? who.identity.email : principalOf(who.identity),
+          ...(access ? { access } : {}),
+        };
         const result = await CALLS[route.op](memory, caller, input as never);
         // A missing memory is null, not 204.
         return result.ok ? ok((result.value ?? null) as Record<string, unknown> | null) : result;

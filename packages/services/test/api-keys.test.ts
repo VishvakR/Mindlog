@@ -17,7 +17,13 @@ describe('ApiKeyService', () => {
     const verified = await keys.verify(created.value.key);
     expect(verified).toEqual({
       ok: true,
-      value: { id: created.value.id, tenant: 'acme', user: 'alice', name: 'claude desktop' },
+      value: {
+        role: 'agent',
+        id: created.value.id,
+        tenant: 'acme',
+        user: 'alice',
+        name: 'claude desktop',
+      },
     });
     const listed = await keys.list();
     expect(listed.ok && listed.value.map((k) => [k.id, k.tenant, k.user, k.name])).toEqual([
@@ -56,7 +62,7 @@ describe('ApiKeyService', () => {
 });
 
 describe('authorizeScope (key × tenant × user × action)', () => {
-  const tenantKey = { id: 'k1', tenant: 'acme', name: 'n' };
+  const tenantKey = { id: 'k1', tenant: 'acme', name: 'n', role: 'agent' as const };
   const userKey = { ...tenantKey, user: 'alice' };
   test.each([
     ['tenant key, any user of its tenant', tenantKey, 'bob', true],

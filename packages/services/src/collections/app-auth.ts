@@ -342,7 +342,7 @@ export class AppAuthService {
    * (ADR-0035): rules evaluate as the user, commands record the agent.
    */
   async delegate(
-    key: ApiKeyIdentity,
+    key: Pick<ApiKeyIdentity, 'id' | 'tenant' | 'user'>,
     userToken: string,
   ): Promise<Result<{ token: string; expiresIn: number }, MindlogError>> {
     const checked = await this.check(userToken, ['access']);

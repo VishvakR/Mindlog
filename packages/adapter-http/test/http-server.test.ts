@@ -283,6 +283,14 @@ describe('admin and OpenAPI', () => {
       '/api/superusers/auth-with-password',
       '/api/superusers/exists',
       '/api/superusers/me',
+      '/api/tenants',
+      '/api/tenants/{tenant}',
+      '/api/tenants/{tenant}/keys',
+      '/api/tenants/{tenant}/keys/{id}',
+      '/api/tenants/{tenant}/members',
+      '/api/tenants/{tenant}/members/{email}',
+      '/api/tenants/{tenant}/policies',
+      '/api/tenants/{tenant}/quotas',
       '/health',
       '/ready',
     ]);
@@ -491,7 +499,11 @@ describe('memory routes', () => {
     expect(asked).toEqual([
       {
         op: 'remember',
-        caller: { tenant: 'acme', principal: 'admin@example.com' },
+        caller: {
+          tenant: 'acme',
+          principal: 'admin@example.com',
+          access: { role: 'superuser', subject: 'superuser:admin@example.com' },
+        },
         input: { scope: { user: 'alice' }, content: 'I prefer tea' },
       },
     ]);

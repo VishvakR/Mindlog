@@ -10,7 +10,7 @@ import { WorkerRegistry } from '@mindlog/jobs';
 import { MemoryEngine, VectorCache } from '@mindlog/memory';
 import type { Capability, Models } from '@mindlog/models-client';
 import { GrpcModels, GuardedModels, NoModels } from '@mindlog/models-client';
-import type { RangeRouter } from '@mindlog/services';
+import type { Authorize, RangeRouter } from '@mindlog/services';
 import { ChangeFeed, LIFECYCLE_CLUSTER_VERSION, MemoryService } from '@mindlog/services';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
@@ -52,6 +52,7 @@ export function openBlobStore(config: MindlogConfig, clock: Clock): BlobStore {
  * enrich worker. Model calls run only where a range leads (ADR-0016).
  */
 export function openMemory(deps: {
+  authorize?: Authorize;
   readonly config: MindlogConfig;
   readonly state: KvReader;
   readonly events: EventBus;
@@ -161,6 +162,7 @@ export function openMemory(deps: {
     config: { modelTimeoutMs: timeoutMs },
   });
   const service = new MemoryService({
+    ...(deps.authorize ? { authorize: deps.authorize } : {}),
     engine,
     cache,
     router,

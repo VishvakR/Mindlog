@@ -17,7 +17,10 @@ import {
 } from '@mindlog/kv';
 import type { ChangeFeed, MemoryService, PdAdmin } from '@mindlog/services';
 import {
+  AccessControl,
+  AccessPorts,
   AdminService,
+  TenantService,
   ApiKeyService,
   ClusterDirectory,
   KvBrowser,
@@ -84,7 +87,9 @@ export async function httpNode(
     metrics,
   });
   const tracer = new OtelTracer();
+  const ports = new AccessPorts();
   const kv = new KvService({
+    authorize: (a, action, resource) => ports.authorize(a, action, resource),
     registry,
     store,
     proposer,
@@ -115,8 +120,13 @@ export async function httpNode(
       settings: { databases: '1', maxclients: '10000' },
     },
   };
+  const tenants = new TenantService({ service: kv, clock });
+  const access = new AccessControl(tenants);
+  ports.attach(access.check, () => Promise.reject(new Error('no API keys in this harness')));
   const http = new HttpServer({
     admin,
+    tenants,
+    access,
     apiKeys: new ApiKeyService({ service: kv, clock }),
     kv,
     browser: new KvBrowser(kv),

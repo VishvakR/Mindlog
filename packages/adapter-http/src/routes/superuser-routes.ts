@@ -48,15 +48,14 @@ export function superuserRoutes(
     {
       method: 'GET',
       path: '/api/superusers/me',
-      summary: 'The authenticated superuser',
+      summary: 'The authenticated account (a superuser or a tenant member)',
       tag: 'superusers',
+      auth: 'identity',
       response: superuserSchema,
     },
-    ({ superuser }) =>
-      Promise.resolve(
-        superuser
-          ? ok(superuser)
-          : err(mindlogError('UNAUTHENTICATED', 'Missing or invalid auth token.')),
-      ),
+    ({ request }) =>
+      request.headers.authorization
+        ? deps.admin.verifyToken(request.headers.authorization.replace(/^Bearer /, ''))
+        : Promise.resolve(err(mindlogError('UNAUTHENTICATED', 'Missing or invalid auth token.'))),
   );
 }

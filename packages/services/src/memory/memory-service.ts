@@ -34,7 +34,9 @@ import type { KvReply } from '@mindlog/proto';
 import { JobState } from '@mindlog/proto';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { z } from 'zod';
+import type { Access } from '@mindlog/auth';
 import type { Caller, Placement, RangeCall, RangeRouter, RangeTarget } from '../kv/range-router.js';
+import type { Authorize } from '../tenants/authorize.js';
 import type {
   CacheDeleteRequest,
   CacheLookupRequest,
@@ -108,6 +110,13 @@ export interface MemoryServiceDeps {
   readonly stamper: CommandStamper;
   /** The cluster version PD reports; writes need `MEMORY_CLUSTER_VERSION`. Absent: always met. */
   readonly clusterVersion?: () => number;
+  /** Authorizes callers that carry an `access` (PLAN 18.2). */
+  readonly authorize?: Authorize;
+}
+
+/** Who is asking. Interfaces pass `access`; the node's own workers do not. */
+export interface MemoryCaller extends Caller {
+  readonly access?: Access;
 }
 
 interface Engines {
@@ -434,46 +443,52 @@ export class MemoryService {
     this.#d = deps;
   }
 
-  remember(caller: Caller, input: RememberRequest): Promise<Result<RememberOutput, MindlogError>> {
+  remember(
+    caller: MemoryCaller,
+    input: RememberRequest,
+  ): Promise<Result<RememberOutput, MindlogError>> {
     return this.#execute(caller, 'remember', input);
   }
 
-  recall(caller: Caller, input: RecallRequest): Promise<Result<RecallOutput, MindlogError>> {
+  recall(caller: MemoryCaller, input: RecallRequest): Promise<Result<RecallOutput, MindlogError>> {
     return this.#execute(caller, 'recall', input);
   }
 
   get(
-    caller: Caller,
+    caller: MemoryCaller,
     input: GetMemoryRequest,
   ): Promise<Result<MemoryView | undefined, MindlogError>> {
     return this.#execute(caller, 'get', input);
   }
 
   list(
-    caller: Caller,
+    caller: MemoryCaller,
     input: ListMemoryRequest,
   ): Promise<Result<{ memories: MemoryView[]; next?: string }, MindlogError>> {
     return this.#execute(caller, 'list', input);
   }
 
   forget(
-    caller: Caller,
+    caller: MemoryCaller,
     input: ForgetRequest,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     return this.#execute(caller, 'forget', input);
   }
 
-  history(caller: Caller, input: HistoryRequest): Promise<Result<HistoryEntry[], MindlogError>> {
+  history(
+    caller: MemoryCaller,
+    input: HistoryRequest,
+  ): Promise<Result<HistoryEntry[], MindlogError>> {
     return this.#execute(caller, 'history', input);
   }
 
-  graph(caller: Caller, input: GraphRequest): Promise<Result<GraphView, MindlogError>> {
+  graph(caller: MemoryCaller, input: GraphRequest): Promise<Result<GraphView, MindlogError>> {
     return this.#execute(caller, 'graph', input);
   }
 
   /** Conflicts of a user scope, open ones by default (ADR-0015). */
   conflicts(
-    caller: Caller,
+    caller: MemoryCaller,
     input: ConflictsRequest,
   ): Promise<Result<{ conflicts: ConflictView[]; next?: string }, MindlogError>> {
     return this.#execute(caller, 'conflicts', input);
@@ -481,7 +496,7 @@ export class MemoryService {
 
   /** Resolves a conflict: the loser's validity ends, the winner leaves quarantine. */
   resolve(
-    caller: Caller,
+    caller: MemoryCaller,
     input: ResolveRequest,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     return this.#execute(caller, 'resolve', input);
@@ -489,7 +504,7 @@ export class MemoryService {
 
   /** Sets the trust of memories, e.g. to release reviewed quarantined content (PLAN 13.4). */
   trust(
-    caller: Caller,
+    caller: MemoryCaller,
     input: TrustRequest,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     return this.#execute(caller, 'trust', input);
@@ -497,28 +512,37 @@ export class MemoryService {
 
   /** Creates a branch of a user scope that reads main as of now (ADR-0013). */
   createBranch(
-    caller: Caller,
+    caller: MemoryCaller,
     input: BranchRequest,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     return this.#execute(caller, 'branchCreate', input);
   }
 
-  branches(caller: Caller, input: BranchesRequest): Promise<Result<BranchView[], MindlogError>> {
+  branches(
+    caller: MemoryCaller,
+    input: BranchesRequest,
+  ): Promise<Result<BranchView[], MindlogError>> {
     return this.#execute(caller, 'branches', input);
   }
 
   /** What a branch added, forgot and changed relative to main at its fork. */
-  diffBranch(caller: Caller, input: BranchRequest): Promise<Result<BranchDiff, MindlogError>> {
+  diffBranch(
+    caller: MemoryCaller,
+    input: BranchRequest,
+  ): Promise<Result<BranchDiff, MindlogError>> {
     return this.#execute(caller, 'branchDiff', input);
   }
 
   /** Merges a branch into main under a conflict policy. */
-  mergeBranch(caller: Caller, input: MergeRequest): Promise<Result<MergeResult, MindlogError>> {
+  mergeBranch(
+    caller: MemoryCaller,
+    input: MergeRequest,
+  ): Promise<Result<MergeResult, MindlogError>> {
     return this.#execute(caller, 'branchMerge', input);
   }
 
   dropBranch(
-    caller: Caller,
+    caller: MemoryCaller,
     input: BranchRequest,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     return this.#execute(caller, 'branchDrop', input);
@@ -526,7 +550,7 @@ export class MemoryService {
 
   /** Pins or unpins memories (exempt from the cold tier and hard forgetting, PLAN 13.7). */
   pin(
-    caller: Caller,
+    caller: MemoryCaller,
     input: PinRequest,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     return this.#execute(caller, 'pin', input);
@@ -534,7 +558,7 @@ export class MemoryService {
 
   /** Enqueues consolidation workers for the scope now (ADR-0033). */
   consolidate(
-    caller: Caller,
+    caller: MemoryCaller,
     input: ConsolidateRequest,
   ): Promise<Result<{ enqueued: string[] }, MindlogError>> {
     return this.#execute(caller, 'consolidate', input);
@@ -542,7 +566,7 @@ export class MemoryService {
 
   /** The scope's jobs and lifecycle state (Jobs page). */
   jobs(
-    caller: Caller,
+    caller: MemoryCaller,
     input: JobsRequest,
   ): Promise<Result<{ jobs: JobView[]; lifecycle: LifecycleView; next?: string }, MindlogError>> {
     return this.#execute(caller, 'jobs', input);
@@ -550,7 +574,7 @@ export class MemoryService {
 
   /** The scope as a `.mcube` archive, base64 (PLAN 13.11). */
   exportCube(
-    caller: Caller,
+    caller: MemoryCaller,
     input: ExportRequest,
   ): Promise<Result<{ data: string; bytes: number }, MindlogError>> {
     return this.#execute(caller, 'export', input);
@@ -558,7 +582,7 @@ export class MemoryService {
 
   /** Imports a `.mcube` or COGX archive into the scope; memories follow the trust policy. */
   importCube(
-    caller: Caller,
+    caller: MemoryCaller,
     input: ImportRequest,
   ): Promise<Result<{ imported: number; skipped: number; ids: string[] }, MindlogError>> {
     return this.#execute(caller, 'import', input);
@@ -566,7 +590,7 @@ export class MemoryService {
 
   /** The cached answer for a similar prompt in the user scope, or `hit: null` (PLAN 13.9). */
   cacheLookup(
-    caller: Caller,
+    caller: MemoryCaller,
     input: CacheLookupRequest,
   ): Promise<Result<{ hit: CacheHit | null; degraded: boolean }, MindlogError>> {
     return this.#execute(caller, 'cacheGet', input);
@@ -574,14 +598,14 @@ export class MemoryService {
 
   /** Caches an answer with the memories it depends on. */
   cacheStore(
-    caller: Caller,
+    caller: MemoryCaller,
     input: CacheStoreRequest,
   ): Promise<Result<{ id: string; degraded: boolean }, MindlogError>> {
     return this.#execute(caller, 'cacheSet', input);
   }
 
   cacheDelete(
-    caller: Caller,
+    caller: MemoryCaller,
     input: CacheDeleteRequest,
   ): Promise<Result<{ count: number }, MindlogError>> {
     return this.#execute(caller, 'cacheDel', input);
@@ -593,11 +617,14 @@ export class MemoryService {
    * shortcut: only ranges with a replica here, so a cluster lists part of its scopes; forward to each range when dashboards run on clusters.
    */
   async scopes(
-    caller: Caller,
+    caller: MemoryCaller,
     input: ScopesRequest,
   ): Promise<Result<{ users: string[] }, MindlogError>> {
     const parsed = scopesSchema.safeParse(input);
     if (!parsed.success) return err(invalid(parsed.error.issues));
+    // No target scope: a caller limited to some scopes cannot list them all.
+    const allowed = await this.#authorize(caller, false, undefined);
+    if (!allowed.ok) return allowed;
     const ranges = await this.#d.router.ranges();
     if (!ranges.ok) return ranges;
     const family = keyPrefix(caller.tenant, KeyFamily.MEMORY);
@@ -625,8 +652,27 @@ export class MemoryService {
     return ok({ users: [...users].sort().slice(0, parsed.data.limit) });
   }
 
+  /** Refuses a caller outside its role, tenant or scopes; internal callers carry no `access`. */
+  async #authorize(
+    caller: MemoryCaller,
+    write: boolean,
+    scope: string | undefined,
+  ): Promise<Result<void, MindlogError>> {
+    if (!caller.access) return ok(undefined);
+    if (!this.#d.authorize) return err(mindlogError('PERMISSION_DENIED', 'authorization is off'));
+    return this.#d.authorize(caller.access, write ? 'memory.write' : 'memory.read', {
+      tenant: caller.tenant,
+      ...(scope === undefined ? {} : { scope }),
+    });
+  }
+
+  /** Whether a caller may read a scope, for paths that do not go through an operation. */
+  authorizeRead(caller: MemoryCaller, user: string): Promise<Result<void, MindlogError>> {
+    return this.#authorize(caller, false, user);
+  }
+
   async #execute<N extends OpName>(
-    caller: Caller,
+    caller: MemoryCaller,
     name: N,
     raw: unknown,
   ): Promise<Result<OutputOf<N>, MindlogError>> {
@@ -638,6 +684,8 @@ export class MemoryService {
     const parsed = spec.schema.safeParse(raw);
     if (!parsed.success) return err(invalid(parsed.error.issues));
     const input = parsed.data as { scope: { user: string } };
+    const allowed = await this.#authorize(caller, spec.write, input.scope.user);
+    if (!allowed.ok) return allowed;
     if (
       spec.write &&
       this.#d.clusterVersion &&

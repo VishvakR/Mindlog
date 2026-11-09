@@ -14,7 +14,9 @@ import type { KvReply } from '@mindlog/proto';
 import type { CommandStamper, Proposer } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
 import { MvccReader } from '@mindlog/storage';
+import type { Access } from '@mindlog/auth';
 import type { StaticAuthenticator } from '../auth/static-authenticator.js';
+import type { Authorize } from '../tenants/authorize.js';
 import type { ReadBarrier } from './read-barrier.js';
 import type { Caller, RangeCall, RangeRouter } from './range-router.js';
 import { RoutedKv } from './routed-kv.js';
@@ -42,11 +44,19 @@ export interface KvServiceDeps {
    * serves a single range.
    */
   readonly router?: RangeRouter;
+  /** Authorizes sessions that an API key authenticated (PLAN 18.2). */
+  readonly authorize?: Authorize;
+  /** Resolves an `mlk_` API key given to AUTH; the key's tenant becomes the session's. */
+  readonly verifyApiKey?: (
+    key: string,
+  ) => Promise<Result<{ access: Access; tenant: string }, MindlogError>>;
   /** With `router`: lets writes that span ranges run as transactions (`features.crossRangeTxn`, ADR-0030). */
   readonly tso?: () => Promise<Result<bigint, MindlogError>>;
 }
 
 const DEFAULT_MAX_TRANSACTION_COMMANDS = 10_000;
+
+const API_KEY_PREFIX = 'mlk_';
 
 const SESSION_COMMANDS = new Set(['AUTH', 'MULTI', 'EXEC', 'DISCARD', 'WATCH', 'UNWATCH']);
 
@@ -117,8 +127,20 @@ export class KvService {
   /**
    * AUTH <user> <pass> and HELLO ... AUTH: checks the static user and marks the
    * session. Without a password the `default` user is `nopass`, as in Valkey.
+   * An `mlk_` API key in the password position binds the session to the key's
+   * tenant and role instead.
    */
-  authenticate(session: Session, username: string, password: string): KvReply {
+  async authenticate(session: Session, username: string, password: string): Promise<KvReply> {
+    if (password.startsWith(API_KEY_PREFIX) && this.deps.verifyApiKey) {
+      const verified = await this.deps.verifyApiKey(password);
+      if (!verified.ok) return replies.error('INVALID_CREDENTIALS', 'invalid API key.');
+      session.resetTransaction();
+      session.tenant = verified.value.tenant;
+      session.access = verified.value.access;
+      session.principal = verified.value.access.subject;
+      session.authenticated = true;
+      return replies.ok();
+    }
     const required = this.deps.authenticator.required;
     const valid = required
       ? this.deps.authenticator.verify(username, password)
@@ -129,6 +151,9 @@ export class KvService {
         'invalid username-password pair or user is disabled.',
       );
     }
+    session.resetTransaction();
+    session.tenant = this.deps.defaultTenant ?? 'default';
+    session.access = undefined;
     session.authenticated = true;
     session.principal = username;
     return replies.ok();
@@ -155,6 +180,8 @@ export class KvService {
       return replies.error('UNAUTHENTICATED', 'Authentication required.');
     }
     if (name === 'AUTH') return this.#auth(session, argv);
+    const denied = await this.#denied(session, argv);
+    if (denied) return denied;
     switch (name) {
       case 'MULTI':
         return this.#multi(session, argv);
@@ -170,6 +197,18 @@ export class KvService {
     }
     if (session.transaction) return this.#queue(session, argv);
     return this.run(session, argv);
+  }
+
+  /** The refusal for a session limited by an API key, if this command is outside its role. */
+  async #denied(session: Session, argv: readonly Uint8Array[]): Promise<KvReply | undefined> {
+    if (!session.access) return undefined;
+    const name = commandName(argv);
+    const command = argv[0] ? this.deps.registry.get(argv[0]) : undefined;
+    if (!command && name !== 'WATCH') return undefined;
+    if (!this.deps.authorize) return replies.error('PERMISSION_DENIED', 'authorization is off');
+    const action = command && isWrite(command) ? 'kv.write' : 'kv.read';
+    const allowed = await this.deps.authorize(session.access, action, { tenant: session.tenant });
+    return allowed.ok ? undefined : replies.error(allowed.error.code, allowed.error.message);
   }
 
   #multi(session: Session, argv: readonly Uint8Array[]): KvReply {
@@ -316,8 +355,11 @@ export class KvService {
     return this.#routed.forwarded(rangeId, caller, call);
   }
 
-  #auth(session: Session, argv: readonly Uint8Array[]): KvReply {
+  async #auth(session: Session, argv: readonly Uint8Array[]): Promise<KvReply> {
     if (argv.length === 2) {
+      const secret = decoder.decode(argv[1]);
+      if (secret.startsWith(API_KEY_PREFIX) && this.deps.verifyApiKey)
+        return this.authenticate(session, 'default', secret);
       if (!this.deps.authenticator.required) {
         return replies.error(
           'INVALID_ARGUMENT',

@@ -7,8 +7,8 @@ import { Session } from '../session/session.js';
 import { hasValidSignature, readClaims, signToken } from './auth-token.js';
 import { DUMMY_HASH, hashPassword, verifyPassword } from './password-hash.js';
 import { strings, toRecord } from './kv-strings.js';
-import type { AuthResult, Superuser, SuperuserCredentials } from './schemas.js';
-import { superuserCredentialsSchema } from './schemas.js';
+import type { AuthResult, MemberInput, Superuser, SuperuserCredentials } from './schemas.js';
+import { memberInputSchema, superuserCredentialsSchema } from './schemas.js';
 
 export interface AdminServiceDeps {
   readonly service: KvService;
@@ -81,7 +81,104 @@ export class AdminService {
       email: record.email ?? '',
       created: iso(record.created),
       updated: iso(record.updated),
+      ...(record.role && record.tenant
+        ? { role: record.role as Superuser['role'], tenant: record.tenant }
+        : {}),
     };
+  }
+
+  /**
+   * Creates or resets an account limited to one tenant. WATCH makes the check
+   * and the write one step, so a tenant admin can never take over a superuser
+   * or another tenant's account.
+   */
+  async upsertMember(tenant: string, input: MemberInput): Promise<Result<Superuser, MindlogError>> {
+    const parsed = memberInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const fields = Object.fromEntries(
+        parsed.error.issues.map((i) => [i.path.join('.'), i.message]),
+      );
+      return err(mindlogError('INVALID_ARGUMENT', 'Invalid account.', { fields }));
+    }
+    const { email, password, role } = parsed.data;
+    const secret = await this.#authSecret();
+    if (!secret.ok) return secret;
+    const session = this.#session();
+    const watched = await this.#run(session, 'WATCH', userKey(email));
+    if (!watched.ok) return watched;
+    const existing = await this.#run(session, 'HGETALL', userKey(email));
+    if (!existing.ok) return existing;
+    const row = toRecord(strings(existing.value));
+    if (row.email && row.tenant !== tenant) {
+      await this.#run(session, 'UNWATCH');
+      return err(mindlogError('PERMISSION_DENIED', `${email} is not an account of ${tenant}`));
+    }
+    const now = String(this.deps.clock.now());
+    for (const args of [
+      ['MULTI'],
+      ['HSETNX', userKey(email), 'created', now],
+      [
+        'HSET',
+        userKey(email),
+        'email',
+        email,
+        'passwordHash',
+        await hashPassword(password),
+        'tokenKey',
+        randomBytes(24).toString('base64url'),
+        'updated',
+        now,
+        'role',
+        role,
+        'tenant',
+        tenant,
+      ],
+      ['EXEC'],
+    ]) {
+      const reply = await this.#run(session, ...args);
+      if (!reply.ok) return reply;
+      if (args[0] === 'EXEC' && reply.value.kind.case === 'null')
+        return err(mindlogError('EXEC_ABORTED', 'The account changed; try again.'));
+    }
+    const record = await this.#hash(userKey(email));
+    return record.ok ? ok(this.#superuser(record.value)) : record;
+  }
+
+  /** The accounts of one tenant. */
+  async members(tenant: string): Promise<Result<Superuser[], MindlogError>> {
+    const session = this.#session();
+    const out: Superuser[] = [];
+    let cursor = '0';
+    do {
+      const page = await this.#run(
+        session,
+        'SCAN',
+        cursor,
+        'MATCH',
+        'superuser:*',
+        'COUNT',
+        '1000',
+      );
+      if (!page.ok) return page;
+      const [next = '0', ...keys] = strings(page.value);
+      for (const key of keys) {
+        const record = await this.#hash(key);
+        if (!record.ok) return record;
+        if (record.value.tenant === tenant) out.push(this.#superuser(record.value));
+      }
+      cursor = next;
+    } while (cursor !== '0');
+    return ok(out.sort((a, b) => a.email.localeCompare(b.email)));
+  }
+
+  /** Deletes one tenant's account; false when it has none by that address. */
+  async removeMember(tenant: string, email: string): Promise<Result<boolean, MindlogError>> {
+    const key = userKey(email.trim().toLowerCase());
+    const record = await this.#hash(key);
+    if (!record.ok) return record;
+    if (record.value.tenant !== tenant) return ok(false);
+    const deleted = await this.#run(this.#session(), 'DEL', key);
+    return deleted.ok ? ok(true) : deleted;
   }
 
   /** Creates a superuser or resets its password; a reset revokes its tokens. */
@@ -101,6 +198,7 @@ export class AdminService {
     for (const args of [
       ['MULTI'],
       ['HSETNX', userKey(email), 'created', now],
+      ['HDEL', userKey(email), 'role', 'tenant'],
       [
         'HSET',
         userKey(email),

@@ -13,8 +13,8 @@ import type { McpMemory } from '@mindlog/adapter-mcp';
 import { McpHttpServer, proxyMessages } from '@mindlog/adapter-mcp';
 
 const KEYS: Record<string, ApiKeyIdentity> = {
-  mlk_tenant: { id: 'k-tenant', tenant: 'acme', name: 'ci' },
-  mlk_alice: { id: 'k-alice', tenant: 'acme', user: 'alice', name: 'desktop' },
+  mlk_tenant: { id: 'k-tenant', tenant: 'acme', role: 'agent', name: 'ci' },
+  mlk_alice: { id: 'k-alice', tenant: 'acme', role: 'agent', user: 'alice', name: 'desktop' },
 };
 
 const memoryView = (id: string, text: string) => ({
@@ -224,8 +224,24 @@ describe('MCP over Streamable HTTP', () => {
     const text = (recalled.content as Array<{ text: string }>)[0]?.text ?? '';
     expect(text).toContain('dark roast');
     expect(asked.map((a) => [a.op, a.caller, a.input.scope])).toEqual([
-      ['remember', { tenant: 'acme', principal: 'apikey:k-alice' }, { user: 'alice' }],
-      ['recall', { tenant: 'acme', principal: 'apikey:k-alice' }, { user: 'alice' }],
+      [
+        'remember',
+        {
+          tenant: 'acme',
+          principal: 'apikey:k-alice',
+          access: { role: 'agent', tenant: 'acme', subject: 'apikey:k-alice', user: 'alice' },
+        },
+        { user: 'alice' },
+      ],
+      [
+        'recall',
+        {
+          tenant: 'acme',
+          principal: 'apikey:k-alice',
+          access: { role: 'agent', tenant: 'acme', subject: 'apikey:k-alice', user: 'alice' },
+        },
+        { user: 'alice' },
+      ],
     ]);
     await client.close();
   });

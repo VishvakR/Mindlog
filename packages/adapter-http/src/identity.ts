@@ -53,8 +53,18 @@ export async function identityOf(
       ? await deps.apiKeys.verify(token)
       : err(mindlogError('UNAUTHENTICATED', 'API keys are off'));
     if (!key.ok) return key;
-    const { id, tenant, user } = key.value;
-    return ok({ identity: { kind: 'apiKey', id, tenant, ...(user ? { user } : {}) }, tenant });
+    const { id, tenant, user, role, scopes } = key.value;
+    return ok({
+      identity: {
+        kind: 'apiKey',
+        id,
+        tenant,
+        role,
+        ...(user ? { user } : {}),
+        ...(scopes ? { scopes } : {}),
+      },
+      tenant,
+    });
   }
   if (token.split('.').length === 3 && deps.appAuth) {
     const app = await deps.appAuth.authenticate(token);
@@ -64,7 +74,9 @@ export async function identityOf(
   }
   const superuser = await deps.admin.verifyToken(token);
   if (!superuser.ok) return superuser;
-  return ok({ identity: { kind: 'superuser', email: superuser.value.email }, tenant: named });
+  const { email, role, tenant } = superuser.value;
+  if (role && tenant) return ok({ identity: { kind: 'member', tenant, email, role }, tenant });
+  return ok({ identity: { kind: 'superuser', email }, tenant: named });
 }
 
 /** The request as rules see it (`@request.query`, `headers`, `method`, `context`). */

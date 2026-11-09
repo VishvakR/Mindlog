@@ -51,6 +51,11 @@ const FLUSH_BYTES = 64 * 1024;
 /** Commands RESET and QUIT may run inside MULTI; other adapter commands may not. */
 const ALLOWED_IN_MULTI = new Set(['QUIT', 'RESET']);
 
+/** Adapter commands an API-key session may run: its own connection and its own memory. */
+const KEY_BOUND = new Set(['HELLO', 'SELECT', 'QUIT', 'RESET', 'CLIENT', 'COMMAND', 'INFO']);
+const keyBound = (name: string): boolean =>
+  KEY_BOUND.has(name) || name.startsWith('MEM.') || name.startsWith('CACHE.');
+
 /**
  * One client connection: parses requests, runs them strictly in order
  * (pipelining), and writes each pipeline's replies in as few socket writes as
@@ -228,6 +233,9 @@ export class Connection implements ConnectionContext {
     }
     if (spec && !(spec.arity >= 0 ? argv.length === spec.arity : argv.length >= -spec.arity)) {
       return replies.errors.arity(name);
+    }
+    if (this.#session.access && this.#session.access.role !== 'superuser' && !keyBound(name)) {
+      return replies.error('PERMISSION_DENIED', `${name} needs a superuser`);
     }
     const transaction = this.#session.transaction;
     if (transaction && !ALLOWED_IN_MULTI.has(name)) {

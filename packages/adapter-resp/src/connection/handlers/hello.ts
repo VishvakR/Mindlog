@@ -74,12 +74,12 @@ function helloReply(ctx: ConnectionContext): KvReply {
  */
 export const helloCommand: ConnectionCommand = {
   name: 'HELLO',
-  execute(ctx, argv) {
+  async execute(ctx, argv) {
     const parsed = parseOptions(argv);
     if (!parsed.ok) return parsed.error;
     const options = parsed.value;
     if (options.auth) {
-      const result = ctx.server.service.authenticate(ctx.session, ...options.auth);
+      const result = await ctx.server.service.authenticate(ctx.session, ...options.auth);
       if (result.kind.case === 'error') return result;
     }
     if (!ctx.session.authenticated) {

@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import type { MindlogError, Result } from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
 import type { HttpServerDeps } from './http-deps.js';
+import { identityOf } from './identity.js';
 import { openApiDocument } from './openapi.js';
 import type { AnyRouteSpec } from './route.js';
 import { sendProblem } from './route.js';
@@ -13,6 +14,7 @@ import { adminRoutes } from './routes/admin-routes.js';
 import { clusterRoutes } from './routes/cluster-routes.js';
 import { memoryRoutes } from './routes/memory-routes.js';
 import { apiKeyRoutes } from './routes/api-key-routes.js';
+import { tenantRoutes } from './routes/tenant-routes.js';
 import { CONSOLE_PROTOCOL, consoleRoutes } from './routes/console-routes.js';
 import { dashboardRoutes, isSpaRoute } from './routes/dashboard-routes.js';
 import { healthRoutes } from './routes/health-routes.js';
@@ -85,12 +87,26 @@ export class HttpServer {
     app.addHook('onRequest', async (request, reply) => {
       started.set(request, deps.clock.monotonic());
       reply.header('x-content-type-options', 'nosniff');
-      if (!request.url.startsWith('/api/') || request.routeOptions.config.auth === false) return;
+      const mode = request.routeOptions.config.auth;
+      if (!request.url.startsWith('/api/') || mode === false) return;
       const token = tokenOf(request);
+      if (mode === 'identity') {
+        const who = await identityOf(request, deps, token);
+        if (!who.ok) return sendProblem(reply, who.error);
+        if (who.value.identity.kind === 'anonymous')
+          return sendProblem(
+            reply,
+            mindlogError('UNAUTHENTICATED', 'Missing or invalid auth token.'),
+          );
+        request.who = who.value;
+        return;
+      }
       const superuser = token
         ? await deps.admin.verifyToken(token)
         : err(mindlogError('UNAUTHENTICATED', 'Missing or invalid auth token.'));
       if (!superuser.ok) return sendProblem(reply, superuser.error);
+      if (superuser.value.tenant !== undefined)
+        return sendProblem(reply, mindlogError('PERMISSION_DENIED', 'This needs a superuser.'));
       request.superuser = superuser.value;
     });
     app.addHook('onResponse', async (request, reply) => {
@@ -146,6 +162,7 @@ export class HttpServer {
     clusterRoutes(app, this.#routes, deps);
     memoryRoutes(app, this.#routes, deps);
     apiKeyRoutes(app, this.#routes, deps);
+    tenantRoutes(app, this.#routes, deps);
     collectionsRoutes(app, this.#routes, deps);
     recordsRoutes(app, this.#routes, deps);
     recordAuthRoutes(app, this.#routes, deps);

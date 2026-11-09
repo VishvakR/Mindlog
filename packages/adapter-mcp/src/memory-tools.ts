@@ -28,7 +28,18 @@ export function buildMcpServer(memory: McpMemory, key: ApiKeyIdentity, version: 
     { name: 'mindlog', version },
     { capabilities: { resources: { subscribe: true } } },
   );
-  const caller = { tenant: key.tenant, principal: `apikey:${key.id}` };
+  const principal = `apikey:${key.id}`;
+  const caller = {
+    tenant: key.tenant,
+    principal,
+    access: {
+      role: key.role,
+      tenant: key.tenant,
+      subject: principal,
+      ...(key.user === undefined ? {} : { user: key.user }),
+      ...(key.scopes === undefined ? {} : { scopes: key.scopes }),
+    },
+  };
 
   /** Resolves and authorizes the scope, runs `call`, and renders its result or error. */
   async function run<T>(

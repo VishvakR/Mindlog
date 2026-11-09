@@ -21,7 +21,9 @@ import {
   ok,
 } from '@mindlog/core';
 import {
+  AccessControl,
   AdminService,
+  TenantService,
   RecordBroker,
   RecordFiles,
   collectionWorkers,
@@ -207,6 +209,23 @@ export async function startNode(
   let httpAddress = '';
   const admin = new AdminService({ service, clock });
   const apiKeys = new ApiKeyService({ service, clock });
+  const tenants = new TenantService({ service, clock });
+  const access = new AccessControl(tenants);
+  core.access.attach(access.check, async (key) => {
+    const verified = await apiKeys.verify(key);
+    if (!verified.ok) return verified;
+    const { id, tenant, user, role, scopes } = verified.value;
+    return ok({
+      tenant,
+      access: {
+        role,
+        tenant,
+        subject: `apikey:${id}`,
+        ...(user === undefined ? {} : { user }),
+        ...(scopes === undefined ? {} : { scopes }),
+      },
+    });
+  });
   const appAuth = openAppAuth({
     config,
     collections: core.collections,
@@ -237,6 +256,8 @@ export async function startNode(
   };
   const http = new HttpServer({
     admin,
+    tenants,
+    access,
     kv: service,
     browser: new KvBrowser(service),
     cluster: new ClusterDirectory(core.pdAdmin),

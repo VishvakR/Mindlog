@@ -31,7 +31,8 @@ function setInfo(ctx: ConnectionContext, args: readonly Uint8Array[]): KvReply {
 
 /** CLIENT LIST [TYPE NORMAL] [ID id ...]. */
 function list(ctx: ConnectionContext, args: readonly Uint8Array[]): KvReply {
-  let clients: ClientState[] = ctx.server.clients.list();
+  // A key-bound session sees itself only: other connections may belong to other tenants.
+  let clients: ClientState[] = ctx.session.access ? [ctx.client] : ctx.server.clients.list();
   const option = args[0] ? decoder.decode(args[0]).toUpperCase() : undefined;
   if (option === 'TYPE' && args.length === 2) {
     const type = decoder.decode(args[1]).toLowerCase();

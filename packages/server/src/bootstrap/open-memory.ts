@@ -1,4 +1,12 @@
-import type { Clock, Logger, Metrics, MindlogConfig, Tracer } from '@mindlog/core';
+import type {
+  Clock,
+  Logger,
+  Metrics,
+  MindlogConfig,
+  MindlogError,
+  Result,
+  Tracer,
+} from '@mindlog/core';
 import { SystemRandom, UlidGenerator } from '@mindlog/core';
 import type { EventBus } from '@mindlog/eventbus';
 import { resolve } from 'node:path';
@@ -10,8 +18,13 @@ import { WorkerRegistry } from '@mindlog/jobs';
 import { MemoryEngine, VectorCache } from '@mindlog/memory';
 import type { Capability, Models } from '@mindlog/models-client';
 import { GrpcModels, GuardedModels, NoModels } from '@mindlog/models-client';
-import type { Authorize, RangeRouter } from '@mindlog/services';
-import { ChangeFeed, LIFECYCLE_CLUSTER_VERSION, MemoryService } from '@mindlog/services';
+import type { AdmitClass, Authorize, RangeRouter } from '@mindlog/services';
+import {
+  ChangeFeed,
+  LIFECYCLE_CLUSTER_VERSION,
+  MemoryService,
+  meterModels,
+} from '@mindlog/services';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
 import { openPprPool } from './ppr-pool.js';
@@ -53,6 +66,8 @@ export function openBlobStore(config: MindlogConfig, clock: Clock): BlobStore {
  */
 export function openMemory(deps: {
   authorize?: Authorize;
+  admit?: (tenant: string, cls: AdmitClass) => Promise<Result<void, MindlogError>>;
+  spendModel?: (tenant: string, ms: number) => void;
   readonly config: MindlogConfig;
   readonly state: KvReader;
   readonly events: EventBus;
@@ -76,7 +91,7 @@ export function openMemory(deps: {
       failures: breakerFailures,
       openMs: breakerOpenMs,
     });
-    models = guarded;
+    models = deps.spendModel ? meterModels(guarded, clock, deps.spendModel) : guarded;
     available = (c) => guarded.available(c);
   } else {
     logger.warn('no model service configured (models.endpoint): memory runs in degraded mode');
@@ -163,6 +178,7 @@ export function openMemory(deps: {
   });
   const service = new MemoryService({
     ...(deps.authorize ? { authorize: deps.authorize } : {}),
+    ...(deps.admit ? { admit: deps.admit } : {}),
     engine,
     cache,
     router,

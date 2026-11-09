@@ -458,6 +458,8 @@ export async function openNodeCore(
     maxTransactionCommands: config.limits.maxTransactionCommands,
     authorize: (a, action, resource) => access.authorize(a, action, resource),
     verifyApiKey: (key) => access.verify(key),
+    admit: (tenant, cls) => access.admit(tenant, cls),
+    acquireConnection: (tenant) => access.acquireConnection(tenant),
   });
   const memory = openMemory({
     config,
@@ -471,6 +473,10 @@ export async function openNodeCore(
     logger,
     tracer,
     authorize: (a, action, resource) => access.authorize(a, action, resource),
+    admit: (tenant, cls) => access.admit(tenant, cls),
+    spendModel: (tenant, ms) => {
+      access.spendModel(tenant, ms);
+    },
   });
   const tenants = config.collections.tenants;
   const collections = new CollectionService({

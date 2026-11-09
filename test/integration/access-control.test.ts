@@ -263,3 +263,40 @@ describe('RESP', () => {
     client.disconnect();
   });
 });
+
+describe('quotas', () => {
+  test('one tenant at its rate limit does not touch another', async () => {
+    const created = await call('POST', '/api/tenants', root, {
+      name: 'limited',
+      quotas: { writeQps: 1 },
+    });
+    expect(created.status).toBe(200);
+    const made = await call('POST', '/api/tenants/limited/keys', root, {
+      name: 'k',
+      role: 'developer',
+    });
+    const limited = await resp(String(made.body.key));
+    const free = await resp(key('developer'));
+    await limited.set('a', '1');
+    await expect(limited.set('b', '2')).rejects.toThrow(/BUSY/);
+    await expect(limited.del('a')).resolves.toBe(1);
+    for (let i = 0; i < 20; i++) await free.set(`k${String(i)}`, 'v');
+    limited.disconnect();
+    free.disconnect();
+  });
+
+  test('a connection quota holds, and a closed connection frees its slot', async () => {
+    await call('POST', '/api/tenants', root, { name: 'few', quotas: { connections: 1 } });
+    const made = await call('POST', '/api/tenants/few/keys', root, {
+      name: 'k',
+      role: 'developer',
+    });
+    const token = String(made.body.key);
+    const first = await resp(token);
+    await expect(resp(token)).rejects.toThrow(/QUOTA/);
+    await first.quit();
+    await new Promise((r) => setTimeout(r, 50));
+    const second = await resp(token);
+    second.disconnect();
+  });
+});

@@ -22,6 +22,7 @@ import {
 } from '@mindlog/core';
 import {
   AccessControl,
+  TenantGovernor,
   AdminService,
   TenantService,
   RecordBroker,
@@ -34,6 +35,7 @@ import {
   KvBrowser,
 } from '@mindlog/services';
 import { McpHttpServer } from '@mindlog/adapter-mcp';
+import { trackTenantUsage } from './tenant-usage.js';
 import type { Replica } from '@mindlog/multiraft';
 import type { HeldLock } from '@mindlog/txn';
 import type { NodeCore } from './open-node-core.js';
@@ -211,21 +213,31 @@ export async function startNode(
   const apiKeys = new ApiKeyService({ service, clock });
   const tenants = new TenantService({ service, clock });
   const access = new AccessControl(tenants);
-  core.access.attach(access.check, async (key) => {
-    const verified = await apiKeys.verify(key);
-    if (!verified.ok) return verified;
-    const { id, tenant, user, role, scopes } = verified.value;
-    return ok({
-      tenant,
-      access: {
-        role,
-        tenant,
-        subject: `apikey:${id}`,
-        ...(user === undefined ? {} : { user }),
-        ...(scopes === undefined ? {} : { scopes }),
-      },
-    });
+  const governor = new TenantGovernor({
+    tenant: (name) => tenants.cached(name),
+    clock,
+    metrics,
   });
+  const stopUsage = trackTenantUsage(core, tenants, governor);
+  core.access.attach(
+    access.check,
+    async (key) => {
+      const verified = await apiKeys.verify(key);
+      if (!verified.ok) return verified;
+      const { id, tenant, user, role, scopes } = verified.value;
+      return ok({
+        tenant,
+        access: {
+          role,
+          tenant,
+          subject: `apikey:${id}`,
+          ...(user === undefined ? {} : { user }),
+          ...(scopes === undefined ? {} : { scopes }),
+        },
+      });
+    },
+    governor,
+  );
   const appAuth = openAppAuth({
     config,
     collections: core.collections,
@@ -258,6 +270,7 @@ export async function startNode(
     admin,
     tenants,
     access,
+    governor,
     kv: service,
     browser: new KvBrowser(service),
     cluster: new ClusterDirectory(core.pdAdmin),
@@ -350,6 +363,7 @@ export async function startNode(
   let closing: Promise<void> | undefined;
   const close = async () => {
     ready = false;
+    stopUsage();
     await mcp.close();
     await http.close();
     await resp.close();

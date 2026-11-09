@@ -37,6 +37,8 @@ import type { z } from 'zod';
 import type { Access } from '@mindlog/auth';
 import type { Caller, Placement, RangeCall, RangeRouter, RangeTarget } from '../kv/range-router.js';
 import type { Authorize } from '../tenants/authorize.js';
+import type { AdmitClass } from '../tenants/governor.js';
+import { modelTenant } from '../tenants/model-meter.js';
 import type {
   CacheDeleteRequest,
   CacheLookupRequest,
@@ -102,6 +104,12 @@ const JOB_STATES = {
   dead: JobState.DEAD,
 } as const;
 
+/** What an operation costs: only growth and recall count; forgetting frees room. */
+function admitClass(name: string): AdmitClass {
+  if (name === 'remember' || name === 'import') return 'memory';
+  return name === 'recall' ? 'recall' : 'free';
+}
+
 export interface MemoryServiceDeps {
   readonly engine: MemoryEngine;
   /** The semantic cache; without it the cache operations answer UNIMPLEMENTED. */
@@ -112,6 +120,8 @@ export interface MemoryServiceDeps {
   readonly clusterVersion?: () => number;
   /** Authorizes callers that carry an `access` (PLAN 18.2). */
   readonly authorize?: Authorize;
+  /** Per-tenant admission (PLAN 18.3). */
+  readonly admit?: (tenant: string, cls: AdmitClass) => Promise<Result<void, MindlogError>>;
 }
 
 /** Who is asking. Interfaces pass `access`; the node's own workers do not. */
@@ -686,6 +696,10 @@ export class MemoryService {
     const input = parsed.data as { scope: { user: string } };
     const allowed = await this.#authorize(caller, spec.write, input.scope.user);
     if (!allowed.ok) return allowed;
+    if (this.#d.admit) {
+      const admitted = await this.#d.admit(caller.tenant, admitClass(name));
+      if (!admitted.ok) return admitted;
+    }
     if (
       spec.write &&
       this.#d.clusterVersion &&
@@ -743,7 +757,10 @@ export class MemoryService {
       json: JSON.stringify(input),
       ...(requestId ? { requestId } : {}),
     };
-    if (placement.local) return this.#local(placement.local, caller, spec, input, requestId);
+    if (placement.local)
+      return modelTenant.run(caller.tenant, () =>
+        this.#local(placement.local as RangeTarget, caller, spec, input, requestId),
+      );
     const reply = await this.#d.router.forward(placement, caller, call);
     if (!reply.ok) return reply;
     const kind = reply.value.kind;

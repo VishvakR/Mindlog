@@ -109,6 +109,26 @@ message StoreStats {
   uint32 leader_count = 5;
   double qps = 6;
   double cpu = 7;
+  // Per-tenant demand and usage of the ranges this store leads (PLAN 18.3).
+  repeated TenantStats tenants = 8;
+}
+
+message TenantStats {
+  string tenant = 1;
+  double write_qps = 2;
+  double recall_qps = 3;
+  uint64 bytes = 4;
+  uint64 keys = 5;
+  uint64 memories = 6;
+}
+
+// A tenant's share of its rate limits on one store, and its cluster-wide usage.
+message TenantBudget {
+  string tenant = 1;
+  double share = 2;
+  uint64 bytes = 3;
+  uint64 keys = 4;
+  uint64 memories = 5;
 }
 
 message FollowerProgress {
@@ -167,6 +187,7 @@ message StoreHeartbeatResponse {
   uint32 cluster_version = 1;
   // Addresses of the other nodes, so a store can reach replicas PD places on it.
   repeated NodeInfo nodes = 2;
+  repeated TenantBudget budgets = 3;
 }
 
 message RangeHeartbeatRequest {

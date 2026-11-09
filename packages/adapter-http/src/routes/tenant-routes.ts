@@ -143,6 +143,23 @@ export function tenantRoutes(
     {
       ...common,
       method: 'GET',
+      path: '/api/tenants/:tenant/usage',
+      summary: 'Approximate usage against the tenant’s quotas, as of the last sample',
+      response: z.object({ bytes: z.number(), keys: z.number(), memories: z.number() }),
+    },
+    ({ who, params }) =>
+      guarded(who, 'tenant.read', tenantOf(params), () =>
+        Promise.resolve(
+          ok(deps.governor?.usage(tenantOf(params)) ?? { bytes: 0, keys: 0, memories: 0 }),
+        ),
+      ),
+  );
+  defineRoute(
+    app,
+    routes,
+    {
+      ...common,
+      method: 'GET',
       path: '/api/tenants/:tenant/policies',
       summary: 'A tenant’s policy rows',
       response: policiesSchema,

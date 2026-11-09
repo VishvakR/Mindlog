@@ -22,6 +22,8 @@ export class Session {
   authenticated: boolean;
   /** Set when an API key authenticated the session; absent is the static user or internal work. */
   access: Access | undefined;
+  /** Gives back this session's tenant connection slot. */
+  release: (() => void) | undefined;
   transaction: PendingTransaction | undefined;
   readonly watches = new Map<string, WatchedKey>();
 

@@ -7,7 +7,7 @@ import type {
   Result,
   Tracer,
 } from '@mindlog/core';
-import { MindlogErrorCode } from '@mindlog/core';
+import { MindlogErrorCode, isUserTenant } from '@mindlog/core';
 import type { KvCommandRegistry } from '@mindlog/kv';
 import { KvReadExecutor, isWrite, replies, watchVersion } from '@mindlog/kv';
 import type { KvReply } from '@mindlog/proto';
@@ -17,6 +17,7 @@ import { MvccReader } from '@mindlog/storage';
 import type { Access } from '@mindlog/auth';
 import type { StaticAuthenticator } from '../auth/static-authenticator.js';
 import type { Authorize } from '../tenants/authorize.js';
+import type { AdmitClass } from '../tenants/governor.js';
 import type { ReadBarrier } from './read-barrier.js';
 import type { Caller, RangeCall, RangeRouter } from './range-router.js';
 import { RoutedKv } from './routed-kv.js';
@@ -50,6 +51,10 @@ export interface KvServiceDeps {
   readonly verifyApiKey?: (
     key: string,
   ) => Promise<Result<{ access: Access; tenant: string }, MindlogError>>;
+  /** Per-tenant admission (PLAN 18.3). */
+  readonly admit?: (tenant: string, cls: AdmitClass) => Promise<Result<void, MindlogError>>;
+  /** Takes a tenant's connection slot for a key-bound session. */
+  readonly acquireConnection?: (tenant: string) => Promise<Result<() => void, MindlogError>>;
   /** With `router`: lets writes that span ranges run as transactions (`features.crossRangeTxn`, ADR-0030). */
   readonly tso?: () => Promise<Result<bigint, MindlogError>>;
 }
@@ -57,6 +62,9 @@ export interface KvServiceDeps {
 const DEFAULT_MAX_TRANSACTION_COMMANDS = 10_000;
 
 const API_KEY_PREFIX = 'mlk_';
+
+/** Allowed at a quota: without them a full tenant could never make room. */
+const FREEING = new Set(['DEL', 'UNLINK', 'EXPIRE', 'PEXPIRE', 'EXPIREAT', 'PEXPIREAT']);
 
 const SESSION_COMMANDS = new Set(['AUTH', 'MULTI', 'EXEC', 'DISCARD', 'WATCH', 'UNWATCH']);
 
@@ -134,6 +142,12 @@ export class KvService {
     if (password.startsWith(API_KEY_PREFIX) && this.deps.verifyApiKey) {
       const verified = await this.deps.verifyApiKey(password);
       if (!verified.ok) return replies.error('INVALID_CREDENTIALS', 'invalid API key.');
+      const slot = this.deps.acquireConnection
+        ? await this.deps.acquireConnection(verified.value.tenant)
+        : undefined;
+      if (slot && !slot.ok) return replies.error(slot.error.code, slot.error.message);
+      session.release?.();
+      session.release = slot?.value;
       session.resetTransaction();
       session.tenant = verified.value.tenant;
       session.access = verified.value.access;
@@ -151,6 +165,8 @@ export class KvService {
         'invalid username-password pair or user is disabled.',
       );
     }
+    session.release?.();
+    session.release = undefined;
     session.resetTransaction();
     session.tenant = this.deps.defaultTenant ?? 'default';
     session.access = undefined;
@@ -182,6 +198,8 @@ export class KvService {
     if (name === 'AUTH') return this.#auth(session, argv);
     const denied = await this.#denied(session, argv);
     if (denied) return denied;
+    const refused = await this.#refused(session, name, argv);
+    if (refused) return refused;
     switch (name) {
       case 'MULTI':
         return this.#multi(session, argv);
@@ -209,6 +227,19 @@ export class KvService {
     const action = command && isWrite(command) ? 'kv.write' : 'kv.read';
     const allowed = await this.deps.authorize(session.access, action, { tenant: session.tenant });
     return allowed.ok ? undefined : replies.error(allowed.error.code, allowed.error.message);
+  }
+
+  /** The refusal when the session's tenant is over a write limit. Reads have no KV limit. */
+  async #refused(
+    session: Session,
+    name: string,
+    argv: readonly Uint8Array[],
+  ): Promise<KvReply | undefined> {
+    if (!this.deps.admit || !isUserTenant(session.tenant)) return undefined;
+    const command = argv[0] ? this.deps.registry.get(argv[0]) : undefined;
+    if (!command || !isWrite(command)) return undefined;
+    const admitted = await this.deps.admit(session.tenant, FREEING.has(name) ? 'free' : 'write');
+    return admitted.ok ? undefined : replies.error(admitted.error.code, admitted.error.message);
   }
 
   #multi(session: Session, argv: readonly Uint8Array[]): KvReply {

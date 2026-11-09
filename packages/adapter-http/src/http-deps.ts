@@ -7,6 +7,7 @@ import type { Clock, Logger, Metrics, Tracer } from '@mindlog/core';
 import type {
   AccessControl,
   AdminService,
+  TenantGovernor,
   TenantService,
   ApiKeyService,
   ChangeFeed,
@@ -34,6 +35,8 @@ export interface HttpServerDeps {
   readonly apiKeys?: ApiKeyService;
   /** The tenant registry (PLAN 18.3). */
   readonly tenants: TenantService;
+  /** Per-tenant quotas and usage (PLAN 18.3); absent on harnesses without them. */
+  readonly governor?: TenantGovernor;
   /** The application-layer authorization check (PLAN 18.2). */
   readonly access: AccessControl;
   readonly kv: KvService;

@@ -135,7 +135,7 @@ class Operator(_message.Message):
     def __init__(self, id: _Optional[int] = ..., range_id: _Optional[int] = ..., scheduler: _Optional[str] = ..., steps: _Optional[_Iterable[_Union[OperatorStep, _Mapping]]] = ..., step: _Optional[int] = ..., explanation: _Optional[str] = ..., created_ms: _Optional[int] = ..., status: _Optional[str] = ...) -> None: ...
 
 class StoreStats(_message.Message):
-    __slots__ = ("node", "capacity_bytes", "used_bytes", "range_count", "leader_count", "qps", "cpu")
+    __slots__ = ("node", "capacity_bytes", "used_bytes", "range_count", "leader_count", "qps", "cpu", "tenants")
     NODE_FIELD_NUMBER: _ClassVar[int]
     CAPACITY_BYTES_FIELD_NUMBER: _ClassVar[int]
     USED_BYTES_FIELD_NUMBER: _ClassVar[int]
@@ -143,6 +143,7 @@ class StoreStats(_message.Message):
     LEADER_COUNT_FIELD_NUMBER: _ClassVar[int]
     QPS_FIELD_NUMBER: _ClassVar[int]
     CPU_FIELD_NUMBER: _ClassVar[int]
+    TENANTS_FIELD_NUMBER: _ClassVar[int]
     node: NodeInfo
     capacity_bytes: int
     used_bytes: int
@@ -150,7 +151,38 @@ class StoreStats(_message.Message):
     leader_count: int
     qps: float
     cpu: float
-    def __init__(self, node: _Optional[_Union[NodeInfo, _Mapping]] = ..., capacity_bytes: _Optional[int] = ..., used_bytes: _Optional[int] = ..., range_count: _Optional[int] = ..., leader_count: _Optional[int] = ..., qps: _Optional[float] = ..., cpu: _Optional[float] = ...) -> None: ...
+    tenants: _containers.RepeatedCompositeFieldContainer[TenantStats]
+    def __init__(self, node: _Optional[_Union[NodeInfo, _Mapping]] = ..., capacity_bytes: _Optional[int] = ..., used_bytes: _Optional[int] = ..., range_count: _Optional[int] = ..., leader_count: _Optional[int] = ..., qps: _Optional[float] = ..., cpu: _Optional[float] = ..., tenants: _Optional[_Iterable[_Union[TenantStats, _Mapping]]] = ...) -> None: ...
+
+class TenantStats(_message.Message):
+    __slots__ = ("tenant", "write_qps", "recall_qps", "bytes", "keys", "memories")
+    TENANT_FIELD_NUMBER: _ClassVar[int]
+    WRITE_QPS_FIELD_NUMBER: _ClassVar[int]
+    RECALL_QPS_FIELD_NUMBER: _ClassVar[int]
+    BYTES_FIELD_NUMBER: _ClassVar[int]
+    KEYS_FIELD_NUMBER: _ClassVar[int]
+    MEMORIES_FIELD_NUMBER: _ClassVar[int]
+    tenant: str
+    write_qps: float
+    recall_qps: float
+    bytes: int
+    keys: int
+    memories: int
+    def __init__(self, tenant: _Optional[str] = ..., write_qps: _Optional[float] = ..., recall_qps: _Optional[float] = ..., bytes: _Optional[int] = ..., keys: _Optional[int] = ..., memories: _Optional[int] = ...) -> None: ...
+
+class TenantBudget(_message.Message):
+    __slots__ = ("tenant", "share", "bytes", "keys", "memories")
+    TENANT_FIELD_NUMBER: _ClassVar[int]
+    SHARE_FIELD_NUMBER: _ClassVar[int]
+    BYTES_FIELD_NUMBER: _ClassVar[int]
+    KEYS_FIELD_NUMBER: _ClassVar[int]
+    MEMORIES_FIELD_NUMBER: _ClassVar[int]
+    tenant: str
+    share: float
+    bytes: int
+    keys: int
+    memories: int
+    def __init__(self, tenant: _Optional[str] = ..., share: _Optional[float] = ..., bytes: _Optional[int] = ..., keys: _Optional[int] = ..., memories: _Optional[int] = ...) -> None: ...
 
 class FollowerProgress(_message.Message):
     __slots__ = ("replica_id", "match")
@@ -237,12 +269,14 @@ class StoreHeartbeatRequest(_message.Message):
     def __init__(self, stats: _Optional[_Union[StoreStats, _Mapping]] = ...) -> None: ...
 
 class StoreHeartbeatResponse(_message.Message):
-    __slots__ = ("cluster_version", "nodes")
+    __slots__ = ("cluster_version", "nodes", "budgets")
     CLUSTER_VERSION_FIELD_NUMBER: _ClassVar[int]
     NODES_FIELD_NUMBER: _ClassVar[int]
+    BUDGETS_FIELD_NUMBER: _ClassVar[int]
     cluster_version: int
     nodes: _containers.RepeatedCompositeFieldContainer[NodeInfo]
-    def __init__(self, cluster_version: _Optional[int] = ..., nodes: _Optional[_Iterable[_Union[NodeInfo, _Mapping]]] = ...) -> None: ...
+    budgets: _containers.RepeatedCompositeFieldContainer[TenantBudget]
+    def __init__(self, cluster_version: _Optional[int] = ..., nodes: _Optional[_Iterable[_Union[NodeInfo, _Mapping]]] = ..., budgets: _Optional[_Iterable[_Union[TenantBudget, _Mapping]]] = ...) -> None: ...
 
 class RangeHeartbeatRequest(_message.Message):
     __slots__ = ("stats",)

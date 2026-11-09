@@ -13,6 +13,11 @@ import type {
 type Db = ClassicLevel<Uint8Array, Uint8Array>;
 type DbSnapshot = ReturnType<Db['snapshot']>;
 
+/** Estimates the on-disk bytes of a key span; not every store can. */
+export interface ApproximateSizer {
+  approximateSize(start: Uint8Array, end: Uint8Array): Promise<number>;
+}
+
 export interface LevelDbOptions {
   /** LevelDB block cache in bytes (default 8 MiB). */
   readonly cacheSize?: number;
@@ -57,7 +62,7 @@ function readerOf(db: Db, snapshot?: DbSnapshot): KvReader {
  * Production KvStore on LevelDB via classic-level (ADR-0005). Each instance
  * owns its directory exclusively; a second open of the same path fails.
  */
-export class LevelDbStore implements KvStore {
+export class LevelDbStore implements KvStore, ApproximateSizer {
   readonly #db: Db;
   readonly #reader: KvReader;
 
@@ -116,6 +121,10 @@ export class LevelDbStore implements KvStore {
     const snapshot = this.#db.snapshot();
     const reader = readerOf(this.#db, snapshot);
     return Promise.resolve({ ...reader, release: () => snapshot.close() });
+  }
+
+  approximateSize(start: Uint8Array, end: Uint8Array): Promise<number> {
+    return this.#db.approximateSize(start, end);
   }
 
   close(): Promise<void> {

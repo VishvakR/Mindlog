@@ -3,6 +3,7 @@ import { decide } from '@mindlog/auth';
 import type { MindlogError, Result } from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
 import type { Authorize } from './authorize.js';
+import type { AdmitClass, TenantGovernor } from './governor.js';
 import type { TenantRecord } from './tenant-service.js';
 
 /**
@@ -38,10 +39,26 @@ export type VerifyApiKey = (
 export class AccessPorts {
   #authorize: Authorize | undefined;
   #verify: VerifyApiKey | undefined;
+  #governor: TenantGovernor | undefined;
 
-  attach(authorize: Authorize, verify: VerifyApiKey): void {
+  attach(authorize: Authorize, verify: VerifyApiKey, governor?: TenantGovernor): void {
     this.#authorize = authorize;
     this.#verify = verify;
+    this.#governor = governor;
+  }
+
+  admit(tenant: string, cls: AdmitClass): Promise<Result<void, MindlogError>> {
+    return this.#governor ? this.#governor.admit(tenant, cls) : Promise.resolve(ok(undefined));
+  }
+
+  acquireConnection(tenant: string): Promise<Result<() => void, MindlogError>> {
+    return this.#governor
+      ? this.#governor.acquireConnection(tenant)
+      : Promise.resolve(ok(() => undefined));
+  }
+
+  spendModel(tenant: string, ms: number): void {
+    void this.#governor?.spendModel(tenant, ms);
   }
 
   authorize(...args: Parameters<Authorize>): ReturnType<Authorize> {

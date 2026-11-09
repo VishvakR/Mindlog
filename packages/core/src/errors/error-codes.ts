@@ -15,6 +15,7 @@ export const MindlogErrorCode = {
   EXEC_ABORTED: 'EXEC_ABORTED',
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
   RATE_LIMITED: 'RATE_LIMITED',
+  QUOTA_EXCEEDED: 'QUOTA_EXCEEDED',
   BUSY: 'BUSY',
   DEADLINE_EXCEEDED: 'DEADLINE_EXCEEDED',
   CANCELLED: 'CANCELLED',
@@ -160,6 +161,14 @@ export const ERROR_CODES = {
     mcp: 'tool_error',
     retryable: true,
     title: 'Rate limit exceeded',
+  },
+  QUOTA_EXCEEDED: {
+    resp: 'QUOTA',
+    httpStatus: 429,
+    grpcStatus: GrpcStatus.RESOURCE_EXHAUSTED,
+    mcp: 'tool_error',
+    retryable: false,
+    title: 'Quota exceeded',
   },
   BUSY: {
     resp: 'BUSY',

@@ -140,6 +140,7 @@ export class Connection implements ConnectionContext {
   }
 
   #end(): void {
+    this.#session.release?.();
     const ends = this.#ends;
     this.#ends = [];
     for (const fn of ends) fn();

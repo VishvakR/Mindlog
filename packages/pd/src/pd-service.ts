@@ -35,6 +35,8 @@ import type {
 } from './cluster-view.js';
 import { DEFAULT_PD_CONFIG } from './cluster-view.js';
 import { OperatorController } from './operators.js';
+import type { StoreTenantStats } from './tenant-budgets.js';
+import { tenantBudgets } from './tenant-budgets.js';
 import { PdView } from './pd-view.js';
 import { DEFAULT_SCHEDULERS } from './schedulers.js';
 
@@ -227,6 +229,15 @@ export class PdService {
 
   // ---- heartbeats ----
 
+  /** Rate-limit shares and usage totals for one store, from every live store's last report. */
+  #budgetsFor(nodeId: bigint, now: number) {
+    const live = new Map<bigint, StoreTenantStats[]>();
+    const window = 3 * (this.#d.storeHeartbeatMs ?? 10_000);
+    for (const [id, seen] of this.#stores)
+      if (now - seen.seenMs <= window) live.set(id, seen.stats.tenants);
+    return tenantBudgets(live).get(nodeId) ?? [];
+  }
+
   async storeHeartbeat(stats: StoreStats): Promise<Result<StoreHeartbeatResponse, MindlogError>> {
     const lead = this.#leaderCheck();
     if (lead) return lead;
@@ -253,6 +264,7 @@ export class PdService {
     const nodes = await this.#view.nodes();
     return ok(
       create(StoreHeartbeatResponseSchema, {
+        budgets: this.#budgetsFor(info.nodeId, Number(now)),
         clusterVersion: await this.#view.clusterVersion(),
         nodes,
       }),

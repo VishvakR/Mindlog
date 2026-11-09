@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/pd.proto.
  */
 export const file_mindlog_v1_pd: GenFile = /*@__PURE__*/
-  fileDesc("ChNtaW5kbG9nL3YxL3BkLnByb3RvEgptaW5kbG9nLnYxIogBCghOb2RlSW5mbxIPCgdub2RlX2lkGAEgASgEEg8KB2FkZHJlc3MYAiABKAkSDAoEem9uZRgDIAEoCRIkCgVzdGF0ZRgEIAEoDjIVLm1pbmRsb2cudjEuTm9kZVN0YXRlEhYKDmJpbmFyeV92ZXJzaW9uGAUgASgNEg4KBmxhYmVscxgGIAMoCSIbCgpQZEFsbG9jSWRzEg0KBWNvdW50GAEgASgNIi8KCVBkUHV0Tm9kZRIiCgRub2RlGAEgASgLMhQubWluZGxvZy52MS5Ob2RlSW5mbyI4CgpQZFB1dFJhbmdlEioKBXJhbmdlGAEgASgLMhsubWluZGxvZy52MS5SYW5nZURlc2NyaXB0b3IiIQoNUGRSZW1vdmVSYW5nZRIQCghyYW5nZV9pZBgBIAEoBCIXCghQZFNldFRzbxILCgNtYXgYASABKAQiHwoMUGRTZXRWZXJzaW9uEg8KB3ZlcnNpb24YASABKA0iOgoQUGRSZWNvcmRPcGVyYXRvchImCghvcGVyYXRvchgBIAEoCzIULm1pbmRsb2cudjEuT3BlcmF0b3IifgoMT3BlcmF0b3JTdGVwEiIKBGtpbmQYASABKA4yFC5taW5kbG9nLnYxLlN0ZXBLaW5kEhIKCnJlcGxpY2FfaWQYAiABKAQSDwoHbm9kZV9pZBgDIAEoBBIPCgdhZGRyZXNzGAQgASgJEhQKDG5ld19yYW5nZV9pZBgFIAEoBCKrAQoIT3BlcmF0b3ISCgoCaWQYASABKAQSEAoIcmFuZ2VfaWQYAiABKAQSEQoJc2NoZWR1bGVyGAMgASgJEicKBXN0ZXBzGAQgAygLMhgubWluZGxvZy52MS5PcGVyYXRvclN0ZXASDAoEc3RlcBgFIAEoDRITCgtleHBsYW5hdGlvbhgGIAEoCRISCgpjcmVhdGVkX21zGAcgASgEEg4KBnN0YXR1cxgIIAEoCSKhAQoKU3RvcmVTdGF0cxIiCgRub2RlGAEgASgLMhQubWluZGxvZy52MS5Ob2RlSW5mbxIWCg5jYXBhY2l0eV9ieXRlcxgCIAEoBBISCgp1c2VkX2J5dGVzGAMgASgEEhMKC3JhbmdlX2NvdW50GAQgASgNEhQKDGxlYWRlcl9jb3VudBgFIAEoDRILCgNxcHMYBiABKAESCwoDY3B1GAcgASgBIjUKEEZvbGxvd2VyUHJvZ3Jlc3MSEgoKcmVwbGljYV9pZBgBIAEoBBINCgVtYXRjaBgCIAEoBCLDAQoKUmFuZ2VTdGF0cxIqCgVyYW5nZRgBIAEoCzIbLm1pbmRsb2cudjEuUmFuZ2VEZXNjcmlwdG9yEhkKEWxlYWRlcl9yZXBsaWNhX2lkGAIgASgEEg0KBWJ5dGVzGAMgASgEEgsKA3FwcxgEIAEoARIvCglmb2xsb3dlcnMYBSADKAsyHC5taW5kbG9nLnYxLkZvbGxvd2VyUHJvZ3Jlc3MSEAoIbGVhcm5lcnMYBiADKAQSDwoHYXBwbGllZBgHIAEoBCIgCg9BbGxvY0lkc1JlcXVlc3QSDQoFY291bnQYASABKA0iIQoQQWxsb2NJZHNSZXNwb25zZRINCgVmaXJzdBgBIAEoBCIbCgpUc29SZXF1ZXN0Eg0KBWNvdW50GAEgASgNIhsKC1Rzb1Jlc3BvbnNlEgwKBGxhc3QYASABKAQiHgoPR2V0UmFuZ2VSZXF1ZXN0EgsKA2tleRgBIAEoDCJZChBHZXRSYW5nZVJlc3BvbnNlEioKBXJhbmdlGAEgASgLMhsubWluZGxvZy52MS5SYW5nZURlc2NyaXB0b3ISGQoRbGVhZGVyX3JlcGxpY2FfaWQYAiABKAQiNQoRU2NhblJhbmdlc1JlcXVlc3QSEQoJc3RhcnRfa2V5GAEgASgMEg0KBWxpbWl0GAIgASgNIkEKElNjYW5SYW5nZXNSZXNwb25zZRIrCgZyYW5nZXMYASADKAsyGy5taW5kbG9nLnYxLlJhbmdlRGVzY3JpcHRvciI+ChVTdG9yZUhlYXJ0YmVhdFJlcXVlc3QSJQoFc3RhdHMYASABKAsyFi5taW5kbG9nLnYxLlN0b3JlU3RhdHMiVgoWU3RvcmVIZWFydGJlYXRSZXNwb25zZRIXCg9jbHVzdGVyX3ZlcnNpb24YASABKA0SIwoFbm9kZXMYAiADKAsyFC5taW5kbG9nLnYxLk5vZGVJbmZvIj4KFVJhbmdlSGVhcnRiZWF0UmVxdWVzdBIlCgVzdGF0cxgBIAEoCzIWLm1pbmRsb2cudjEuUmFuZ2VTdGF0cyJAChZSYW5nZUhlYXJ0YmVhdFJlc3BvbnNlEiYKCG9wZXJhdG9yGAEgASgLMhQubWluZGxvZy52MS5PcGVyYXRvciIQCg5DbHVzdGVyUmVxdWVzdCLzAQoPQ2x1c3RlclJlc3BvbnNlEiMKBW5vZGVzGAEgAygLMhQubWluZGxvZy52MS5Ob2RlSW5mbxImCgZzdG9yZXMYAiADKAsyFi5taW5kbG9nLnYxLlN0b3JlU3RhdHMSKwoGcmFuZ2VzGAMgAygLMhsubWluZGxvZy52MS5SYW5nZURlc2NyaXB0b3ISJwoJb3BlcmF0b3JzGAQgAygLMhQubWluZGxvZy52MS5PcGVyYXRvchIkCgZyZWNlbnQYBSADKAsyFC5taW5kbG9nLnYxLk9wZXJhdG9yEhcKD2NsdXN0ZXJfdmVyc2lvbhgGIAEoDSLEAQoMQWRtaW5SZXF1ZXN0EhQKCmRyYWluX25vZGUYASABKARIABIWCgx1bmRyYWluX25vZGUYAiABKARIABI7Cg90cmFuc2Zlcl9sZWFkZXIYAyABKAsyIC5taW5kbG9nLnYxLlRyYW5zZmVyTGVhZGVyQWN0aW9uSAASKAoFc3BsaXQYBCABKAsyFy5taW5kbG9nLnYxLlNwbGl0QWN0aW9uSAASFQoLcmVtb3ZlX25vZGUYBSABKARIAEIICgZhY3Rpb24iPAoUVHJhbnNmZXJMZWFkZXJBY3Rpb24SEAoIcmFuZ2VfaWQYASABKAQSEgoKcmVwbGljYV9pZBgCIAEoBCIfCgtTcGxpdEFjdGlvbhIQCghyYW5nZV9pZBgBIAEoBCIgCg1BZG1pblJlc3BvbnNlEg8KB21lc3NhZ2UYASABKAkquQEKCU5vZGVTdGF0ZRIaChZOT0RFX1NUQVRFX1VOU1BFQ0lGSUVEEAASFgoSTk9ERV9TVEFURV9KT0lOSU5HEAESEwoPTk9ERV9TVEFURV9MSVZFEAISFgoSTk9ERV9TVEFURV9TVVNQRUNUEAMSEwoPTk9ERV9TVEFURV9ERUFEEAQSFwoTTk9ERV9TVEFURV9EUkFJTklORxAFEh0KGU5PREVfU1RBVEVfREVDT01NSVNTSU9ORUQQBiq8AQoIU3RlcEtpbmQSGQoVU1RFUF9LSU5EX1VOU1BFQ0lGSUVEEAASGQoVU1RFUF9LSU5EX0FERF9MRUFSTkVSEAESFQoRU1RFUF9LSU5EX1BST01PVEUQAhIdChlTVEVQX0tJTkRfVFJBTlNGRVJfTEVBREVSEAMSGgoWU1RFUF9LSU5EX1JFTU9WRV9WT1RFUhAEEhMKD1NURVBfS0lORF9TUExJVBAFEhMKD1NURVBfS0lORF9NRVJHRRAGMtIECglQZFNlcnZpY2USRQoIQWxsb2NJZHMSGy5taW5kbG9nLnYxLkFsbG9jSWRzUmVxdWVzdBocLm1pbmRsb2cudjEuQWxsb2NJZHNSZXNwb25zZRI2CgNUc28SFi5taW5kbG9nLnYxLlRzb1JlcXVlc3QaFy5taW5kbG9nLnYxLlRzb1Jlc3BvbnNlEkUKCEdldFJhbmdlEhsubWluZGxvZy52MS5HZXRSYW5nZVJlcXVlc3QaHC5taW5kbG9nLnYxLkdldFJhbmdlUmVzcG9uc2USSwoKU2NhblJhbmdlcxIdLm1pbmRsb2cudjEuU2NhblJhbmdlc1JlcXVlc3QaHi5taW5kbG9nLnYxLlNjYW5SYW5nZXNSZXNwb25zZRJXCg5TdG9yZUhlYXJ0YmVhdBIhLm1pbmRsb2cudjEuU3RvcmVIZWFydGJlYXRSZXF1ZXN0GiIubWluZGxvZy52MS5TdG9yZUhlYXJ0YmVhdFJlc3BvbnNlElcKDlJhbmdlSGVhcnRiZWF0EiEubWluZGxvZy52MS5SYW5nZUhlYXJ0YmVhdFJlcXVlc3QaIi5taW5kbG9nLnYxLlJhbmdlSGVhcnRiZWF0UmVzcG9uc2USQgoHQ2x1c3RlchIaLm1pbmRsb2cudjEuQ2x1c3RlclJlcXVlc3QaGy5taW5kbG9nLnYxLkNsdXN0ZXJSZXNwb25zZRI8CgVBZG1pbhIYLm1pbmRsb2cudjEuQWRtaW5SZXF1ZXN0GhkubWluZGxvZy52MS5BZG1pblJlc3BvbnNlYgZwcm90bzM", [file_mindlog_v1_range]);
+  fileDesc("ChNtaW5kbG9nL3YxL3BkLnByb3RvEgptaW5kbG9nLnYxIogBCghOb2RlSW5mbxIPCgdub2RlX2lkGAEgASgEEg8KB2FkZHJlc3MYAiABKAkSDAoEem9uZRgDIAEoCRIkCgVzdGF0ZRgEIAEoDjIVLm1pbmRsb2cudjEuTm9kZVN0YXRlEhYKDmJpbmFyeV92ZXJzaW9uGAUgASgNEg4KBmxhYmVscxgGIAMoCSIbCgpQZEFsbG9jSWRzEg0KBWNvdW50GAEgASgNIi8KCVBkUHV0Tm9kZRIiCgRub2RlGAEgASgLMhQubWluZGxvZy52MS5Ob2RlSW5mbyI4CgpQZFB1dFJhbmdlEioKBXJhbmdlGAEgASgLMhsubWluZGxvZy52MS5SYW5nZURlc2NyaXB0b3IiIQoNUGRSZW1vdmVSYW5nZRIQCghyYW5nZV9pZBgBIAEoBCIXCghQZFNldFRzbxILCgNtYXgYASABKAQiHwoMUGRTZXRWZXJzaW9uEg8KB3ZlcnNpb24YASABKA0iOgoQUGRSZWNvcmRPcGVyYXRvchImCghvcGVyYXRvchgBIAEoCzIULm1pbmRsb2cudjEuT3BlcmF0b3IifgoMT3BlcmF0b3JTdGVwEiIKBGtpbmQYASABKA4yFC5taW5kbG9nLnYxLlN0ZXBLaW5kEhIKCnJlcGxpY2FfaWQYAiABKAQSDwoHbm9kZV9pZBgDIAEoBBIPCgdhZGRyZXNzGAQgASgJEhQKDG5ld19yYW5nZV9pZBgFIAEoBCKrAQoIT3BlcmF0b3ISCgoCaWQYASABKAQSEAoIcmFuZ2VfaWQYAiABKAQSEQoJc2NoZWR1bGVyGAMgASgJEicKBXN0ZXBzGAQgAygLMhgubWluZGxvZy52MS5PcGVyYXRvclN0ZXASDAoEc3RlcBgFIAEoDRITCgtleHBsYW5hdGlvbhgGIAEoCRISCgpjcmVhdGVkX21zGAcgASgEEg4KBnN0YXR1cxgIIAEoCSLLAQoKU3RvcmVTdGF0cxIiCgRub2RlGAEgASgLMhQubWluZGxvZy52MS5Ob2RlSW5mbxIWCg5jYXBhY2l0eV9ieXRlcxgCIAEoBBISCgp1c2VkX2J5dGVzGAMgASgEEhMKC3JhbmdlX2NvdW50GAQgASgNEhQKDGxlYWRlcl9jb3VudBgFIAEoDRILCgNxcHMYBiABKAESCwoDY3B1GAcgASgBEigKB3RlbmFudHMYCCADKAsyFy5taW5kbG9nLnYxLlRlbmFudFN0YXRzInMKC1RlbmFudFN0YXRzEg4KBnRlbmFudBgBIAEoCRIRCgl3cml0ZV9xcHMYAiABKAESEgoKcmVjYWxsX3FwcxgDIAEoARINCgVieXRlcxgEIAEoBBIMCgRrZXlzGAUgASgEEhAKCG1lbW9yaWVzGAYgASgEIlwKDFRlbmFudEJ1ZGdldBIOCgZ0ZW5hbnQYASABKAkSDQoFc2hhcmUYAiABKAESDQoFYnl0ZXMYAyABKAQSDAoEa2V5cxgEIAEoBBIQCghtZW1vcmllcxgFIAEoBCI1ChBGb2xsb3dlclByb2dyZXNzEhIKCnJlcGxpY2FfaWQYASABKAQSDQoFbWF0Y2gYAiABKAQiwwEKClJhbmdlU3RhdHMSKgoFcmFuZ2UYASABKAsyGy5taW5kbG9nLnYxLlJhbmdlRGVzY3JpcHRvchIZChFsZWFkZXJfcmVwbGljYV9pZBgCIAEoBBINCgVieXRlcxgDIAEoBBILCgNxcHMYBCABKAESLwoJZm9sbG93ZXJzGAUgAygLMhwubWluZGxvZy52MS5Gb2xsb3dlclByb2dyZXNzEhAKCGxlYXJuZXJzGAYgAygEEg8KB2FwcGxpZWQYByABKAQiIAoPQWxsb2NJZHNSZXF1ZXN0Eg0KBWNvdW50GAEgASgNIiEKEEFsbG9jSWRzUmVzcG9uc2USDQoFZmlyc3QYASABKAQiGwoKVHNvUmVxdWVzdBINCgVjb3VudBgBIAEoDSIbCgtUc29SZXNwb25zZRIMCgRsYXN0GAEgASgEIh4KD0dldFJhbmdlUmVxdWVzdBILCgNrZXkYASABKAwiWQoQR2V0UmFuZ2VSZXNwb25zZRIqCgVyYW5nZRgBIAEoCzIbLm1pbmRsb2cudjEuUmFuZ2VEZXNjcmlwdG9yEhkKEWxlYWRlcl9yZXBsaWNhX2lkGAIgASgEIjUKEVNjYW5SYW5nZXNSZXF1ZXN0EhEKCXN0YXJ0X2tleRgBIAEoDBINCgVsaW1pdBgCIAEoDSJBChJTY2FuUmFuZ2VzUmVzcG9uc2USKwoGcmFuZ2VzGAEgAygLMhsubWluZGxvZy52MS5SYW5nZURlc2NyaXB0b3IiPgoVU3RvcmVIZWFydGJlYXRSZXF1ZXN0EiUKBXN0YXRzGAEgASgLMhYubWluZGxvZy52MS5TdG9yZVN0YXRzIoEBChZTdG9yZUhlYXJ0YmVhdFJlc3BvbnNlEhcKD2NsdXN0ZXJfdmVyc2lvbhgBIAEoDRIjCgVub2RlcxgCIAMoCzIULm1pbmRsb2cudjEuTm9kZUluZm8SKQoHYnVkZ2V0cxgDIAMoCzIYLm1pbmRsb2cudjEuVGVuYW50QnVkZ2V0Ij4KFVJhbmdlSGVhcnRiZWF0UmVxdWVzdBIlCgVzdGF0cxgBIAEoCzIWLm1pbmRsb2cudjEuUmFuZ2VTdGF0cyJAChZSYW5nZUhlYXJ0YmVhdFJlc3BvbnNlEiYKCG9wZXJhdG9yGAEgASgLMhQubWluZGxvZy52MS5PcGVyYXRvciIQCg5DbHVzdGVyUmVxdWVzdCLzAQoPQ2x1c3RlclJlc3BvbnNlEiMKBW5vZGVzGAEgAygLMhQubWluZGxvZy52MS5Ob2RlSW5mbxImCgZzdG9yZXMYAiADKAsyFi5taW5kbG9nLnYxLlN0b3JlU3RhdHMSKwoGcmFuZ2VzGAMgAygLMhsubWluZGxvZy52MS5SYW5nZURlc2NyaXB0b3ISJwoJb3BlcmF0b3JzGAQgAygLMhQubWluZGxvZy52MS5PcGVyYXRvchIkCgZyZWNlbnQYBSADKAsyFC5taW5kbG9nLnYxLk9wZXJhdG9yEhcKD2NsdXN0ZXJfdmVyc2lvbhgGIAEoDSLEAQoMQWRtaW5SZXF1ZXN0EhQKCmRyYWluX25vZGUYASABKARIABIWCgx1bmRyYWluX25vZGUYAiABKARIABI7Cg90cmFuc2Zlcl9sZWFkZXIYAyABKAsyIC5taW5kbG9nLnYxLlRyYW5zZmVyTGVhZGVyQWN0aW9uSAASKAoFc3BsaXQYBCABKAsyFy5taW5kbG9nLnYxLlNwbGl0QWN0aW9uSAASFQoLcmVtb3ZlX25vZGUYBSABKARIAEIICgZhY3Rpb24iPAoUVHJhbnNmZXJMZWFkZXJBY3Rpb24SEAoIcmFuZ2VfaWQYASABKAQSEgoKcmVwbGljYV9pZBgCIAEoBCIfCgtTcGxpdEFjdGlvbhIQCghyYW5nZV9pZBgBIAEoBCIgCg1BZG1pblJlc3BvbnNlEg8KB21lc3NhZ2UYASABKAkquQEKCU5vZGVTdGF0ZRIaChZOT0RFX1NUQVRFX1VOU1BFQ0lGSUVEEAASFgoSTk9ERV9TVEFURV9KT0lOSU5HEAESEwoPTk9ERV9TVEFURV9MSVZFEAISFgoSTk9ERV9TVEFURV9TVVNQRUNUEAMSEwoPTk9ERV9TVEFURV9ERUFEEAQSFwoTTk9ERV9TVEFURV9EUkFJTklORxAFEh0KGU5PREVfU1RBVEVfREVDT01NSVNTSU9ORUQQBiq8AQoIU3RlcEtpbmQSGQoVU1RFUF9LSU5EX1VOU1BFQ0lGSUVEEAASGQoVU1RFUF9LSU5EX0FERF9MRUFSTkVSEAESFQoRU1RFUF9LSU5EX1BST01PVEUQAhIdChlTVEVQX0tJTkRfVFJBTlNGRVJfTEVBREVSEAMSGgoWU1RFUF9LSU5EX1JFTU9WRV9WT1RFUhAEEhMKD1NURVBfS0lORF9TUExJVBAFEhMKD1NURVBfS0lORF9NRVJHRRAGMtIECglQZFNlcnZpY2USRQoIQWxsb2NJZHMSGy5taW5kbG9nLnYxLkFsbG9jSWRzUmVxdWVzdBocLm1pbmRsb2cudjEuQWxsb2NJZHNSZXNwb25zZRI2CgNUc28SFi5taW5kbG9nLnYxLlRzb1JlcXVlc3QaFy5taW5kbG9nLnYxLlRzb1Jlc3BvbnNlEkUKCEdldFJhbmdlEhsubWluZGxvZy52MS5HZXRSYW5nZVJlcXVlc3QaHC5taW5kbG9nLnYxLkdldFJhbmdlUmVzcG9uc2USSwoKU2NhblJhbmdlcxIdLm1pbmRsb2cudjEuU2NhblJhbmdlc1JlcXVlc3QaHi5taW5kbG9nLnYxLlNjYW5SYW5nZXNSZXNwb25zZRJXCg5TdG9yZUhlYXJ0YmVhdBIhLm1pbmRsb2cudjEuU3RvcmVIZWFydGJlYXRSZXF1ZXN0GiIubWluZGxvZy52MS5TdG9yZUhlYXJ0YmVhdFJlc3BvbnNlElcKDlJhbmdlSGVhcnRiZWF0EiEubWluZGxvZy52MS5SYW5nZUhlYXJ0YmVhdFJlcXVlc3QaIi5taW5kbG9nLnYxLlJhbmdlSGVhcnRiZWF0UmVzcG9uc2USQgoHQ2x1c3RlchIaLm1pbmRsb2cudjEuQ2x1c3RlclJlcXVlc3QaGy5taW5kbG9nLnYxLkNsdXN0ZXJSZXNwb25zZRI8CgVBZG1pbhIYLm1pbmRsb2cudjEuQWRtaW5SZXF1ZXN0GhkubWluZGxvZy52MS5BZG1pblJlc3BvbnNlYgZwcm90bzM", [file_mindlog_v1_range]);
 
 /**
  * @generated from message mindlog.v1.NodeInfo
@@ -325,6 +325,13 @@ export type StoreStats = Message<"mindlog.v1.StoreStats"> & {
    * @generated from field: double cpu = 7;
    */
   cpu: number;
+
+  /**
+   * Per-tenant demand and usage of the ranges this store leads (PLAN 18.3).
+   *
+   * @generated from field: repeated mindlog.v1.TenantStats tenants = 8;
+   */
+  tenants: TenantStats[];
 };
 
 /**
@@ -333,6 +340,87 @@ export type StoreStats = Message<"mindlog.v1.StoreStats"> & {
  */
 export const StoreStatsSchema: GenMessage<StoreStats> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_pd, 10);
+
+/**
+ * @generated from message mindlog.v1.TenantStats
+ */
+export type TenantStats = Message<"mindlog.v1.TenantStats"> & {
+  /**
+   * @generated from field: string tenant = 1;
+   */
+  tenant: string;
+
+  /**
+   * @generated from field: double write_qps = 2;
+   */
+  writeQps: number;
+
+  /**
+   * @generated from field: double recall_qps = 3;
+   */
+  recallQps: number;
+
+  /**
+   * @generated from field: uint64 bytes = 4;
+   */
+  bytes: bigint;
+
+  /**
+   * @generated from field: uint64 keys = 5;
+   */
+  keys: bigint;
+
+  /**
+   * @generated from field: uint64 memories = 6;
+   */
+  memories: bigint;
+};
+
+/**
+ * Describes the message mindlog.v1.TenantStats.
+ * Use `create(TenantStatsSchema)` to create a new message.
+ */
+export const TenantStatsSchema: GenMessage<TenantStats> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_pd, 11);
+
+/**
+ * A tenant's share of its rate limits on one store, and its cluster-wide usage.
+ *
+ * @generated from message mindlog.v1.TenantBudget
+ */
+export type TenantBudget = Message<"mindlog.v1.TenantBudget"> & {
+  /**
+   * @generated from field: string tenant = 1;
+   */
+  tenant: string;
+
+  /**
+   * @generated from field: double share = 2;
+   */
+  share: number;
+
+  /**
+   * @generated from field: uint64 bytes = 3;
+   */
+  bytes: bigint;
+
+  /**
+   * @generated from field: uint64 keys = 4;
+   */
+  keys: bigint;
+
+  /**
+   * @generated from field: uint64 memories = 5;
+   */
+  memories: bigint;
+};
+
+/**
+ * Describes the message mindlog.v1.TenantBudget.
+ * Use `create(TenantBudgetSchema)` to create a new message.
+ */
+export const TenantBudgetSchema: GenMessage<TenantBudget> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_pd, 12);
 
 /**
  * @generated from message mindlog.v1.FollowerProgress
@@ -354,7 +442,7 @@ export type FollowerProgress = Message<"mindlog.v1.FollowerProgress"> & {
  * Use `create(FollowerProgressSchema)` to create a new message.
  */
 export const FollowerProgressSchema: GenMessage<FollowerProgress> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 11);
+  messageDesc(file_mindlog_v1_pd, 13);
 
 /**
  * @generated from message mindlog.v1.RangeStats
@@ -405,7 +493,7 @@ export type RangeStats = Message<"mindlog.v1.RangeStats"> & {
  * Use `create(RangeStatsSchema)` to create a new message.
  */
 export const RangeStatsSchema: GenMessage<RangeStats> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 12);
+  messageDesc(file_mindlog_v1_pd, 14);
 
 /**
  * @generated from message mindlog.v1.AllocIdsRequest
@@ -422,7 +510,7 @@ export type AllocIdsRequest = Message<"mindlog.v1.AllocIdsRequest"> & {
  * Use `create(AllocIdsRequestSchema)` to create a new message.
  */
 export const AllocIdsRequestSchema: GenMessage<AllocIdsRequest> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 13);
+  messageDesc(file_mindlog_v1_pd, 15);
 
 /**
  * @generated from message mindlog.v1.AllocIdsResponse
@@ -439,7 +527,7 @@ export type AllocIdsResponse = Message<"mindlog.v1.AllocIdsResponse"> & {
  * Use `create(AllocIdsResponseSchema)` to create a new message.
  */
 export const AllocIdsResponseSchema: GenMessage<AllocIdsResponse> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 14);
+  messageDesc(file_mindlog_v1_pd, 16);
 
 /**
  * @generated from message mindlog.v1.TsoRequest
@@ -456,7 +544,7 @@ export type TsoRequest = Message<"mindlog.v1.TsoRequest"> & {
  * Use `create(TsoRequestSchema)` to create a new message.
  */
 export const TsoRequestSchema: GenMessage<TsoRequest> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 15);
+  messageDesc(file_mindlog_v1_pd, 17);
 
 /**
  * @generated from message mindlog.v1.TsoResponse
@@ -475,7 +563,7 @@ export type TsoResponse = Message<"mindlog.v1.TsoResponse"> & {
  * Use `create(TsoResponseSchema)` to create a new message.
  */
 export const TsoResponseSchema: GenMessage<TsoResponse> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 16);
+  messageDesc(file_mindlog_v1_pd, 18);
 
 /**
  * @generated from message mindlog.v1.GetRangeRequest
@@ -492,7 +580,7 @@ export type GetRangeRequest = Message<"mindlog.v1.GetRangeRequest"> & {
  * Use `create(GetRangeRequestSchema)` to create a new message.
  */
 export const GetRangeRequestSchema: GenMessage<GetRangeRequest> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 17);
+  messageDesc(file_mindlog_v1_pd, 19);
 
 /**
  * @generated from message mindlog.v1.GetRangeResponse
@@ -514,7 +602,7 @@ export type GetRangeResponse = Message<"mindlog.v1.GetRangeResponse"> & {
  * Use `create(GetRangeResponseSchema)` to create a new message.
  */
 export const GetRangeResponseSchema: GenMessage<GetRangeResponse> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 18);
+  messageDesc(file_mindlog_v1_pd, 20);
 
 /**
  * @generated from message mindlog.v1.ScanRangesRequest
@@ -536,7 +624,7 @@ export type ScanRangesRequest = Message<"mindlog.v1.ScanRangesRequest"> & {
  * Use `create(ScanRangesRequestSchema)` to create a new message.
  */
 export const ScanRangesRequestSchema: GenMessage<ScanRangesRequest> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 19);
+  messageDesc(file_mindlog_v1_pd, 21);
 
 /**
  * @generated from message mindlog.v1.ScanRangesResponse
@@ -553,7 +641,7 @@ export type ScanRangesResponse = Message<"mindlog.v1.ScanRangesResponse"> & {
  * Use `create(ScanRangesResponseSchema)` to create a new message.
  */
 export const ScanRangesResponseSchema: GenMessage<ScanRangesResponse> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 20);
+  messageDesc(file_mindlog_v1_pd, 22);
 
 /**
  * @generated from message mindlog.v1.StoreHeartbeatRequest
@@ -570,7 +658,7 @@ export type StoreHeartbeatRequest = Message<"mindlog.v1.StoreHeartbeatRequest"> 
  * Use `create(StoreHeartbeatRequestSchema)` to create a new message.
  */
 export const StoreHeartbeatRequestSchema: GenMessage<StoreHeartbeatRequest> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 21);
+  messageDesc(file_mindlog_v1_pd, 23);
 
 /**
  * @generated from message mindlog.v1.StoreHeartbeatResponse
@@ -587,6 +675,11 @@ export type StoreHeartbeatResponse = Message<"mindlog.v1.StoreHeartbeatResponse"
    * @generated from field: repeated mindlog.v1.NodeInfo nodes = 2;
    */
   nodes: NodeInfo[];
+
+  /**
+   * @generated from field: repeated mindlog.v1.TenantBudget budgets = 3;
+   */
+  budgets: TenantBudget[];
 };
 
 /**
@@ -594,7 +687,7 @@ export type StoreHeartbeatResponse = Message<"mindlog.v1.StoreHeartbeatResponse"
  * Use `create(StoreHeartbeatResponseSchema)` to create a new message.
  */
 export const StoreHeartbeatResponseSchema: GenMessage<StoreHeartbeatResponse> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 22);
+  messageDesc(file_mindlog_v1_pd, 24);
 
 /**
  * @generated from message mindlog.v1.RangeHeartbeatRequest
@@ -611,7 +704,7 @@ export type RangeHeartbeatRequest = Message<"mindlog.v1.RangeHeartbeatRequest"> 
  * Use `create(RangeHeartbeatRequestSchema)` to create a new message.
  */
 export const RangeHeartbeatRequestSchema: GenMessage<RangeHeartbeatRequest> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 23);
+  messageDesc(file_mindlog_v1_pd, 25);
 
 /**
  * @generated from message mindlog.v1.RangeHeartbeatResponse
@@ -630,7 +723,7 @@ export type RangeHeartbeatResponse = Message<"mindlog.v1.RangeHeartbeatResponse"
  * Use `create(RangeHeartbeatResponseSchema)` to create a new message.
  */
 export const RangeHeartbeatResponseSchema: GenMessage<RangeHeartbeatResponse> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 24);
+  messageDesc(file_mindlog_v1_pd, 26);
 
 /**
  * @generated from message mindlog.v1.ClusterRequest
@@ -643,7 +736,7 @@ export type ClusterRequest = Message<"mindlog.v1.ClusterRequest"> & {
  * Use `create(ClusterRequestSchema)` to create a new message.
  */
 export const ClusterRequestSchema: GenMessage<ClusterRequest> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 25);
+  messageDesc(file_mindlog_v1_pd, 27);
 
 /**
  * @generated from message mindlog.v1.ClusterResponse
@@ -685,7 +778,7 @@ export type ClusterResponse = Message<"mindlog.v1.ClusterResponse"> & {
  * Use `create(ClusterResponseSchema)` to create a new message.
  */
 export const ClusterResponseSchema: GenMessage<ClusterResponse> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 26);
+  messageDesc(file_mindlog_v1_pd, 28);
 
 /**
  * @generated from message mindlog.v1.AdminRequest
@@ -732,7 +825,7 @@ export type AdminRequest = Message<"mindlog.v1.AdminRequest"> & {
  * Use `create(AdminRequestSchema)` to create a new message.
  */
 export const AdminRequestSchema: GenMessage<AdminRequest> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 27);
+  messageDesc(file_mindlog_v1_pd, 29);
 
 /**
  * @generated from message mindlog.v1.TransferLeaderAction
@@ -754,7 +847,7 @@ export type TransferLeaderAction = Message<"mindlog.v1.TransferLeaderAction"> & 
  * Use `create(TransferLeaderActionSchema)` to create a new message.
  */
 export const TransferLeaderActionSchema: GenMessage<TransferLeaderAction> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 28);
+  messageDesc(file_mindlog_v1_pd, 30);
 
 /**
  * @generated from message mindlog.v1.SplitAction
@@ -771,7 +864,7 @@ export type SplitAction = Message<"mindlog.v1.SplitAction"> & {
  * Use `create(SplitActionSchema)` to create a new message.
  */
 export const SplitActionSchema: GenMessage<SplitAction> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 29);
+  messageDesc(file_mindlog_v1_pd, 31);
 
 /**
  * @generated from message mindlog.v1.AdminResponse
@@ -788,7 +881,7 @@ export type AdminResponse = Message<"mindlog.v1.AdminResponse"> & {
  * Use `create(AdminResponseSchema)` to create a new message.
  */
 export const AdminResponseSchema: GenMessage<AdminResponse> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_pd, 30);
+  messageDesc(file_mindlog_v1_pd, 32);
 
 /**
  * @generated from enum mindlog.v1.NodeState

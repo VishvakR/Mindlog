@@ -133,6 +133,7 @@ export class TenantService {
       const reply = await this.#run(session, ...args);
       if (!reply.ok) return reply;
     }
+    this.#cache.delete(name);
     return this.get(name);
   }
 

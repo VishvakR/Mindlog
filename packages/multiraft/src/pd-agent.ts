@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf';
 import type { Gauge, Logger, Metrics } from '@mindlog/core';
-import type { NodeInfo, Operator } from '@mindlog/proto';
+import type { NodeInfo, Operator, TenantBudget, TenantStats } from '@mindlog/proto';
 import {
   ConfChangeSchema,
   ConfChangeType,
@@ -13,6 +13,7 @@ import {
   ReplicaRole,
   StepKind,
   StoreStatsSchema,
+  TenantStatsSchema,
 } from '@mindlog/proto';
 import type { PdClient } from './pd-client.js';
 import type { Scheduler } from './ports.js';
@@ -21,6 +22,12 @@ import type { Store } from './store.js';
 
 /** Split and merge commands are proposed only once every live node runs a binary that applies them (PLAN 19.5). */
 const MIN_RANGE_VERSION = 4;
+
+/** Per-tenant governance's view of the heartbeat (PLAN 18.3). */
+export interface TenantReporter {
+  report(): Omit<TenantStats, '$typeName' | '$unknown'>[];
+  apply(budgets: readonly TenantBudget[]): void;
+}
 
 export interface PdAgentOptions {
   /** This node as PD should know it. */
@@ -54,6 +61,7 @@ export class PdAgent {
   readonly #running = new Set<Promise<void>>();
   #clusterVersion = 0;
   readonly #gauges: { replicas: Gauge; leaders: Gauge } | undefined;
+  #tenants: TenantReporter | undefined;
 
   constructor(store: Store, pd: PdClient, scheduler: Scheduler, options: PdAgentOptions) {
     this.#store = store;
@@ -113,6 +121,7 @@ export class PdAgent {
     const replicas = this.#store.replicas().filter((r) => r.initialised && r.rangeId !== 0n);
     const bytes = replicas.reduce((sum, r) => sum + r.stats().bytes, 0n);
     const stats = create(StoreStatsSchema, {
+      tenants: (this.#tenants?.report() ?? []).map((t) => create(TenantStatsSchema, t)),
       node: create(NodeInfoSchema, { ...this.#o.node, state: NodeState.UNSPECIFIED }),
       usedBytes: bytes,
       rangeCount: replicas.length,
@@ -123,8 +132,14 @@ export class PdAgent {
     const reply = await this.#pd.storeHeartbeat(stats);
     if (!reply.ok) return;
     this.#clusterVersion = reply.value.clusterVersion;
+    this.#tenants?.apply(reply.value.budgets);
     this.#nodes.clear();
     for (const n of reply.value.nodes) this.#nodes.set(n.nodeId, n);
+  }
+
+  /** Connects per-tenant governance, which is built after the agent. */
+  attachTenants(tenants: TenantReporter): void {
+    this.#tenants = tenants;
   }
 
   async reportRanges(): Promise<void> {

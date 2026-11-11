@@ -80,9 +80,11 @@ import {
   localRanges,
   writeTombstone,
 } from '@mindlog/statemachine';
+import type { ApproximateSizer, KvStore } from '@mindlog/storage';
 import { GroupCommitStore, LevelDbStore } from '@mindlog/storage';
 import type { TlsFiles } from '@mindlog/transport';
 import { ConnectTransport, KvForwarder, forwardRoutes } from '@mindlog/transport';
+import { encrypted, masterKeyOf } from './open-encrypted.js';
 import { openTls } from './open-tls.js';
 import {
   lockGuard,
@@ -128,7 +130,9 @@ export interface NodeCore {
   /** Internal Raft listener; absent for a single-voter node. */
   readonly transport: ConnectTransport | undefined;
   readonly stamper: CommandStamper;
-  readonly stateStore: LevelDbStore;
+  readonly stateStore: KvStore;
+  /** On-disk size of key spans, for tenant usage. */
+  readonly sizer: ApproximateSizer;
   readonly service: KvService;
   /** Memory requests (PLAN 12); routed to the leader of each user scope. */
   readonly memory: MemoryService;
@@ -145,25 +149,29 @@ export interface NodeCore {
 }
 
 /** Opens the log and state LevelDB instances (ADR-0005), closing the first if the second fails. */
-async function openStores(dataDir: string) {
+async function openStores(dataDir: string, master: Uint8Array | undefined) {
   await mkdir(dataDir, { recursive: true });
-  const log = await LevelDbStore.open(join(dataDir, 'raftlog'));
-  if (!log.ok) return log;
-  const state = await LevelDbStore.open(join(dataDir, 'state'));
-  if (!state.ok) {
-    await log.value.close();
-    return state;
+  const rawLog = await LevelDbStore.open(join(dataDir, 'raftlog'));
+  if (!rawLog.ok) return rawLog;
+  const rawState = await LevelDbStore.open(join(dataDir, 'state'));
+  if (!rawState.ok) {
+    await rawLog.value.close();
+    return rawState;
   }
-  const formats = [
+  const fail = async (e: MindlogError) => {
+    await Promise.all([rawLog.value.close(), rawState.value.close()]);
+    return err(e);
+  };
+  const log = await encrypted(rawLog.value, master, 'log');
+  if (!log.ok) return fail(log.error);
+  const state = await encrypted(rawState.value, master, 'state');
+  if (!state.ok) return fail(state.error);
+  for (const format of [
     await ensureStoreFormat(log.value, 'log'),
     await ensureStoreFormat(state.value, 'state'),
-  ];
-  for (const format of formats) {
-    if (format.ok) continue;
-    await Promise.all([log.value.close(), state.value.close()]);
-    return format;
-  }
-  return ok({ log: log.value, state: state.value });
+  ])
+    if (!format.ok) return fail(format.error);
+  return ok({ log: log.value, state: state.value, sizer: rawState.value });
 }
 
 /** How this node reaches the placement driver: configured endpoints, else the PD it runs itself. */
@@ -242,7 +250,9 @@ export async function openNodeCore(
   if (!opened.ok) return opened;
   const tls = opened.value;
   const dataDir = resolve(config.node.dataDir);
-  const stores = await openStores(dataDir);
+  const master = masterKeyOf(config);
+  if (!master.ok) return master;
+  const stores = await openStores(dataDir, master.value);
   if (!stores.ok) {
     return err(
       mindlogError(stores.error.code, `cannot open ${dataDir}: ${stores.error.message}`, {
@@ -250,7 +260,7 @@ export async function openNodeCore(
       }),
     );
   }
-  const { log: logStore, state: stateStore } = stores.value;
+  const { log: logStore, state: stateStore, sizer } = stores.value;
   const registry = createKvRegistry();
   const handlers = new ApplyHandlerRegistry();
   // Cross-range transactions (ADR-0030) are in the state machine of every node or of none.
@@ -561,6 +571,7 @@ export async function openNodeCore(
     transport,
     stamper,
     stateStore,
+    sizer,
     access,
     audit,
     tls,

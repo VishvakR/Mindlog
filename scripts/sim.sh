@@ -8,6 +8,7 @@
 # SIM_BRANCH=1 scripts/sim.sh ... adds memory branches (create, write, merge, drop; phase 7) to the memory workload.
 # SIM_LIFE=1 scripts/sim.sh ... adds the memory lifecycle (recall stats, cold tier moves, evolve, pin; phase 8).
 # SIM_COLL=1 scripts/sim.sh ... adds the collections workload (records with a unique index; phase 9).
+# SIM_ENC=1 scripts/sim.sh ... encrypts every node's stores at rest (phase 10).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SEEDS=${1:-10000}

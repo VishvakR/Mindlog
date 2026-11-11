@@ -11,8 +11,9 @@ import type {
 import { SystemRandom, UlidGenerator } from '@mindlog/core';
 import type { EventBus } from '@mindlog/eventbus';
 import { resolve } from 'node:path';
+import { masterKeyOf } from './open-encrypted.js';
 import type { BlobStore } from '@mindlog/blob';
-import { LocalBlobStore, S3BlobStore } from '@mindlog/blob';
+import { LocalBlobStore, S3BlobStore, EncryptingBlobStore } from '@mindlog/blob';
 import { SemanticCache } from '@mindlog/cache';
 import { ModelBudget, consolidationWorkers } from '@mindlog/consolidation';
 import { WorkerRegistry } from '@mindlog/jobs';
@@ -56,8 +57,13 @@ function openColdStore(config: MindlogConfig, clock: Clock): BlobStore | undefin
 /** The node's configured blob store (`blob.default`). */
 export function openBlobStore(config: MindlogConfig, clock: Clock): BlobStore {
   const b = config.blob.default;
-  if (b.type === 'local') return new LocalBlobStore(resolve(config.node.dataDir, b.path));
-  return new S3BlobStore({ ...b, clock });
+  const store =
+    b.type === 'local'
+      ? new LocalBlobStore(resolve(config.node.dataDir, b.path))
+      : new S3BlobStore({ ...b, clock });
+  // The node refused to start already if the key were malformed (open-node-core).
+  const master = masterKeyOf(config);
+  return master.ok && master.value ? new EncryptingBlobStore(store, master.value) : store;
 }
 
 /**

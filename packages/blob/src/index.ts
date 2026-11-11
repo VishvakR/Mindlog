@@ -6,3 +6,4 @@ export { MemoryBlobStore, checkKey } from './blob-store.js';
 export { LocalBlobStore } from './local-blob-store.js';
 export type { S3Options } from './s3-blob-store.js';
 export { S3BlobStore, signRequest, signingKey } from './s3-blob-store.js';
+export { EncryptingBlobStore } from './encrypting-blob-store.js';

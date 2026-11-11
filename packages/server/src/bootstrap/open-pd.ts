@@ -6,6 +6,7 @@ import type {
   Logger,
   Metrics,
   MindlogConfig,
+  MindlogError,
   TlsProvider,
   Tracer,
 } from '@mindlog/core';
@@ -30,6 +31,7 @@ import {
   ensureStoreFormat,
 } from '@mindlog/statemachine';
 import { GroupCommitStore, LevelDbStore } from '@mindlog/storage';
+import { encrypted, masterKeyOf } from './open-encrypted.js';
 import { ConnectTransport } from '@mindlog/transport';
 
 /** A PD with no peers (a one-voter group) has nobody to send to. */
@@ -71,11 +73,19 @@ export async function openPdRole(deps: PdRoleDeps): Promise<PdRole> {
   const raftId = BigInt(config.node.raftId);
   const dir = resolve(config.pd.dataDir ?? join(config.node.dataDir, 'pd'));
   await mkdir(dir, { recursive: true });
-  const log = await LevelDbStore.open(join(dir, 'raftlog'));
-  const state = await LevelDbStore.open(join(dir, 'state'));
-  if (!log.ok || !state.ok) {
-    await Promise.all([log.ok && log.value.close(), state.ok && state.value.close()]);
+  const rawLog = await LevelDbStore.open(join(dir, 'raftlog'));
+  const rawState = await LevelDbStore.open(join(dir, 'state'));
+  if (!rawLog.ok || !rawState.ok) {
+    await Promise.all([rawLog.ok && rawLog.value.close(), rawState.ok && rawState.value.close()]);
     throw new Error(`cannot open the placement driver stores in ${dir}`);
+  }
+  const master = masterKeyOf(config);
+  if (!master.ok) throw new Error(master.error.message);
+  const log = await encrypted(rawLog.value, master.value, 'pd log');
+  const state = await encrypted(rawState.value, master.value, 'pd state');
+  if (!log.ok || !state.ok) {
+    await Promise.all([rawLog.value.close(), rawState.value.close()]);
+    throw new Error((!log.ok ? log : (state as { error: MindlogError })).error.message);
   }
   for (const [store, name] of [
     [log.value, 'pd log'],

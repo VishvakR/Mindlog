@@ -24,3 +24,5 @@ export { MvccReader } from './mvcc/mvcc-reader.js';
 export type { CollectOptions, CollectResult } from './mvcc/collect-versions.js';
 export { collectVersions } from './mvcc/collect-versions.js';
 export { MvccTxn } from './mvcc/mvcc-txn.js';
+export { EncryptingStore, rewrapKeyring } from './crypto/encrypting-store.js';
+export { envelopeKeyId, seal, unseal } from './crypto/envelope.js';

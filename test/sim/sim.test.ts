@@ -29,6 +29,9 @@ const WITH_LIFE = process.env.SIM_LIFE === '1';
 // SIM_COLL=1 adds the collections workload (records with a unique index; phase 9) to every seed.
 const WITH_COLL = process.env.SIM_COLL === '1';
 
+// SIM_ENC=1 encrypts every node's stores at rest (phase 10, ADR-0014).
+const WITH_ENC = process.env.SIM_ENC === '1';
+
 async function violations(seed: bigint): Promise<string[]> {
   const nodes = seed % 2n === 0n ? 5 : 3;
   const sized = WITH_PD ? scenario(seed).nodes(5).pd(2) : scenario(seed).nodes(nodes);
@@ -36,7 +39,8 @@ async function violations(seed: bigint): Promise<string[]> {
   const memory = WITH_MEM || WITH_BRANCH || WITH_LIFE ? banked.memory(4) : banked;
   const branched = WITH_BRANCH ? memory.branches() : memory;
   const lived = WITH_LIFE ? branched.lifecycle() : branched;
-  const base = WITH_COLL ? lived.collections() : lived;
+  const collected = WITH_COLL ? lived.collections() : lived;
+  const base = WITH_ENC ? collected.encrypted() : collected;
   const result = await base.verbose(process.env.SIM_VERBOSE === '1').run();
   return result.violations.map((v) => `replay: SIM_SEED=${seed} SIM_VERBOSE=1 pnpm sim → ${v}`);
 }

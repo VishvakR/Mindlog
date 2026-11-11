@@ -148,6 +148,9 @@ export const configSchema = z.strictObject({
   storage: z
     .strictObject({
       coldTier: z.strictObject({ enabled: z.boolean().default(true) }).prefault({}),
+      // Encryption at rest (ADR-0014): base64 of 32 bytes, best from a file
+      // (`MINDLOG_STORAGE__ENCRYPTION__MASTER_KEY_FILE`). Only for new data directories.
+      encryption: z.strictObject({ masterKey: z.string().min(1).optional() }).prefault({}),
     })
     .prefault({}),
   blob: z

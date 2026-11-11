@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, test } from 'vitest';
 import {
+  EncryptingBlobStore,
   LocalBlobStore,
   MemoryBlobStore,
   S3BlobStore,
@@ -22,6 +23,9 @@ afterAll(async () => {
 
 describe('BlobStore', () => {
   blobContract('memory', () => Promise.resolve(new MemoryBlobStore()));
+  blobContract('encrypted', () =>
+    Promise.resolve(new EncryptingBlobStore(new MemoryBlobStore(), new Uint8Array(32).fill(7))),
+  );
   blobContract('local', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'mindlog-blob-'));
     dirs.push(dir);
@@ -170,4 +174,18 @@ describe('S3BlobStore against a signature-checking fake', () => {
     const r = await s.get('k');
     expect(!r.ok && r.error.code).toBe('UNAVAILABLE');
   });
+});
+
+test('encrypted blobs hold no plaintext and cannot be renamed into place', async () => {
+  const inner = new MemoryBlobStore();
+  const store = new EncryptingBlobStore(inner, new Uint8Array(32).fill(7));
+  const secret = new TextEncoder().encode('patient record 42');
+  expect((await store.put('files/acme/c/r/a.txt', secret)).ok).toBe(true);
+  const raw = await inner.get('files/acme/c/r/a.txt');
+  expect(raw.ok && Buffer.from(raw.value ?? []).toString('latin1')).not.toContain('patient');
+  if (!raw.ok || !raw.value) throw new Error('missing');
+  await inner.put('files/acme/c/r/b.txt', raw.value);
+  expect((await store.get('files/acme/c/r/b.txt')).ok).toBe(false);
+  await inner.put('files/other/c/r/a.txt', raw.value);
+  expect((await store.get('files/other/c/r/a.txt')).ok).toBe(false);
 });

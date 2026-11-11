@@ -17,7 +17,7 @@ export function trackTenantUsage(
   const sampler = new UsageSampler({
     tenants: () => tenants.list(),
     state: core.stateStore,
-    sizer: (start, end) => core.stateStore.approximateSize(start, end),
+    sizer: (start, end) => core.sizer.approximateSize(start, end),
     leaderSpans: () =>
       core.store
         .replicas()

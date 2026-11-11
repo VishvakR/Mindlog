@@ -64,7 +64,7 @@ import {
   writeTombstone,
 } from '@mindlog/statemachine';
 import type { KvStore } from '@mindlog/storage';
-import { compareBytes } from '@mindlog/storage';
+import { EncryptingStore, compareBytes } from '@mindlog/storage';
 import type { RegisterOp } from './linearizability.js';
 import { checkRegister } from './linearizability.js';
 import { Bank } from './bank.js';
@@ -125,6 +125,8 @@ export interface ScenarioOptions {
   readonly lifecycle: boolean;
   /** The collections workload (phase 9). */
   readonly collections: boolean;
+  /** Every node's stores encrypted at rest (phase 10, ADR-0014). */
+  readonly encrypted: boolean;
 }
 
 export interface SimResult {
@@ -311,8 +313,8 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     ])
       handlers.register(h);
     const events = new InMemoryEventBus({ logger, metrics });
-    const stateStore = node.state.open();
-    const logStore = node.log.open();
+    const stateStore = await openDisk(node.state, o.encrypted ? masterOf(node.id) : undefined);
+    const logStore = await openDisk(node.log, o.encrypted ? masterOf(node.id) : undefined);
     events.subscribe('CommandApplied', (e) => {
       // State machine safety: one command per (range, index), on every replica (PLAN 7.5).
       const id = Buffer.from(e.command.requestId).toString('hex');
@@ -941,8 +943,14 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
           violate(
             `range ${replica.rangeId}: replica ${id} applied ${member.appliedIndex}, leader ${replica.appliedIndex}`,
           );
-        const disk = holder?.state;
-        if (disk) hashes.push(await spanHash(disk, replica.descriptor));
+        if (holder)
+          hashes.push(
+            await spanHash(
+              holder.state,
+              replica.descriptor,
+              o.encrypted ? masterOf(holder.id) : undefined,
+            ),
+          );
       }
       if (new Set(hashes).size > 1) violate(`range ${replica.rangeId}: state hashes differ`);
     }
@@ -1067,9 +1075,23 @@ function readValue(reply: KvReply): string | null {
 }
 
 /** Hash of a range's replicated keys on one node's disk. */
-async function spanHash(disk: SimDisk, descriptor: RangeDescriptor): Promise<string> {
+/** Each node has its own master key, as real nodes may. */
+const masterOf = (node: bigint): Uint8Array => new Uint8Array(32).fill(Number(node % 251n) + 1);
+
+async function openDisk(disk: SimDisk, master: Uint8Array | undefined): Promise<KvStore> {
+  const opened = await EncryptingStore.open(disk.open(), master, 'sim');
+  if (!opened.ok) throw new Error(opened.error.message);
+  return opened.value;
+}
+
+/** Hash of a range's replicated keys on one node's disk, read in plaintext: nonces differ per replica. */
+async function spanHash(
+  disk: SimDisk,
+  descriptor: RangeDescriptor,
+  master: Uint8Array | undefined,
+): Promise<string> {
   const hash = createHash('sha256');
-  const store = disk.open();
+  const store = await openDisk(disk, master);
   for (const part of spanIntervals(descriptor))
     for await (const [k, v] of store.iterate(part))
       hash.update(k).update(Uint8Array.of(0)).update(v).update(Uint8Array.of(0));
@@ -1104,6 +1126,7 @@ export function scenario(seed: bigint) {
     branches: false,
     lifecycle: false,
     collections: false,
+    encrypted: false,
   };
   const dsl = {
     pd: (spare = 0) => {
@@ -1118,6 +1141,7 @@ export function scenario(seed: bigint) {
     branches: () => ((o.branches = true), dsl),
     lifecycle: () => ((o.lifecycle = true), dsl),
     collections: () => ((o.collections = true), dsl),
+    encrypted: () => ((o.encrypted = true), dsl),
     nodes: (n: number) => ((o.nodes = n), dsl),
     clients: (n: number) => ((o.clients = n), dsl),
     keys: (n: number) => ((o.keys = n), dsl),

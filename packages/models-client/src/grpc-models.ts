@@ -1,8 +1,8 @@
 import type { Client } from '@connectrpc/connect';
 import { Code, ConnectError, createClient } from '@connectrpc/connect';
 import { createGrpcTransport } from '@connectrpc/connect-node';
-import type { MindlogError, MindlogErrorCode, Result } from '@mindlog/core';
-import { err, mindlogError, ok } from '@mindlog/core';
+import type { MindlogError, MindlogErrorCode, Result, TlsProvider } from '@mindlog/core';
+import { err, mindlogError, ok, grpcClientOptions } from '@mindlog/core';
 import {
   EmbedKind as ProtoEmbedKind,
   ModelsService,
@@ -26,8 +26,10 @@ import type {
 } from './ports.js';
 
 export interface GrpcModelsOptions {
-  /** `host:port` of the model service (plaintext HTTP/2 on localhost). */
+  /** `host:port` of the model service; plaintext HTTP/2 on localhost unless `tls` is set. */
   readonly address: string;
+  /** Mutual TLS to the sidecar (PLAN 18.4). */
+  readonly tls?: TlsProvider;
   /** Default deadline per call. */
   readonly timeoutMs: number;
 }
@@ -66,14 +68,19 @@ function vector(bytes: Uint8Array): Float32Array {
 
 /** The model service over gRPC (PLAN 14.3); every failure becomes a `MindlogError`. */
 export class GrpcModels implements Models {
-  readonly #client: Client<typeof ModelsService>;
+  #client: Client<typeof ModelsService>;
   readonly #timeoutMs: number;
 
   constructor(options: GrpcModelsOptions) {
-    this.#client = createClient(
-      ModelsService,
-      createGrpcTransport({ baseUrl: `http://${options.address}` }),
-    );
+    const connect = () =>
+      createClient(
+        ModelsService,
+        createGrpcTransport(grpcClientOptions(options.address, options.tls)),
+      );
+    this.#client = connect();
+    options.tls?.subscribe(() => {
+      this.#client = connect();
+    });
     this.#timeoutMs = options.timeoutMs;
   }
 

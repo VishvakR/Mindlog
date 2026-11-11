@@ -1,12 +1,20 @@
-import { createServer } from 'node:http2';
-import type { Http2Server, ServerHttp2Session } from 'node:http2';
+import { createSecureServer, createServer } from 'node:http2';
+import type { Http2SecureServer, Http2Server, ServerHttp2Session } from 'node:http2';
 import type { AddressInfo } from 'node:net';
 import { create } from '@bufbuild/protobuf';
 import type { Client, ConnectRouter, ServiceImpl } from '@connectrpc/connect';
 import { Code, ConnectError, createClient } from '@connectrpc/connect';
 import { connectNodeAdapter, createGrpcTransport } from '@connectrpc/connect-node';
-import type { MindlogError, Result } from '@mindlog/core';
-import { ERROR_CODES, MindlogErrorCode, err, mindlogError, ok } from '@mindlog/core';
+import type { MindlogError, Result, TlsProvider } from '@mindlog/core';
+import {
+  ERROR_CODES,
+  MindlogErrorCode,
+  err,
+  grpcClientOptions,
+  mindlogError,
+  mutualServerTls,
+  ok,
+} from '@mindlog/core';
 import type { PdClient } from '@mindlog/multiraft';
 import type {
   AdminRequest,
@@ -65,6 +73,7 @@ const unwrap = <T>(r: Result<T, MindlogError>): T => {
 export interface PdServerOptions {
   readonly host: string;
   readonly port: number;
+  readonly tls?: TlsProvider;
 }
 
 export interface PdServer {
@@ -110,16 +119,21 @@ export async function startPdServer(
   service: PdService,
   options: PdServerOptions,
 ): Promise<PdServer> {
-  const server: Http2Server = createServer(
-    connectNodeAdapter({
-      routes: (router) => {
-        router.service(
-          PdRpc,
-          pdHandlers(() => service),
-        );
-      },
-    }),
-  );
+  const handler = connectNodeAdapter({
+    routes: (router) => {
+      router.service(
+        PdRpc,
+        pdHandlers(() => service),
+      );
+    },
+  });
+  const { tls } = options;
+  const server: Http2Server | Http2SecureServer = tls
+    ? createSecureServer(mutualServerTls(tls.identity()), handler)
+    : createServer(handler);
+  const stopTls = tls?.subscribe((i) => {
+    (server as Http2SecureServer).setSecureContext(mutualServerTls(i));
+  });
   const sessions = new Set<ServerHttp2Session>();
   server.on('session', (session) => {
     sessions.add(session);
@@ -136,6 +150,7 @@ export async function startPdServer(
     address: server.address() as AddressInfo,
     close: () =>
       new Promise<void>((resolve) => {
+        stopTls?.();
         server.close(() => {
           resolve();
         });
@@ -173,13 +188,18 @@ export class InProcessPdClient implements PdClient {
  * failure, so it finds the leader without being told who it is.
  */
 export class ConnectPdClient implements PdClient {
-  readonly #clients: Array<Client<typeof PdRpc>>;
+  #clients: Array<Client<typeof PdRpc>>;
   #preferred = 0;
 
-  constructor(endpoints: readonly string[]) {
-    this.#clients = endpoints.map((address) =>
-      createClient(PdRpc, createGrpcTransport({ baseUrl: `http://${address}` })),
-    );
+  constructor(endpoints: readonly string[], tls?: TlsProvider) {
+    const connect = () =>
+      endpoints.map((address) =>
+        createClient(PdRpc, createGrpcTransport(grpcClientOptions(address, tls))),
+      );
+    this.#clients = connect();
+    tls?.subscribe(() => {
+      this.#clients = connect();
+    });
   }
 
   async #call<T>(

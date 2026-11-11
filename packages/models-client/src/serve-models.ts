@@ -1,10 +1,11 @@
 import type { Http2Session } from 'node:http2';
-import { createServer } from 'node:http2';
+import { createSecureServer, createServer } from 'node:http2';
 import type { AddressInfo } from 'node:net';
 import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { connectNodeAdapter } from '@connectrpc/connect-node';
-import type { MindlogError, MindlogErrorCode, Result } from '@mindlog/core';
+import type { MindlogError, MindlogErrorCode, Result, TlsProvider } from '@mindlog/core';
+import { mutualServerTls } from '@mindlog/core';
 import {
   ClassifyNliResponseSchema,
   EmbedKind,
@@ -50,7 +51,7 @@ export interface ServedModels {
  */
 export async function serveModels(
   models: Models,
-  options: { host?: string; port?: number } = {},
+  options: { host?: string; port?: number; tls?: TlsProvider } = {},
 ): Promise<ServedModels> {
   const handler = connectNodeAdapter({
     routes: (router) => {
@@ -121,7 +122,10 @@ export async function serveModels(
       });
     },
   });
-  const server = createServer(handler);
+  const { tls } = options;
+  const server = tls
+    ? createSecureServer(mutualServerTls(tls.identity()), handler)
+    : createServer(handler);
   const sessions = new Set<Http2Session>();
   server.on('session', (session) => {
     sessions.add(session);

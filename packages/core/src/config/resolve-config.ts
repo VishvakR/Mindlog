@@ -13,11 +13,14 @@ export interface ConfigSources {
   readonly env?: Readonly<Record<string, string | undefined>>;
   /** Highest precedence, e.g. CLI flags. */
   readonly flags?: ConfigOverrides;
+  /** Reads a secret named by `NAME_FILE` or `${file:/path}`. Without it, those are not honoured. */
+  readonly readSecret?: (path: string) => string;
 }
 
 type Tree = Record<string, unknown>;
 
 const ENV_PREFIX = 'MINDLOG_';
+const FILE_SUFFIX = '_FILE';
 
 /**
  * Resolves configuration from layered sources (PLAN 19.6): schema defaults →
@@ -26,11 +29,13 @@ const ENV_PREFIX = 'MINDLOG_';
  */
 export function resolveConfig(sources: ConfigSources = {}): Result<MindlogConfig, MindlogError> {
   const env = sources.env ?? {};
-  const file = parseFile(sources.fileText, env);
+  const file = parseFile(sources.fileText, env, sources.readSecret);
   if (!file.ok) return file;
-  const merged = [file.value, envOverrides(env), (sources.flags ?? {}) as Tree].reduce(deepMerge);
+  const fromEnv = envOverrides(env, sources.readSecret);
+  if (!fromEnv.ok) return fromEnv;
+  const merged = [file.value, fromEnv.value, (sources.flags ?? {}) as Tree].reduce(deepMerge);
   const parsed = configSchema.safeParse(merged);
-  if (parsed.success) return ok(parsed.data);
+  if (parsed.success) return checkProfile(parsed.data);
   const fields: Record<string, string> = {};
   for (const issue of parsed.error.issues) {
     const path = issue.path.join('.') || '(root)';
@@ -39,9 +44,24 @@ export function resolveConfig(sources: ConfigSources = {}): Result<MindlogConfig
   return err(mindlogError('CONFIG_INVALID', 'configuration is invalid', { fields }));
 }
 
+/** `production` refuses to start without TLS (PLAN 18.4); `dev` leaves it optional. */
+function checkProfile(config: MindlogConfig): Result<MindlogConfig, MindlogError> {
+  const { tls, profile } = config;
+  const missing = (['ca', 'cert', 'key'] as const).filter((f) => tls[f] === undefined);
+  const fields: Record<string, string> = {};
+  if (tls.enabled)
+    for (const f of missing) fields[`tls.${f}`] = 'required when tls.enabled is true';
+  if (profile === 'production' && !tls.enabled)
+    fields['tls.enabled'] = 'must be true in the production profile';
+  if (Object.keys(fields).length > 0)
+    return err(mindlogError('CONFIG_INVALID', 'configuration is invalid', { fields }));
+  return ok(config);
+}
+
 function parseFile(
   text: string | undefined,
   env: Readonly<Record<string, string | undefined>>,
+  readSecret: ConfigSources['readSecret'],
 ): Result<Tree, MindlogError> {
   if (text === undefined || text.trim() === '') return ok({});
   let doc: unknown;
@@ -53,16 +73,19 @@ function parseFile(
   if (!isTree(doc)) {
     return err(mindlogError('CONFIG_INVALID', 'config file must be a YAML mapping'));
   }
-  return interpolate(doc, env, []) as Result<Tree, MindlogError>;
+  return interpolate(doc, env, [], readSecret) as Result<Tree, MindlogError>;
 }
 
-/** Replaces `${NAME}` in string values with environment variables. */
+/** Replaces `${NAME}` with environment variables, and a value of `${file:/path}` with that file. */
 function interpolate(
   value: unknown,
   env: Readonly<Record<string, string | undefined>>,
   path: string[],
+  readSecret?: ConfigSources['readSecret'],
 ): Result<unknown, MindlogError> {
   if (typeof value === 'string') {
+    const secretFile = /^\$\{file:(.+)\}$/.exec(value)?.[1];
+    if (secretFile !== undefined && readSecret) return loadSecret(readSecret, secretFile);
     let missing: string | undefined;
     const replaced = value.replace(/\$\{([A-Z0-9_]+)\}/g, (_m, name: string) => {
       const found = env[name];
@@ -79,7 +102,7 @@ function interpolate(
   if (Array.isArray(value)) {
     const out: unknown[] = [];
     for (const [i, item] of value.entries()) {
-      const r = interpolate(item, env, [...path, String(i)]);
+      const r = interpolate(item, env, [...path, String(i)], readSecret);
       if (!r.ok) return r;
       out.push(r.value);
     }
@@ -88,7 +111,7 @@ function interpolate(
   if (isTree(value)) {
     const out: Tree = {};
     for (const [k, v] of Object.entries(value)) {
-      const r = interpolate(v, env, [...path, k]);
+      const r = interpolate(v, env, [...path, k], readSecret);
       if (!r.ok) return r;
       out[k] = r.value;
     }
@@ -103,15 +126,37 @@ function interpolate(
  * as YAML scalars. Vars whose first segment is not a config section (such as
  * `MINDLOG_JOIN_TOKEN`) are interpolation inputs only.
  */
-function envOverrides(env: Readonly<Record<string, string | undefined>>): Tree {
+function envOverrides(
+  env: Readonly<Record<string, string | undefined>>,
+  readSecret: ConfigSources['readSecret'],
+): Result<Tree, MindlogError> {
   const out: Tree = {};
   for (const [name, raw] of Object.entries(env)) {
     if (!name.startsWith(ENV_PREFIX) || raw === undefined) continue;
-    const path = name.slice(ENV_PREFIX.length).split('__').map(camelCase);
+    const isFile = readSecret !== undefined && name.endsWith(FILE_SUFFIX);
+    const bare = isFile ? name.slice(0, -FILE_SUFFIX.length) : name;
+    const path = bare.slice(ENV_PREFIX.length).split('__').map(camelCase);
     if (!CONFIG_SECTIONS.has(path[0] ?? '')) continue;
-    setPath(out, path, parseScalar(raw));
+    if (!isFile) {
+      setPath(out, path, parseScalar(raw));
+      continue;
+    }
+    const secret = loadSecret(readSecret, raw);
+    if (!secret.ok) return secret;
+    setPath(out, path, secret.value);
   }
-  return out;
+  return ok(out);
+}
+
+function loadSecret(
+  readSecret: NonNullable<ConfigSources['readSecret']>,
+  path: string,
+): Result<string, MindlogError> {
+  try {
+    return ok(readSecret(path).replace(/\r?\n$/, ''));
+  } catch (cause) {
+    return err(mindlogError('CONFIG_INVALID', `cannot read secret file ${path}`, { cause }));
+  }
 }
 
 function parseScalar(raw: string): unknown {

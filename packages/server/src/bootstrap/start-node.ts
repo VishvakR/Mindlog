@@ -112,9 +112,29 @@ async function withRetries(
   }
 }
 
+/** Configuration sections that hold no secrets; anything added later stays hidden until listed. */
+const VISIBLE_SECTIONS = [
+  'node',
+  'cluster',
+  'pd',
+  'ranges',
+  'models',
+  'memory',
+  'storage',
+  'features',
+  'raft',
+  'listen',
+  'observability',
+  'limits',
+  'collections',
+  'profile',
+] as const;
+
 export function redactedSettings(config: MindlogConfig): Record<string, unknown> {
   return {
-    ...config,
+    ...Object.fromEntries(VISIBLE_SECTIONS.map((section) => [section, config[section]])),
+    blob: { type: config.blob.default.type },
+    tls: { enabled: config.tls.enabled },
     auth: {
       password: config.auth.password === undefined ? null : '[redacted]',
       oauth2: config.auth.oauth2.map((p) => ({ ...p, clientSecret: '[redacted]' })),
@@ -200,6 +220,7 @@ export async function startNode(
   const handlers = createConnectionCommands();
   const limits = respLimits(config);
   const resp = new RespServer({
+    ...(core.tls ? { tls: core.tls } : {}),
     context,
     handlers,
     metrics,
@@ -277,6 +298,7 @@ export async function startNode(
     host: config.listen.http.host,
     port: config.listen.http.port,
     bodyLimit: BODY_LIMIT,
+    ...(core.tls ? { tls: core.tls } : {}),
   };
   const http = new HttpServer({
     admin,
@@ -315,6 +337,7 @@ export async function startNode(
   });
 
   const mcp = new McpHttpServer({
+    ...(core.tls ? { tls: core.tls } : {}),
     memory: core.memory,
     changes: core.changes,
     keys: apiKeys,

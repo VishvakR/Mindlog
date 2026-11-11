@@ -5,6 +5,7 @@ import type {
   MindlogConfig,
   MindlogError,
   Result,
+  TlsProvider,
   Tracer,
 } from '@mindlog/core';
 import { SystemRandom, UlidGenerator } from '@mindlog/core';
@@ -65,6 +66,7 @@ export function openBlobStore(config: MindlogConfig, clock: Clock): BlobStore {
  * enrich worker. Model calls run only where a range leads (ADR-0016).
  */
 export function openMemory(deps: {
+  tls?: TlsProvider;
   authorize?: Authorize;
   admit?: (tenant: string, cls: AdmitClass) => Promise<Result<void, MindlogError>>;
   spendModel?: (tenant: string, ms: number) => void;
@@ -84,13 +86,16 @@ export function openMemory(deps: {
   let models: Models;
   let available: (capability: Capability) => boolean;
   if (endpoint) {
-    const guarded = new GuardedModels(new GrpcModels({ address: endpoint, timeoutMs }), {
-      clock,
-      metrics,
-      bus: deps.events,
-      failures: breakerFailures,
-      openMs: breakerOpenMs,
-    });
+    const guarded = new GuardedModels(
+      new GrpcModels({ address: endpoint, timeoutMs, ...(deps.tls ? { tls: deps.tls } : {}) }),
+      {
+        clock,
+        metrics,
+        bus: deps.events,
+        failures: breakerFailures,
+        openMs: breakerOpenMs,
+      },
+    );
     models = deps.spendModel ? meterModels(guarded, clock, deps.spendModel) : guarded;
     available = (c) => guarded.available(c);
   } else {

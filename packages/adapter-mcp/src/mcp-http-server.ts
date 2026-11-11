@@ -1,6 +1,8 @@
+import type { Server as HttpsServer } from 'node:https';
+import { createServer as createHttpsServer } from 'node:https';
 import type { AddressInfo } from 'node:net';
-import type { MindlogError, Result } from '@mindlog/core';
-import { err, mindlogError, ok } from '@mindlog/core';
+import type { MindlogError, Result, TlsProvider } from '@mindlog/core';
+import { err, mindlogError, ok, publicServerTls } from '@mindlog/core';
 import type { ApiKeyIdentity, ChangeFeed } from '@mindlog/services';
 import { createMcpFastifyApp } from '@modelcontextprotocol/fastify';
 import { toNodeHandler } from '@modelcontextprotocol/node';
@@ -23,6 +25,8 @@ export interface McpHttpServerOptions {
   readonly version: string;
   /** Memory changes, sent to `subscriptions/listen` streams as resource updates (PLAN 13.5). */
   readonly changes?: ChangeFeed;
+  /** Serves HTTPS; rotated certificates apply to new connections. */
+  readonly tls?: TlsProvider;
 }
 
 /** The handlers' grouping: subscribers only hear about scopes their key may read. */
@@ -45,6 +49,8 @@ export class McpHttpServer {
     { mcp: ReturnType<typeof createMcpHandler>; node: ReturnType<typeof toNodeHandler> }
   >();
   readonly #unfollow: (() => void) | undefined;
+  #https: HttpsServer | undefined;
+  #stopTls: (() => void) | undefined;
 
   #handler(identity: ApiKeyIdentity) {
     const group = groupOf(identity.tenant, identity.user);
@@ -100,6 +106,7 @@ export class McpHttpServer {
 
   async listen(): Promise<Result<AddressInfo, MindlogError>> {
     try {
+      if (this.#o.tls) return ok(await this.#listenTls(this.#o.tls));
       await this.app.listen({ host: this.#o.host, port: this.#o.port });
       return ok(this.app.server.address() as AddressInfo);
     } catch (cause: unknown) {
@@ -113,7 +120,34 @@ export class McpHttpServer {
     }
   }
 
+  /** The MCP SDK builds a plain-HTTP Fastify app, so HTTPS goes in front of its router. */
+  async #listenTls(tls: TlsProvider): Promise<AddressInfo> {
+    await this.app.ready();
+    const server = createHttpsServer(publicServerTls(tls.identity()), (req, res) => {
+      this.app.routing(req, res);
+    });
+    this.#stopTls = tls.subscribe((i) => {
+      server.setSecureContext(publicServerTls(i));
+    });
+    this.#https = server;
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(this.#o.port, this.#o.host, resolve);
+    });
+    return server.address() as AddressInfo;
+  }
+
   async close(): Promise<void> {
+    this.#stopTls?.();
+    if (this.#https) {
+      const https = this.#https;
+      await new Promise<void>((resolve) => {
+        https.close(() => {
+          resolve();
+        });
+        https.closeAllConnections();
+      });
+    }
     this.#unfollow?.();
     // Ends open listen streams so the HTTP server can close.
     await Promise.all([...this.#handlers.values()].map((h) => h.mcp.close()));

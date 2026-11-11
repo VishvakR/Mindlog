@@ -1,6 +1,14 @@
 import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import type { ClockSync, Clock, Logger, Metrics, MindlogConfig, Tracer } from '@mindlog/core';
+import type {
+  ClockSync,
+  Clock,
+  Logger,
+  Metrics,
+  MindlogConfig,
+  TlsProvider,
+  Tracer,
+} from '@mindlog/core';
 import { SYSTEM_TENANT, SystemRandom } from '@mindlog/core';
 import { InMemoryEventBus } from '@mindlog/eventbus';
 import type { NodeTransport, ReplicaOptions } from '@mindlog/multiraft';
@@ -49,6 +57,8 @@ export interface PdRoleDeps {
   readonly options: ReplicaOptions;
   /** Serve the PD group on `pd.listen` (a cluster PD) instead of staying in this process (single-node). */
   readonly network: boolean;
+  /** Mutual TLS between PD members. */
+  readonly tls?: TlsProvider;
 }
 
 /**
@@ -88,6 +98,7 @@ export async function openPdRole(deps: PdRoleDeps): Promise<PdRole> {
     ? await ConnectTransport.start({
         host: config.pd.listen.host,
         port: config.pd.listen.port,
+        ...(deps.tls ? { tls: deps.tls } : {}),
         ...(advertise ? { advertise } : {}),
         clock: clockSync,
         logger,

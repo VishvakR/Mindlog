@@ -48,6 +48,10 @@ describe('resolveConfig', () => {
           MINDLOG_LISTEN__RESP__TLS: 'true',
           MINDLOG_OBSERVABILITY__TRACING__SAMPLE_RATIO: '0.5',
           MINDLOG_PROFILE: 'production',
+          MINDLOG_TLS__ENABLED: 'true',
+          MINDLOG_TLS__CA: '/etc/mindlog/ca.pem',
+          MINDLOG_TLS__CERT: '/etc/mindlog/node.pem',
+          MINDLOG_TLS__KEY: '/etc/mindlog/node.key',
         },
       }),
     );

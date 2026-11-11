@@ -16,7 +16,9 @@ from model_service.server import serve
 async def run() -> int:
     settings = settings_from_env()
     backends = load_backends(settings)
-    server, port = await serve(backends, settings.host, settings.port, settings.limits)
+    server, port = await serve(
+        backends, settings.host, settings.port, settings.limits, settings.tls
+    )
     print(f"mindlog model service listening on {settings.host}:{port}", flush=True)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

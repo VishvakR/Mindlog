@@ -30,8 +30,15 @@ class Settings:
     models_dir: Path
     host: str
     port: int
+    # (ca, cert, key) for mutual TLS; None serves plaintext on localhost.
+    tls: tuple[str, str, str] | None
     limits: Limits
     extract_gguf: Path | None
+
+
+def _tls_paths(env: Mapping[str, str]) -> tuple[str, str, str] | None:
+    ca, cert, key = (env.get(f"MODEL_SERVICE_TLS_{n}") for n in ("CA", "CERT", "KEY"))
+    return (ca, cert, key) if ca and cert and key else None
 
 
 def settings_from_env(env: Mapping[str, str] = os.environ) -> Settings:
@@ -40,6 +47,7 @@ def settings_from_env(env: Mapping[str, str] = os.environ) -> Settings:
         models_dir=Path(env.get("MODELS_DIR", str(DEFAULT_MODELS_DIR))),
         host=env.get("MODEL_SERVICE_HOST", "127.0.0.1"),
         port=int(env.get("MODEL_SERVICE_PORT", "50051")),
+        tls=_tls_paths(env),
         limits=Limits(
             max_batch=int(env.get("MODEL_BATCH_MAX", "32")),
             max_wait_ms=float(env.get("MODEL_BATCH_WAIT_MS", "5")),

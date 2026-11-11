@@ -9,14 +9,17 @@ const digest = (text: string): Buffer => createHash('sha256').update(text).diges
  */
 export class StaticAuthenticator {
   readonly #expected: Buffer | undefined;
+  readonly #required: boolean;
 
-  constructor(password?: string) {
+  /** `requireAuth` keeps sessions unauthenticated even with no password: only API keys get in. */
+  constructor(password?: string, requireAuth = false) {
     this.#expected = password === undefined ? undefined : digest(password);
+    this.#required = requireAuth || password !== undefined;
   }
 
   /** Whether sessions must authenticate before running commands. */
   get required(): boolean {
-    return this.#expected !== undefined;
+    return this.#required;
   }
 
   verify(username: string, password: string): boolean {

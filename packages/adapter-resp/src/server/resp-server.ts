@@ -1,7 +1,8 @@
 import type { AddressInfo, Server, Socket } from 'node:net';
 import { createServer } from 'node:net';
-import type { Counter, Gauge, MindlogError, Metrics, Result } from '@mindlog/core';
-import { err, mindlogError, ok } from '@mindlog/core';
+import { createServer as createTlsServer } from 'node:tls';
+import type { Counter, Gauge, MindlogError, Metrics, Result, TlsProvider } from '@mindlog/core';
+import { err, mindlogError, ok, publicServerTls } from '@mindlog/core';
 import type { ConnectionCommandRegistry, ServerContext } from '../connection/connection-command.js';
 import type { CloseReason, ConnectionLimits } from '../connection/connection.js';
 import { Connection } from '../connection/connection.js';
@@ -21,6 +22,8 @@ export interface RespServerDeps {
   readonly handlers: ConnectionCommandRegistry;
   readonly metrics: Metrics;
   readonly options: RespServerOptions;
+  /** Serves TLS; rotated certificates apply to new connections. */
+  readonly tls?: TlsProvider;
 }
 
 const MAX_CLIENTS_REPLY = Buffer.from('-ERR max number of clients reached\r\n');
@@ -42,6 +45,7 @@ export class RespServer {
   readonly #rejected: Counter;
   readonly #disconnects: Counter;
   readonly #received: Counter;
+  #stopTls: (() => void) | undefined;
   #closing = false;
 
   constructor(deps: RespServerDeps) {
@@ -68,9 +72,18 @@ export class RespServer {
       name: 'mindlog_resp_received_bytes_total',
       help: 'Bytes received from RESP clients',
     });
-    this.#server = createServer({ noDelay: true }, (socket) => {
+    const tls = deps.tls;
+    const accept = (socket: Socket) => {
+      socket.setNoDelay(true);
       this.#accept(socket);
-    });
+    };
+    if (tls) {
+      const server = createTlsServer(publicServerTls(tls.identity()), accept);
+      this.#stopTls = tls.subscribe((i) => {
+        server.setSecureContext(publicServerTls(i));
+      });
+      this.#server = server;
+    } else this.#server = createServer({ noDelay: true }, accept);
   }
 
   /** Starts listening; resolves with the bound address. */
@@ -105,6 +118,7 @@ export class RespServer {
 
   /** Stops accepting, lets in-flight commands finish, then closes every connection. */
   async close(): Promise<void> {
+    this.#stopTls?.();
     this.#closing = true;
     const stopped = new Promise<void>((resolve) => {
       this.#server.close(() => {

@@ -52,6 +52,13 @@ export { resolveConfig } from './config/resolve-config.js';
 
 export type { LogFields, Logger } from './logging/logger.js';
 export { LOG_LEVELS } from './logging/logger.js';
+export type { TlsIdentity, TlsProvider } from './tls/tls-provider.js';
+export {
+  grpcClientOptions,
+  mutualClientTls,
+  mutualServerTls,
+  publicServerTls,
+} from './tls/tls-provider.js';
 export type { RecentLog } from './logging/recent-logs.js';
 export { RecentLogs } from './logging/recent-logs.js';
 export type { LogEntry } from './logging/memory-logger.js';

@@ -1,8 +1,8 @@
 import type { Client, ConnectRouter } from '@connectrpc/connect';
 import { ConnectError, createClient } from '@connectrpc/connect';
 import { createGrpcTransport } from '@connectrpc/connect-node';
-import type { ClockSync, Hlc, MindlogError, Result } from '@mindlog/core';
-import { err, mindlogError, ok } from '@mindlog/core';
+import type { ClockSync, Hlc, MindlogError, Result, TlsProvider } from '@mindlog/core';
+import { err, grpcClientOptions, mindlogError, ok } from '@mindlog/core';
 import type { ExecuteRequest, KvReply } from '@mindlog/proto';
 import { ExecuteResponseSchema, KvForwardService } from '@mindlog/proto';
 import { create } from '@bufbuild/protobuf';
@@ -29,12 +29,18 @@ export function forwardRoutes(
 export class KvForwarder {
   readonly #clients = new Map<string, Client<typeof KvForwardService>>();
 
+  constructor(private readonly tls?: TlsProvider) {
+    tls?.subscribe(() => {
+      this.#clients.clear();
+    });
+  }
+
   async execute(address: string, request: ExecuteRequest): Promise<Result<KvReply, MindlogError>> {
     let client = this.#clients.get(address);
     if (!client) {
       client = createClient(
         KvForwardService,
-        createGrpcTransport({ baseUrl: `http://${address}` }),
+        createGrpcTransport(grpcClientOptions(address, this.tls)),
       );
       this.#clients.set(address, client);
     }

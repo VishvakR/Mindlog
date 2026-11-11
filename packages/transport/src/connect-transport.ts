@@ -1,5 +1,5 @@
-import { createServer } from 'node:http2';
-import type { Http2Server } from 'node:http2';
+import { createSecureServer, createServer } from 'node:http2';
+import type { Http2SecureServer, Http2Server } from 'node:http2';
 import type { AddressInfo } from 'node:net';
 import type { Client, ConnectRouter } from '@connectrpc/connect';
 import { createClient } from '@connectrpc/connect';
@@ -8,13 +8,16 @@ import {
   connectNodeAdapter,
   createGrpcTransport,
 } from '@connectrpc/connect-node';
-import type { ClockSync, Counter, Hlc, Logger, Metrics } from '@mindlog/core';
+import type { ClockSync, Counter, Hlc, Logger, Metrics, TlsProvider } from '@mindlog/core';
+import { grpcClientOptions, mutualServerTls } from '@mindlog/core';
 import type { NodeInboundHandler, NodeTransport } from '@mindlog/multiraft';
 import type { KeyValue, Message, SendRequest, SnapshotRequest } from '@mindlog/proto';
 import { RaftService } from '@mindlog/proto';
 import { AsyncQueue } from './async-queue.js';
 
 export interface ConnectTransportOptions {
+  /** Mutual TLS between nodes (PLAN 18.4). */
+  readonly tls?: TlsProvider;
   readonly host: string;
   /** 0 binds any free port. */
   readonly port: number;
@@ -48,16 +51,17 @@ interface Peer {
  */
 export class ConnectTransport implements NodeTransport {
   readonly #options: ConnectTransportOptions;
-  readonly #server: Http2Server;
+  readonly #server: Http2Server | Http2SecureServer;
   readonly #peers = new Map<string, Peer>();
   readonly #self: string;
   readonly #dropped: Counter;
   readonly #sent: Counter;
   readonly #inbound: { handler?: NodeInboundHandler };
+  readonly #stopTls: (() => void) | undefined;
 
   private constructor(
     options: ConnectTransportOptions,
-    server: Http2Server,
+    server: Http2Server | Http2SecureServer,
     inbound: { handler?: NodeInboundHandler },
   ) {
     this.#options = options;
@@ -65,6 +69,12 @@ export class ConnectTransport implements NodeTransport {
     this.#inbound = inbound;
     const bound = server.address() as AddressInfo;
     this.#self = options.advertise ?? `${options.host}:${String(bound.port)}`;
+    // Rotation: new connections use the new certificates; live peers reconnect with them.
+    this.#stopTls = options.tls?.subscribe((i) => {
+      (server as Http2SecureServer).setSecureContext(mutualServerTls(i));
+      for (const peer of this.#peers.values()) this.#closePeer(peer);
+      this.#peers.clear();
+    });
     this.#dropped = options.metrics.counter({
       name: 'mindlog_transport_dropped_messages_total',
       help: 'Raft messages dropped because a peer queue was full or unreachable',
@@ -78,34 +88,36 @@ export class ConnectTransport implements NodeTransport {
   /** Starts the server side on the internal listener. */
   static async start(options: ConnectTransportOptions): Promise<ConnectTransport> {
     const inbound: { handler?: NodeInboundHandler } = {};
-    const server = createServer(
-      connectNodeAdapter({
-        routes: (router) => {
-          options.routes?.(router);
-          router.service(RaftService, {
-            send: async (requests: AsyncIterable<SendRequest>) => {
-              for await (const request of requests) {
+    const handler = connectNodeAdapter({
+      routes: (router) => {
+        options.routes?.(router);
+        router.service(RaftService, {
+          send: async (requests: AsyncIterable<SendRequest>) => {
+            for await (const request of requests) {
+              options.clock?.receive(request.fromAddress, request.hlc as Hlc);
+              inbound.handler?.onMessages(request.messages, request.fromAddress);
+            }
+            return {};
+          },
+          snapshot: async (requests: AsyncIterable<SnapshotRequest>) => {
+            let message: Message | undefined;
+            const pairs: KeyValue[] = [];
+            for await (const request of requests) {
+              if (request.hlc !== 0n)
                 options.clock?.receive(request.fromAddress, request.hlc as Hlc);
-                inbound.handler?.onMessages(request.messages, request.fromAddress);
-              }
-              return {};
-            },
-            snapshot: async (requests: AsyncIterable<SnapshotRequest>) => {
-              let message: Message | undefined;
-              const pairs: KeyValue[] = [];
-              for await (const request of requests) {
-                if (request.hlc !== 0n)
-                  options.clock?.receive(request.fromAddress, request.hlc as Hlc);
-                message ??= request.message;
-                pairs.push(...request.pairs);
-              }
-              if (message) inbound.handler?.onSnapshot(message, pairs);
-              return {};
-            },
-          });
-        },
-      }),
-    );
+              message ??= request.message;
+              pairs.push(...request.pairs);
+            }
+            if (message) inbound.handler?.onSnapshot(message, pairs);
+            return {};
+          },
+        });
+      },
+    });
+    const { tls } = options;
+    const server: Http2Server | Http2SecureServer = tls
+      ? createSecureServer(mutualServerTls(tls.identity()), handler)
+      : createServer(handler);
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
       server.listen(options.port, options.host, () => {
@@ -173,11 +185,15 @@ export class ConnectTransport implements NodeTransport {
   #peer(address: string): Peer {
     let peer = this.#peers.get(address);
     if (!peer) {
-      const baseUrl = `http://${address}`;
-      const sessions = new Http2SessionManager(baseUrl);
+      const connection = grpcClientOptions(address, this.#options.tls);
+      const sessions = new Http2SessionManager(
+        connection.baseUrl,
+        undefined,
+        'nodeOptions' in connection ? connection.nodeOptions : undefined,
+      );
       const client = createClient(
         RaftService,
-        createGrpcTransport({ baseUrl, sessionManager: sessions }),
+        createGrpcTransport({ ...connection, sessionManager: sessions }),
       );
       peer = { address, sessions, client, queue: undefined, retryAt: 0 };
       this.#peers.set(address, peer);
@@ -186,6 +202,7 @@ export class ConnectTransport implements NodeTransport {
   }
 
   async close(): Promise<void> {
+    this.#stopTls?.();
     for (const peer of this.#peers.values()) this.#closePeer(peer);
     this.#peers.clear();
     await new Promise<void>((resolve) => {

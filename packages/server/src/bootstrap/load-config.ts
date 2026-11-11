@@ -1,3 +1,4 @@
+import { readFileSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { MindlogConfig, MindlogError, Result } from '@mindlog/core';
@@ -34,9 +35,24 @@ export async function loadConfig(
       return err(mindlogError('CONFIG_INVALID', `cannot read config file ${path}`, { cause }));
     }
   }
-  return resolveConfig({
+  const loose: string[] = [];
+  const readSecret = (secret: string): string => {
+    // Group or world access on a file that holds a secret.
+    if ((statSync(secret).mode & 0o077) !== 0) loose.push(secret);
+    return readFileSync(secret, 'utf8');
+  };
+  const resolved = resolveConfig({
     ...(fileText === undefined ? {} : { fileText }),
     env: inputs.env,
+    readSecret,
     ...(inputs.flags ? { flags: inputs.flags } : {}),
   });
+  if (resolved.ok && resolved.value.profile === 'production' && loose.length > 0)
+    return err(
+      mindlogError(
+        'CONFIG_INVALID',
+        `secret files must be private (chmod 600): ${loose.join(', ')}`,
+      ),
+    );
+  return resolved;
 }

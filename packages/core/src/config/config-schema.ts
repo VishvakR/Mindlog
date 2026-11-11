@@ -334,6 +334,17 @@ export const configSchema = z.strictObject({
       password: z.string().optional(),
     })
     .prefault({}),
+  tls: z
+    .strictObject({
+      // TLS on RESP, HTTP and MCP; mutual TLS between nodes, PD and the model sidecar.
+      enabled: z.boolean().default(false),
+      ca: z.string().min(1).optional(),
+      cert: z.string().min(1).optional(),
+      key: z.string().min(1).optional(),
+      // How often certificate files are checked for rotation.
+      reloadMs: z.number().int().min(10).default(5_000),
+    })
+    .prefault({}),
   profile: z.enum(['dev', 'production']).default('dev'),
 });
 

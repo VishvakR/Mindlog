@@ -12,6 +12,9 @@ const SECRET_KEYS = [
   'privateKey',
   'secretAccessKey',
   'clientSecret',
+  'accessKeyId',
+  'masterKey',
+  'wrappedKey',
 ];
 
 /** pino redact paths: each secret key at the top level and one or two levels down. */

@@ -1,10 +1,11 @@
 import type { AddressInfo } from 'node:net';
+import type { Server as TlsServer } from 'node:tls';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyWebsocket from '@fastify/websocket';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import Fastify from 'fastify';
 import type { MindlogError, Result } from '@mindlog/core';
-import { err, mindlogError, ok } from '@mindlog/core';
+import { err, mindlogError, ok, publicServerTls } from '@mindlog/core';
 import type { HttpServerDeps } from './http-deps.js';
 import { auditAdminChange } from './audit-admin.js';
 import { identityOf } from './identity.js';
@@ -48,10 +49,19 @@ export class HttpServer {
   readonly #deps: HttpServerDeps;
   readonly #routes: AnyRouteSpec[] = [];
   #started: Promise<void> | undefined;
+  readonly #stopTls: (() => void) | undefined;
 
   constructor(deps: HttpServerDeps) {
     this.#deps = deps;
-    this.app = Fastify({ logger: false, bodyLimit: deps.options.bodyLimit });
+    const tls = deps.options.tls;
+    this.app = Fastify({
+      logger: false,
+      bodyLimit: deps.options.bodyLimit,
+      ...(tls ? { https: publicServerTls(tls.identity()) } : {}),
+    });
+    this.#stopTls = tls?.subscribe((i) => {
+      (this.app.server as unknown as TlsServer).setSecureContext(publicServerTls(i));
+    });
   }
 
   /** Registers hooks and routes; `listen` and tests (`app.inject`) call it. */
@@ -198,6 +208,7 @@ export class HttpServer {
 
   /** Stops accepting, closes WebSockets and waits for in-flight requests. */
   async close(): Promise<void> {
+    this.#stopTls?.();
     await this.app.close();
   }
 }

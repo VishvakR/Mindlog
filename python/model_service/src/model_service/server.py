@@ -4,7 +4,8 @@ import asyncio
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 import grpc
 import numpy as np
@@ -257,13 +258,49 @@ def warm_up(backends: Backends) -> None:
         backends.ner.recognize("Warm up", ["person"], DEFAULT_NER_THRESHOLD)
 
 
+def tls_credentials(ca: str, cert: str, key: str) -> grpc.ServerCredentials:
+    """Mutual TLS that picks up rotated files on new connections (PLAN 18.4)."""
+
+    def stamp() -> tuple[float, ...]:
+        return tuple(Path(p).stat().st_mtime for p in (ca, cert, key))
+
+    def load() -> grpc.ServerCertificateConfiguration:
+        return grpc.ssl_server_certificate_configuration(
+            [(Path(key).read_bytes(), Path(cert).read_bytes())],
+            root_certificates=Path(ca).read_bytes(),
+        )
+
+    seen = stamp()
+
+    def fetch() -> grpc.ServerCertificateConfiguration | None:
+        nonlocal seen
+        current = stamp()
+        if current == seen:
+            return None
+        seen = current
+        return load()
+
+    # The stubs omit it, but grpc documents None as "keep the current certificates".
+    fetcher = cast(Callable[[], grpc.ServerCertificateConfiguration], fetch)
+    return grpc.dynamic_ssl_server_credentials(load(), fetcher, require_client_authentication=True)
+
+
 async def serve(
-    backends: Backends, host: str, port: int, limits: Limits
+    backends: Backends,
+    host: str,
+    port: int,
+    limits: Limits,
+    tls: tuple[str, str, str] | None = None,
 ) -> tuple[grpc.aio.Server, int]:
     """Warms the models up, then starts the server; returns it and the bound port."""
     await asyncio.get_running_loop().run_in_executor(None, warm_up, backends)
     server = grpc.aio.server()
     models_pb2_grpc.add_ModelsServiceServicer_to_server(ModelsServicer(backends, limits), server)
-    bound = server.add_insecure_port(f"{host}:{port}")
+    address = f"{host}:{port}"
+    bound = (
+        server.add_secure_port(address, tls_credentials(*tls))
+        if tls
+        else server.add_insecure_port(address)
+    )
     await server.start()
     return server, bound

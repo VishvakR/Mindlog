@@ -9,6 +9,7 @@ import type {
   MindlogConfig,
   MindlogError,
   Result,
+  TlsProvider,
   Tracer,
 } from '@mindlog/core';
 import {
@@ -80,7 +81,9 @@ import {
   writeTombstone,
 } from '@mindlog/statemachine';
 import { GroupCommitStore, LevelDbStore } from '@mindlog/storage';
+import type { TlsFiles } from '@mindlog/transport';
 import { ConnectTransport, KvForwarder, forwardRoutes } from '@mindlog/transport';
+import { openTls } from './open-tls.js';
 import {
   lockGuard,
   txnCheckHandler,
@@ -108,6 +111,8 @@ export interface NodeCore {
   /** Where the composition root plugs in the tenant registry's checks. */
   readonly access: AccessPorts;
   readonly audit: AuditService;
+  /** This node's certificates; undefined when TLS is off. */
+  readonly tls: TlsFiles | undefined;
   readonly dataDir: string;
   readonly machine: StateMachine;
   /** The range replica: the Proposer and ReadBarrier of this node. */
@@ -165,10 +170,15 @@ async function openStores(dataDir: string) {
 function pdClientFor(
   config: MindlogConfig,
   pd: PdRole | undefined,
+  tls: TlsProvider | undefined,
 ): (PdClient & PdAdmin) | undefined {
-  if (config.cluster.pdEndpoints.length > 0) return new ConnectPdClient(config.cluster.pdEndpoints);
+  if (config.cluster.pdEndpoints.length > 0)
+    return new ConnectPdClient(config.cluster.pdEndpoints, tls);
   if (config.pd.enabled && config.pd.peers.length > 0)
-    return new ConnectPdClient(config.pd.peers.map((p) => p.address));
+    return new ConnectPdClient(
+      config.pd.peers.map((p) => p.address),
+      tls,
+    );
   return pd?.client;
 }
 
@@ -228,6 +238,9 @@ export async function openNodeCore(
       }),
     );
   }
+  const opened = openTls(config, logger);
+  if (!opened.ok) return opened;
+  const tls = opened.value;
   const dataDir = resolve(config.node.dataDir);
   const stores = await openStores(dataDir);
   if (!stores.ok) {
@@ -335,6 +348,7 @@ export async function openNodeCore(
       transport = await ConnectTransport.start({
         host: config.listen.internal.host,
         port: config.listen.internal.port,
+        ...(tls ? { tls } : {}),
         ...(advertise ? { advertise } : {}),
         clock: clockSync,
         logger,
@@ -419,8 +433,9 @@ export async function openNodeCore(
         stamper,
         options,
         network: !single,
+        ...(tls ? { tls } : {}),
       });
-    client = pdClientFor(config, pd);
+    client = pdClientFor(config, pd, tls);
     if (client) {
       agent = new PdAgent(store, client, new SystemScheduler(), {
         node: {
@@ -460,7 +475,7 @@ export async function openNodeCore(
     ...(client ? { pd: client } : {}),
     nodes: () => agent?.nodes ?? new Map(),
     clock,
-    send: connectForwardCall(new KvForwarder(), clockSync, () => transport?.self ?? ''),
+    send: connectForwardCall(new KvForwarder(tls), clockSync, () => transport?.self ?? ''),
   });
   // Filled in by startNode: the tenant registry is built on the KV service it authorizes.
   const access = new AccessPorts();
@@ -473,7 +488,7 @@ export async function openNodeCore(
     ...(txnOn && client ? { tso: () => gatedTso(client, clusterVersion) } : {}),
     stamper,
     clock,
-    authenticator: new StaticAuthenticator(config.auth.password),
+    authenticator: new StaticAuthenticator(config.auth.password, config.profile === 'production'),
     metrics,
     tracer,
     maxTransactionCommands: config.limits.maxTransactionCommands,
@@ -483,6 +498,7 @@ export async function openNodeCore(
     acquireConnection: (tenant) => access.acquireConnection(tenant),
   });
   const memory = openMemory({
+    ...(tls ? { tls } : {}),
     config,
     state: stateStore,
     events,
@@ -547,6 +563,7 @@ export async function openNodeCore(
     stateStore,
     access,
     audit,
+    tls,
     service,
     memory: memory.service,
     changes: memory.changes,
@@ -554,6 +571,7 @@ export async function openNodeCore(
     workers: memory.workers,
     replayed: Number(machine.appliedIndex - before),
     async close() {
+      tls?.stop();
       await agent?.stop();
       await started.close();
       await pd?.close();

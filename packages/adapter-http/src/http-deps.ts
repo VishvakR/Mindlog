@@ -3,7 +3,7 @@ import type {
   ConnectionLimits,
   ServerContext,
 } from '@mindlog/adapter-resp';
-import type { Clock, Logger, Metrics, RecentLog, Tracer } from '@mindlog/core';
+import type { Clock, Logger, Metrics, RecentLog, TlsProvider, Tracer } from '@mindlog/core';
 import type {
   AccessControl,
   AdminService,
@@ -28,6 +28,8 @@ export interface HttpServerOptions {
   readonly port: number;
   /** Largest accepted request body. */
   readonly bodyLimit: number;
+  /** Serves HTTPS; rotated certificates apply to new connections. */
+  readonly tls?: TlsProvider;
 }
 
 export interface HttpServerDeps {

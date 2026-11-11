@@ -7,6 +7,7 @@ Node-to-node Raft messaging over Connect's gRPC protocol on HTTP/2 (ADR-0025, la
 | Export | Purpose |
 |---|---|
 | `ConnectTransport.start(options)` | Starts the `mindlog.v1.RaftService` server and returns the transport. Also `address`, `self` (the advertised address), `close()` |
+| `TlsFiles` | The node's CA, certificate and key from files, checked every `tls.reloadMs`; subscribers get a rotated set only after it loads. Pass it as `tls` to turn on mutual TLS |
 
 ## Behaviour
 

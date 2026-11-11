@@ -287,6 +287,7 @@ describe('admin and OpenAPI', () => {
       '/api/tenants',
       '/api/tenants/{tenant}',
       '/api/tenants/{tenant}/audit',
+      '/api/tenants/{tenant}/export',
       '/api/tenants/{tenant}/keys',
       '/api/tenants/{tenant}/keys/{id}',
       '/api/tenants/{tenant}/members',

@@ -6,6 +6,7 @@ import type { MemoryReads } from '../read/memory-reads.js';
 import type { VectorCache } from '../vector-cache.js';
 import { matchesScope } from '../recall/scope-filter.js';
 import { conflictStage } from './conflict-stage.js';
+import { redact, redactValue } from './redact.js';
 import type { DraftFact, IngestDraft } from './draft.js';
 import type { ConflictConfig } from './conflicts.js';
 import type { TrustPolicy } from './text.js';
@@ -28,6 +29,21 @@ const fact = (text: string, kind: MemoryKind): DraftFact => ({
   links: [],
   trust: 'normal',
 });
+
+/** Stage 2: the text and everything stored beside it that a caller wrote (tags, metadata). */
+function redactDraft(d: IngestDraft): IngestDraft {
+  if (d.redact.length === 0) return d;
+  const { tags, meta } = d.input;
+  return {
+    ...d,
+    text: redact(d.text, d.redact),
+    input: {
+      ...d.input,
+      ...(tags ? { tags: tags.map((t) => redact(t, d.redact)) } : {}),
+      ...(meta ? { meta: redactValue(meta, d.redact) as Record<string, unknown> } : {}),
+    },
+  };
+}
 
 const mapFacts = (d: IngestDraft, f: (x: DraftFact, i: number) => DraftFact): IngestDraft => ({
   ...d,
@@ -64,6 +80,7 @@ export function ingestStages(
         return Promise.resolve(ok({ ...d, text }));
       },
     },
+    { name: 'redact', run: (d) => Promise.resolve(ok(redactDraft(d))) },
     { name: 'chunk', run: (d) => Promise.resolve(ok({ ...d, passages: chunk(d.text) })) },
     {
       name: 'extract',

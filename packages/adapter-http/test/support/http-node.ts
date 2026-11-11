@@ -122,7 +122,10 @@ export async function httpNode(
   };
   const tenants = new TenantService({ service: kv, clock });
   const access = new AccessControl(tenants);
-  ports.attach(access.check, () => Promise.reject(new Error('no API keys in this harness')));
+  ports.attach({
+    authorize: access.check,
+    verify: () => Promise.reject(new Error('no API keys in this harness')),
+  });
   const http = new HttpServer({
     admin,
     tenants,

@@ -64,10 +64,21 @@ export interface Quotas {
 
 export interface TenantInfo {
   name: string;
-  status: 'active' | 'deleting';
+  status: 'active' | 'deleting' | 'deleted';
   created: string;
+  deletingAt?: string;
   quotas: Quotas;
+  redaction: { enabled: boolean; kinds: string[] };
   auditRetentionDays: number;
+}
+
+export interface ExportState {
+  id: string;
+  status: 'running' | 'done' | 'failed';
+  startedAt: number;
+  finishedAt?: number;
+  bytes?: number;
+  error?: string;
 }
 
 export interface TenantKey {
@@ -302,6 +313,23 @@ export const api = {
       }`,
     ),
   logs: () => request<{ entries: LogEntry[] }>('GET', '/admin/logs'),
+  tenantSettings: (tenant: string, settings: { redaction: { enabled: boolean } }) =>
+    request<TenantInfo>('PATCH', `/tenants/${encodeURIComponent(tenant)}`, settings),
+  tenantDelete: (tenant: string) =>
+    request<TenantInfo>('DELETE', `/tenants/${encodeURIComponent(tenant)}`),
+  tenantExport: (tenant: string) =>
+    request<ExportState | null>('GET', `/tenants/${encodeURIComponent(tenant)}/export`),
+  tenantStartExport: (tenant: string) =>
+    request<ExportState>('POST', `/tenants/${encodeURIComponent(tenant)}/export`),
+  /** The finished archive, fetched with the session's token (a plain link would carry none). */
+  async tenantArchive(tenant: string): Promise<Blob> {
+    const token = session.token();
+    const res = await fetch(`/api/tenants/${encodeURIComponent(tenant)}/export/archive`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`download failed (${String(res.status)})`);
+    return res.blob();
+  },
   overview: () => request<Record<string, unknown>>('GET', '/admin/overview'),
   settings: () => request<Record<string, unknown>>('GET', '/admin/settings'),
   cluster: () => request<ClusterOverview>('GET', '/cluster/overview'),

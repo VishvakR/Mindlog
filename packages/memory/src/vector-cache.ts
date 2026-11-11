@@ -72,6 +72,12 @@ export class VectorCache {
       const body = command.body;
       // Branch writes live in their own space (ADR-0013); main's index ignores them.
       if (command.branch !== '' && command.branch !== 'main') return;
+      if (body.case === 'tenantPurge') {
+        // A deleted tenant: nothing of it may linger here, nor meet a namesake's generation numbers.
+        for (const key of this.#entries.keys())
+          if (key.startsWith(`${body.value.tenant}\u0000`)) this.#entries.delete(key);
+        return;
+      }
       if (
         body.case === 'memoryTrust' ||
         body.case === 'conflictResolve' ||

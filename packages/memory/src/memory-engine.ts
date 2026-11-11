@@ -31,6 +31,7 @@ import { RecallStats } from './recall/recall-stats.js';
 import type { EngineCore } from './lifecycle-ops.js';
 import { LifecycleOps } from './lifecycle-ops.js';
 import { CubeOps } from './cube/cube-ops.js';
+import type { RedactionKind } from './ingest/redact.js';
 import { fromToolTrace } from './ingest/tool-trace.js';
 import type { ScopeReads } from './read/memory-reads.js';
 import { MemoryReads } from './read/memory-reads.js';
@@ -156,8 +157,20 @@ export class MemoryEngine {
     return ok(proposed.value.result);
   }
 
-  async #ingest(range: MemoryRange, input: RememberInput, available?: (c: Capability) => boolean) {
-    const draft: IngestDraft = { input, text: '', passages: [], facts: [], embeddingModel: '' };
+  async #ingest(
+    range: MemoryRange,
+    input: RememberInput,
+    available?: (c: Capability) => boolean,
+    redact: readonly RedactionKind[] = [],
+  ) {
+    const draft: IngestDraft = {
+      input,
+      redact,
+      text: '',
+      passages: [],
+      facts: [],
+      embeddingModel: '',
+    };
     const reads = new MemoryReads(range.reader, input.scope.tenant, input.scope.user);
     const stages = ingestStages(this.#d.models, this.#d.vectors, reads, this.#config);
     return runStages(stages, draft, this.#context('ingest', available));
@@ -314,7 +327,12 @@ export class MemoryEngine {
             mindlogError('INVALID_ARGUMENT', 'async remember is not available on a branch'),
           );
         // Async: store the raw passages now (model stages forced to their fallbacks), enrich in a job.
-        const run = await this.#ingest(range, input, input.async ? () => false : undefined);
+        const run = await this.#ingest(
+          range,
+          input,
+          input.async ? () => false : undefined,
+          context.redact,
+        );
         if (!run.ok) return run;
         const { draft, degraded } = run.value;
         // Branch memories are not enriched: the job would write to main.
@@ -343,7 +361,8 @@ export class MemoryEngine {
                     ...(input.scope.agent ? { agent: input.scope.agent } : {}),
                     ...(input.scope.session ? { session: input.scope.session } : {}),
                     ...(input.source ? { source: input.source } : {}),
-                    ...(input.tags ? { tags: input.tags } : {}),
+                    // From the draft: stage 2 may have redacted them.
+                    ...(draft.input.tags ? { tags: draft.input.tags } : {}),
                   }),
                 ],
                 ...(input.derivedFrom ? { derivedFrom: input.derivedFrom } : {}),

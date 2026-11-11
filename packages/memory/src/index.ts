@@ -8,6 +8,8 @@ export { memoryMaintainHandler, memoryRecallStatsHandler } from './apply/lifecyc
 export type { ColdEntry, EncodedSegment } from './cold-segment.js';
 export { STUB_CHARS, decodeSegment, encodeSegment, segmentKey, stubText } from './cold-segment.js';
 export { traceText } from './ingest/tool-trace.js';
+export type { RedactionKind } from './ingest/redact.js';
+export { REDACTION_KINDS, redact, redactValue } from './ingest/redact.js';
 export { vectorBytes } from './ingest/assemble.js';
 export { decodeVector } from './vector-cache.js';
 export type { LifecycleJob } from './lifecycle.js';

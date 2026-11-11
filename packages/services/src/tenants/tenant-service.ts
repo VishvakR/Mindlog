@@ -20,6 +20,18 @@ const encoder = new TextEncoder();
 const DEFAULT_RETENTION_DAYS = 90;
 const NO_REDACTION: Redaction = { enabled: false, kinds: [] };
 
+/** The latest export of a tenant (PLAN 24 phase 10). */
+export interface ExportState {
+  readonly id: string;
+  readonly status: 'running' | 'done' | 'failed';
+  readonly startedAt: number;
+  readonly finishedAt?: number;
+  /** Blob key of the archive once done. */
+  readonly blob?: string;
+  readonly bytes?: number;
+  readonly error?: string;
+}
+
 /** A registered tenant plus its replicated policy rows, as request paths read them. */
 export interface TenantRecord {
   readonly info: TenantInfo;
@@ -69,8 +81,9 @@ export class TenantService {
     return {
       info: {
         name: row.name ?? '',
-        status: row.status === 'deleting' ? 'deleting' : 'active',
+        status: row.status === 'deleting' || row.status === 'deleted' ? row.status : 'active',
         created: new Date(Number(row.created ?? 0)).toISOString(),
+        ...(row.deletingAt ? { deletingAt: new Date(Number(row.deletingAt)).toISOString() } : {}),
         quotas: json<Quotas>(row.quotas, {}),
         redaction: json<Redaction>(row.redaction, NO_REDACTION),
         auditRetentionDays: Number(row.auditRetentionDays ?? DEFAULT_RETENTION_DAYS),
@@ -204,18 +217,28 @@ export class TenantService {
   }
 
   /** Marks a tenant as being deleted: its requests are refused from now on. */
-  markDeleting(name: string): Promise<Result<TenantInfo, MindlogError>> {
-    return this.#patch(name, ['status', 'deleting']);
+  async markDeleting(name: string): Promise<Result<TenantInfo, MindlogError>> {
+    const current = await this.get(name);
+    if (!current.ok) return current;
+    if (current.value.status !== 'active') return ok(current.value);
+    return this.#patch(name, ['status', 'deleting', 'deletingAt', String(this.deps.clock.now())]);
   }
 
-  /** Drops the row once a tenant's data is gone. */
-  async remove(name: string): Promise<Result<void, MindlogError>> {
-    const session = this.#session();
-    for (const args of [['MULTI'], ['DEL', rowKey(name)], ['SREM', INDEX, name], ['EXEC']]) {
-      const reply = await this.#run(session, ...args);
-      if (!reply.ok) return reply;
-    }
-    this.#cache.delete(name);
-    return ok(undefined);
+  /** Records that every row of the tenant is gone. The name stays taken. */
+  markDeleted(name: string): Promise<Result<TenantInfo, MindlogError>> {
+    return this.#patch(name, ['status', 'deleted']);
+  }
+
+  /** Stores the state of the tenant's latest export. */
+  async setExport(name: string, state: ExportState): Promise<Result<void, MindlogError>> {
+    const saved = await this.#patch(name, ['export', JSON.stringify(state)]);
+    return saved.ok ? ok(undefined) : saved;
+  }
+
+  async exportState(name: string): Promise<Result<ExportState | undefined, MindlogError>> {
+    const reply = await this.#run(this.#session(), 'HGET', rowKey(name), 'export');
+    if (!reply.ok) return reply;
+    const [text] = strings(reply.value);
+    return ok(text ? (JSON.parse(text) as ExportState) : undefined);
   }
 }

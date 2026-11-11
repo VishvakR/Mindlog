@@ -2,6 +2,7 @@ import type { Access } from '@mindlog/auth';
 import { decide } from '@mindlog/auth';
 import type { MindlogError, Result } from '@mindlog/core';
 import { err, isUserTenant, mindlogError, ok } from '@mindlog/core';
+import type { RedactionKind } from '@mindlog/memory';
 import type { AuditEvent } from '../audit/audit-service.js';
 import type { Authorize } from './authorize.js';
 import type { AdmitClass, TenantGovernor } from './governor.js';
@@ -24,8 +25,9 @@ export class AccessControl {
     if (!access) return err(mindlogError('UNAUTHENTICATED', 'Missing or invalid auth token.'));
     const tenant = await this.tenants.cached(resource.tenant);
     if (!tenant.ok) return tenant;
-    if (tenant.value?.info.status === 'deleting' && access.role !== 'superuser')
-      return err(mindlogError('PERMISSION_DENIED', `tenant ${resource.tenant} is being deleted`));
+    const status = tenant.value?.info.status ?? 'active';
+    if (status !== 'active' && access.role !== 'superuser')
+      return err(mindlogError('PERMISSION_DENIED', `tenant ${resource.tenant} is ${status}`));
     const decision = decide(access, action, resource, tenant.value?.policies ?? []);
     if (decision.allow) return ok(undefined);
     // A reserved tenant has no audit family a caller could read; drop those.
@@ -46,56 +48,61 @@ export type VerifyApiKey = (
   key: string,
 ) => Promise<Result<{ access: Access; tenant: string }, MindlogError>>;
 
+/** What the composition root plugs in once the tenant registry exists. */
+export interface TenantPorts {
+  readonly authorize: Authorize;
+  readonly verify: VerifyApiKey;
+  readonly governor?: TenantGovernor;
+  readonly tenant?: (name: string) => Promise<Result<TenantRecord | undefined, MindlogError>>;
+  readonly retention?: () => Promise<ReadonlyArray<{ name: string; days: number }>>;
+}
+
 /**
  * Late-bound authorization for the services the tenant registry itself is built
  * on. Refuses everything until the composition root attaches the real check.
  */
 export class AccessPorts {
-  #authorize: Authorize | undefined;
-  #verify: VerifyApiKey | undefined;
-  #governor: TenantGovernor | undefined;
-  #retention: (() => Promise<ReadonlyArray<{ name: string; days: number }>>) | undefined;
+  #ports: TenantPorts | undefined;
 
-  attach(
-    authorize: Authorize,
-    verify: VerifyApiKey,
-    governor?: TenantGovernor,
-    retention?: () => Promise<ReadonlyArray<{ name: string; days: number }>>,
-  ): void {
-    this.#authorize = authorize;
-    this.#verify = verify;
-    this.#governor = governor;
-    this.#retention = retention;
-  }
-
-  admit(tenant: string, cls: AdmitClass): Promise<Result<void, MindlogError>> {
-    return this.#governor ? this.#governor.admit(tenant, cls) : Promise.resolve(ok(undefined));
-  }
-
-  /** Each registered tenant's audit retention, for the expiry sweep. */
-  async tenantRetention(): Promise<ReadonlyArray<{ name: string; days: number }>> {
-    return this.#retention ? this.#retention() : [];
-  }
-
-  acquireConnection(tenant: string): Promise<Result<() => void, MindlogError>> {
-    return this.#governor
-      ? this.#governor.acquireConnection(tenant)
-      : Promise.resolve(ok(() => undefined));
-  }
-
-  spendModel(tenant: string, ms: number): void {
-    void this.#governor?.spendModel(tenant, ms);
+  attach(ports: TenantPorts): void {
+    this.#ports = ports;
   }
 
   authorize(...args: Parameters<Authorize>): ReturnType<Authorize> {
-    return this.#authorize
-      ? this.#authorize(...args)
+    return this.#ports
+      ? this.#ports.authorize(...args)
       : Promise.resolve(err(mindlogError('PERMISSION_DENIED', 'authorization is not ready')));
   }
 
   verify(key: string): ReturnType<VerifyApiKey> {
-    return this.#verify
-      ? this.#verify(key)
+    return this.#ports
+      ? this.#ports.verify(key)
       : Promise.resolve(err(mindlogError('UNAUTHENTICATED', 'API keys are not ready')));
+  }
+
+  admit(tenant: string, cls: AdmitClass): Promise<Result<void, MindlogError>> {
+    const governor = this.#ports?.governor;
+    return governor ? governor.admit(tenant, cls) : Promise.resolve(ok(undefined));
+  }
+
+  /** What the tenant's memories are redacted for; none until the registry is attached. */
+  async redaction(tenant: string): Promise<readonly RedactionKind[]> {
+    const record = await this.#ports?.tenant?.(tenant);
+    const policy = record?.ok ? record.value?.info.redaction : undefined;
+    return policy?.enabled ? policy.kinds : [];
+  }
+
+  /** Each registered tenant's audit retention, for the expiry sweep. */
+  async tenantRetention(): Promise<ReadonlyArray<{ name: string; days: number }>> {
+    return (await this.#ports?.retention?.()) ?? [];
+  }
+
+  acquireConnection(tenant: string): Promise<Result<() => void, MindlogError>> {
+    const governor = this.#ports?.governor;
+    return governor ? governor.acquireConnection(tenant) : Promise.resolve(ok(() => undefined));
+  }
+
+  spendModel(tenant: string, ms: number): void {
+    void this.#ports?.governor?.spendModel(tenant, ms);
   }
 }

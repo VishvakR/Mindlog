@@ -1,4 +1,5 @@
 import type { MemoryKind, MemoryLinkView, RememberInput, Trust } from '../types.js';
+import type { RedactionKind } from './redact.js';
 
 // The ingestion draft the stages fill in (PLAN 12.3).
 
@@ -16,6 +17,8 @@ export interface DraftFact {
 /** What the ingestion stages fill in, in order (PLAN 12.3). */
 export interface IngestDraft {
   readonly input: RememberInput;
+  /** What stage 2 masks; empty when the tenant has no redaction policy. */
+  readonly redact: readonly RedactionKind[];
   readonly text: string;
   readonly passages: readonly string[];
   readonly facts: readonly DraftFact[];

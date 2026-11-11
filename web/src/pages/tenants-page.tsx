@@ -1,7 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, KeyRound, Plus, Trash2, Users } from 'lucide-react';
+import {
+  Archive,
+  Building2,
+  Download,
+  KeyRound,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +49,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { Quotas, TenantInfo } from '@/lib/api';
 import { api, session } from '@/lib/api';
 
@@ -409,6 +429,160 @@ function Members({ tenant }: { tenant: string }) {
   );
 }
 
+/** Redaction, export and deletion: what the tenant's data may contain, and its way out. */
+function TenantData({ tenant, operator }: { tenant: TenantInfo; operator: boolean }) {
+  const client = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const refresh = () => void client.invalidateQueries({ queryKey: ['tenants'] });
+  const exported = useQuery({
+    queryKey: ['tenant-export', tenant.name],
+    queryFn: () => api.tenantExport(tenant.name),
+    refetchInterval: (q) => (q.state.data?.status === 'running' ? 2_000 : false),
+  });
+  const redaction = useMutation({
+    mutationFn: (enabled: boolean) => api.tenantSettings(tenant.name, { redaction: { enabled } }),
+    onSuccess: () => {
+      toast.success('Redaction policy saved');
+      refresh();
+    },
+    onError: failed,
+  });
+  const start = useMutation({
+    mutationFn: () => api.tenantStartExport(tenant.name),
+    onSuccess: () => void client.invalidateQueries({ queryKey: ['tenant-export', tenant.name] }),
+    onError: failed,
+  });
+  const download = useMutation({
+    mutationFn: () => api.tenantArchive(tenant.name),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${tenant.name}-export.ndjson.gz`;
+      link.click();
+      URL.revokeObjectURL(url);
+    },
+    onError: failed,
+  });
+  const remove = useMutation({
+    mutationFn: () => api.tenantDelete(tenant.name),
+    onSuccess: () => {
+      toast.success(`${tenant.name} will be purged after the grace period`);
+      refresh();
+    },
+    onError: failed,
+  });
+  const state = exported.data;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ShieldCheck className="size-4" /> Data
+        </CardTitle>
+        <CardDescription>
+          Mask personal data in new memories, take everything out, or delete the tenant.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">PII redaction</span>
+            <span className="text-xs text-muted-foreground">
+              Emails, phone numbers, ID numbers and cards become placeholders before storage.
+            </span>
+          </div>
+          <ToggleGroup
+            aria-label="PII redaction"
+            value={[tenant.redaction.enabled ? 'on' : 'off']}
+            onValueChange={(v) => {
+              const next = v[0];
+              if (next) redaction.mutate(next === 'on');
+            }}
+          >
+            <ToggleGroupItem value="off">Off</ToggleGroupItem>
+            <ToggleGroupItem value="on">On</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">Export</span>
+            <span className="text-xs text-muted-foreground">
+              {state
+                ? state.status === 'done'
+                  ? `Ready: ${formatBytes(state.bytes ?? 0)}, ${new Date(state.finishedAt ?? 0).toLocaleString()}`
+                  : state.status === 'running'
+                    ? 'Running…'
+                    : `Failed: ${state.error ?? 'unknown error'}`
+                : 'KV keys, collections, memories and files, as one gzipped NDJSON archive.'}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={start.isPending || state?.status === 'running'}
+              onClick={() => {
+                start.mutate();
+              }}
+            >
+              <Archive /> Export
+            </Button>
+            {state?.status === 'done' && (
+              <Button
+                disabled={download.isPending}
+                onClick={() => {
+                  download.mutate();
+                }}
+              >
+                <Download /> Download
+              </Button>
+            )}
+          </div>
+        </div>
+        {operator && tenant.status === 'active' && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 p-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">Delete this tenant</span>
+              <span className="text-xs text-muted-foreground">
+                Its requests are refused at once; its data is purged after the grace period, and its
+                keys are destroyed. This cannot be undone afterwards.
+              </span>
+            </div>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirming(true);
+              }}
+            >
+              <Trash2 /> Delete
+            </Button>
+          </div>
+        )}
+      </CardContent>
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {tenant.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every key, memory, record and file of this tenant will be purged, and the name cannot
+              be used again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                remove.mutate();
+              }}
+            >
+              Delete tenant
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  );
+}
+
 function TenantDetail({ tenant, operator }: { tenant: TenantInfo; operator: boolean }) {
   const usage = useQuery({
     queryKey: ['tenant-usage', tenant.name],
@@ -422,7 +596,11 @@ function TenantDetail({ tenant, operator }: { tenant: TenantInfo; operator: bool
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {tenant.name}
-            {tenant.status === 'deleting' && <Badge variant="destructive">being deleted</Badge>}
+            {tenant.status !== 'active' && (
+              <Badge variant="destructive">
+                {tenant.status === 'deleting' ? 'being deleted' : 'deleted'}
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription>Usage is approximate and refreshes every 30 seconds.</CardDescription>
         </CardHeader>
@@ -446,6 +624,7 @@ function TenantDetail({ tenant, operator }: { tenant: TenantInfo; operator: bool
           {operator && <QuotaEditor key={tenant.name} tenant={tenant} />}
         </CardContent>
       </Card>
+      <TenantData tenant={tenant} operator={operator} />
       <ApiKeys tenant={tenant.name} />
       <Members tenant={tenant.name} />
     </div>

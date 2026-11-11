@@ -1,3 +1,4 @@
+import type { RedactionKind } from './ingest/redact.js';
 import type { KvReader } from '@mindlog/storage';
 import type { Proposer } from '@mindlog/statemachine';
 import type { PackGroup } from './recall/pack.js';
@@ -39,6 +40,8 @@ export interface MemoryScope {
 export interface CallContext {
   readonly principal: string;
   readonly requestId?: Uint8Array;
+  /** The tenant's redaction policy, looked up by the service before ingestion. */
+  readonly redact?: readonly RedactionKind[];
 }
 
 /** One range as the engine uses it: propose to it, read its applied state. */

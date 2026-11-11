@@ -56,7 +56,8 @@ import {
 } from '@mindlog/multiraft';
 import { ConnectPdClient } from '@mindlog/pd';
 import { StoreRouter, connectForwardCall, fromRequest } from '@mindlog/router';
-import type { ChangeFeed, MemoryService, PdAdmin } from '@mindlog/services';
+import type { KvReply } from '@mindlog/proto';
+import type { ChangeFeed, MemoryService, PdAdmin, RangeCall, RangeRouter } from '@mindlog/services';
 import {
   AccessPorts,
   AUDIT_OP_PREFIX,
@@ -71,6 +72,7 @@ import {
   auditExpireHandler,
   auditOutboxAckHandler,
   auditRangeHooks,
+  tenantPurgeHandler,
   ApplyHandlerRegistry,
   CommandStamper,
   RaftLogStore,
@@ -109,10 +111,17 @@ export interface CoreDeps {
 /** Storage, the range replica, the state machine and the KV service, without client listeners. */
 const AUDIT_TICK_MS = 1_000;
 
+/** Runs a call another node forwarded to this node's replica of a range. */
+export type ForwardHandler = (rangeId: bigint, call: RangeCall) => Promise<KvReply>;
+
 export interface NodeCore {
   /** Where the composition root plugs in the tenant registry's checks. */
   readonly access: AccessPorts;
   readonly audit: AuditService;
+  /** Finds the range of a key and reaches it, here or on another node (ADR-0029). */
+  readonly router: RangeRouter;
+  /** Forwarded calls by op prefix, for services the composition root builds later. */
+  readonly forwardHandlers: Map<string, ForwardHandler>;
   /** This node's certificates; undefined when TLS is off. */
   readonly tls: TlsFiles | undefined;
   readonly dataDir: string;
@@ -279,6 +288,7 @@ export async function openNodeCore(
     auditAppendHandler,
     auditExpireHandler,
     auditOutboxAckHandler,
+    tenantPurgeHandler,
     // The semantic cache (ADR-0012): every v6 binary applies it; proposing waits for cluster version 6.
     cacheSetHandler(liveMemory),
     cacheInvalidateHandler,
@@ -333,6 +343,7 @@ export async function openNodeCore(
     });
   const machine = await openMachine(1n);
   const before = machine.appliedIndex;
+  const forwardHandlers = new Map<string, ForwardHandler>();
   // One fsync per turn for the log appends of every range (PLAN 8.2).
   const groupLog = new GroupCommitStore(logStore);
   const log = new RaftLogStore(groupLog);
@@ -378,6 +389,11 @@ export async function openNodeCore(
                 forwarded.caller,
                 forwarded.call,
               );
+            if (forwarded.call.kind === 'memory') {
+              const call = forwarded.call;
+              const extra = [...forwardHandlers].find(([prefix]) => call.op.startsWith(prefix));
+              if (extra) return extra[1](forwarded.rangeId, call);
+            }
             if (forwarded.call.kind === 'memory' && forwarded.call.op.startsWith(AUDIT_OP_PREFIX))
               return running.audit
                 ? running.audit.forwarded(forwarded.rangeId, forwarded.call)
@@ -521,6 +537,7 @@ export async function openNodeCore(
     tracer,
     authorize: (a, action, resource) => access.authorize(a, action, resource),
     admit: (tenant, cls) => access.admit(tenant, cls),
+    redaction: (tenant) => access.redaction(tenant),
     spendModel: (tenant, ms) => {
       access.spendModel(tenant, ms);
     },
@@ -574,6 +591,8 @@ export async function openNodeCore(
     sizer,
     access,
     audit,
+    router,
+    forwardHandlers,
     tls,
     service,
     memory: memory.service,

@@ -9,6 +9,7 @@
 # SIM_LIFE=1 scripts/sim.sh ... adds the memory lifecycle (recall stats, cold tier moves, evolve, pin; phase 8).
 # SIM_COLL=1 scripts/sim.sh ... adds the collections workload (records with a unique index; phase 9).
 # SIM_ENC=1 scripts/sim.sh ... encrypts every node's stores at rest (phase 10).
+# SIM_TENANT=1 scripts/sim.sh ... adds the tenant deletion workload (purge under faults; phase 10).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SEEDS=${1:-10000}

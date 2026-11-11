@@ -29,6 +29,7 @@ import type {
   LifecycleJob,
   LifecycleView,
 } from '@mindlog/memory';
+import type { RedactionKind } from '@mindlog/memory';
 import { scopeKey, toJobView, toLifecycleView } from '@mindlog/memory';
 import type { KvReply } from '@mindlog/proto';
 import { JobState } from '@mindlog/proto';
@@ -122,6 +123,8 @@ export interface MemoryServiceDeps {
   readonly authorize?: Authorize;
   /** Per-tenant admission (PLAN 18.3). */
   readonly admit?: (tenant: string, cls: AdmitClass) => Promise<Result<void, MindlogError>>;
+  /** The tenant's redaction policy (PLAN 12.3 stage 2), looked up where ingestion runs. */
+  readonly redaction?: (tenant: string) => Promise<readonly RedactionKind[]>;
 }
 
 /** Who is asking. Interfaces pass `access`; the node's own workers do not. */
@@ -144,7 +147,7 @@ interface Op<S extends z.ZodType, O> {
     range: MemoryRange,
     scope: MemoryScope,
     input: z.output<S>,
-    ctx: { principal: string; requestId?: Uint8Array },
+    ctx: { principal: string; requestId?: Uint8Array; redact?: readonly RedactionKind[] },
   ): Promise<Result<O, MindlogError>>;
 }
 
@@ -790,9 +793,11 @@ export class MemoryService {
       reader: target.reader,
     };
     const engines = { memory: this.#d.engine, cache: this.#d.cache };
+    const redact = spec.write && this.#d.redaction ? await this.#d.redaction(caller.tenant) : [];
     return spec.run(engines, range, { tenant: caller.tenant, ...scope }, input, {
       principal: caller.principal,
       ...(requestId ? { requestId } : {}),
+      ...(redact.length > 0 ? { redact } : {}),
     });
   }
 

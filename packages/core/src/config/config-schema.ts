@@ -348,6 +348,12 @@ export const configSchema = z.strictObject({
       reloadMs: z.number().int().min(10).default(5_000),
     })
     .prefault({}),
+  tenancy: z
+    .strictObject({
+      // A deleted tenant's data is purged this long after deletion is asked for (PLAN 18.3).
+      deleteGraceMs: z.number().int().min(0).default(86_400_000),
+    })
+    .prefault({}),
   profile: z.enum(['dev', 'production']).default('dev'),
 });
 

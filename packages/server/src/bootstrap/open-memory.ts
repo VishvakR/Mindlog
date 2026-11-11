@@ -1,3 +1,4 @@
+import type { RedactionKind } from '@mindlog/memory';
 import type {
   Clock,
   Logger,
@@ -76,6 +77,7 @@ export function openMemory(deps: {
   authorize?: Authorize;
   admit?: (tenant: string, cls: AdmitClass) => Promise<Result<void, MindlogError>>;
   spendModel?: (tenant: string, ms: number) => void;
+  redaction?: (tenant: string) => Promise<readonly RedactionKind[]>;
   readonly config: MindlogConfig;
   readonly state: KvReader;
   readonly events: EventBus;
@@ -190,6 +192,7 @@ export function openMemory(deps: {
   const service = new MemoryService({
     ...(deps.authorize ? { authorize: deps.authorize } : {}),
     ...(deps.admit ? { admit: deps.admit } : {}),
+    ...(deps.redaction ? { redaction: deps.redaction } : {}),
     engine,
     cache,
     router,

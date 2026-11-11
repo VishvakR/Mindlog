@@ -62,6 +62,7 @@ import {
   localRanges,
   spanIntervals,
   writeTombstone,
+  tenantPurgeHandler,
 } from '@mindlog/statemachine';
 import type { KvStore } from '@mindlog/storage';
 import { EncryptingStore, compareBytes } from '@mindlog/storage';
@@ -71,6 +72,7 @@ import { Bank } from './bank.js';
 import { BranchLoad } from './branch-load.js';
 import { LifecycleLoad } from './lifecycle-load.js';
 import { CollectionsLoad } from './collections-load.js';
+import { TenantLoad } from './tenant-load.js';
 import { recordWriteHandler, schemaChangeHandler } from '@mindlog/collections';
 import { MemoryLoad } from './memory-load.js';
 import { SimDisk } from './sim-disk.js';
@@ -127,6 +129,8 @@ export interface ScenarioOptions {
   readonly collections: boolean;
   /** Every node's stores encrypted at rest (phase 10, ADR-0014). */
   readonly encrypted: boolean;
+  /** The tenant deletion workload (phase 10). */
+  readonly tenants: boolean;
 }
 
 export interface SimResult {
@@ -150,6 +154,8 @@ export interface SimResult {
     memory: { remembered: number; forgotten: number; lifecycle?: Record<string, number> };
     /** Collections workload: acknowledged creates, updates, deletes and refused writes. */
     collections?: Record<string, number>;
+    /** Tenant deletion workload: acknowledged writes, rows purged, purge passes. */
+    tenants?: Record<string, number>;
     /** At the end: ranges, and replicas created by PD operators (ids from 1000). */
     ranges: number;
     placed: number;
@@ -301,6 +307,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       cacheInvalidateHandler,
       recordWriteHandler,
       schemaChangeHandler,
+      tenantPurgeHandler,
       ...PD_HANDLERS,
       ...(o.bank > 0
         ? [
@@ -827,6 +834,43 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
     for (let w = 0; w < 3; w++) every(30, 150, () => collections.step());
   }
 
+  const tenants = o.tenants
+    ? new TenantLoad({
+        world,
+        nodes: () =>
+          nodes.flatMap((n) =>
+            n.up
+              ? [
+                  {
+                    id: n.id,
+                    store: n.up.store,
+                    stateStore: n.up.stateStore,
+                    stamper: n.up.stamper,
+                  },
+                ]
+              : [],
+          ),
+        say,
+        violate,
+      })
+    : undefined;
+  if (tenants) {
+    const every = (lo: number, hi: number, work: () => Promise<unknown>): void => {
+      const tick = (): void => {
+        if (!clientsOn) return;
+        void work().finally(() => {
+          world.at(world.now + world.between(lo, hi), tick);
+        });
+      };
+      world.at(world.now + world.between(lo, hi), tick);
+    };
+    for (let w = 0; w < 3; w++) every(30, 150, () => tenants.step());
+    world.at(o.durationMs / 2, () => {
+      tenants.start();
+    });
+    every(500, 1500, () => tenants.pass());
+  }
+
   // ---- run ----
   for (const node of nodes) world.at(0, () => void boot(node));
   for (let c = 0; c < o.clients; c++) client(c);
@@ -986,6 +1030,13 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       if (problem) violate(`${key}: ${problem}`);
     }
     if (bank) await bankChecks(bank);
+    if (tenants) {
+      let clean: boolean | undefined = false;
+      for (let i = 0; i < 20 && clean === false; i++) clean = await settle(tenants.pass());
+      if (clean) await tenants.check();
+      else violate('tenants: the purge never finished a clean pass');
+      stats.tenants = tenants.counts;
+    }
     if (collections) {
       await collections.check();
       stats.collections = collections.counts;
@@ -1000,6 +1051,16 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
         ...(lifecycle ? { lifecycle: lifecycle.counts } : {}),
       };
     }
+  }
+
+  /** Runs the world until `work` settles (it needs Raft messages); undefined if it never does. */
+  async function settle<T>(work: Promise<T>): Promise<T | undefined> {
+    const state = { done: false };
+    const settled = work.finally(() => {
+      state.done = true;
+    });
+    for (let i = 0; i < 120 && !state.done; i++) await world.run(world.now + 1000, checkStep);
+    return state.done ? settled : undefined;
   }
 
   /** After healing: resolve what is left, so nothing is in flight when the replicas are compared. */
@@ -1127,6 +1188,7 @@ export function scenario(seed: bigint) {
     lifecycle: false,
     collections: false,
     encrypted: false,
+    tenants: false,
   };
   const dsl = {
     pd: (spare = 0) => {
@@ -1142,6 +1204,7 @@ export function scenario(seed: bigint) {
     lifecycle: () => ((o.lifecycle = true), dsl),
     collections: () => ((o.collections = true), dsl),
     encrypted: () => ((o.encrypted = true), dsl),
+    tenants: () => ((o.tenants = true), dsl),
     nodes: (n: number) => ((o.nodes = n), dsl),
     clients: (n: number) => ((o.clients = n), dsl),
     keys: (n: number) => ((o.keys = n), dsl),

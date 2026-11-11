@@ -16,7 +16,11 @@ import {
   PromMetrics,
   SystemClock,
   RecentLogs,
+  UlidGenerator,
+  SystemRandom,
   createLogger,
+  keyPrefix,
+  prefixRange,
   err,
   initTracing,
   ok,
@@ -25,6 +29,9 @@ import {
   AccessControl,
   TenantGovernor,
   AdminService,
+  TENANT_OP_PREFIX,
+  TenantExporter,
+  TenantPurger,
   TenantService,
   RecordBroker,
   RecordFiles,
@@ -37,6 +44,9 @@ import {
 } from '@mindlog/services';
 import { McpHttpServer } from '@mindlog/adapter-mcp';
 import { trackTenantUsage } from './tenant-usage.js';
+import { EncryptingStore } from '@mindlog/storage';
+
+const PURGE_TICK_MS = 5_000;
 import type { Replica } from '@mindlog/multiraft';
 import type { HeldLock } from '@mindlog/txn';
 import type { NodeCore } from './open-node-core.js';
@@ -246,9 +256,9 @@ export async function startNode(
     metrics,
   });
   const stopUsage = trackTenantUsage(core, tenants, governor);
-  core.access.attach(
-    access.check,
-    async (key) => {
+  core.access.attach({
+    authorize: access.check,
+    verify: async (key) => {
       const verified = await apiKeys.verify(key);
       if (!verified.ok) return verified;
       const { id, tenant, user, role, scopes } = verified.value;
@@ -264,13 +274,14 @@ export async function startNode(
       });
     },
     governor,
-    async () => {
+    tenant: (name) => tenants.cached(name),
+    retention: async () => {
       const listed = await tenants.list();
       return listed.ok
         ? listed.value.map((t) => ({ name: t.name, days: t.auditRetentionDays }))
         : [];
     },
-  );
+  });
   const appAuth = openAppAuth({
     config,
     collections: core.collections,
@@ -278,9 +289,47 @@ export async function startNode(
     clock,
     logger,
   });
+  const exportIds = new UlidGenerator(clock, new SystemRandom());
+  const blob = openBlobStore(config, clock);
+  const browser = new KvBrowser(service);
+  const exporter = new TenantExporter({
+    tenants,
+    kv: service,
+    browser,
+    memory: core.memory,
+    collections: core.collections,
+    blob,
+    clock,
+    logger,
+    ids: () => exportIds.next(),
+  });
+  const purger = new TenantPurger({
+    tenants,
+    router: core.router,
+    stamper,
+    clock,
+    logger,
+    graceMs: config.tenancy.deleteGraceMs,
+    blob,
+    holdsTenant: async (tenant) => {
+      const prefix = keyPrefix(tenant);
+      if (!prefix.ok) return false;
+      for await (const _ of stateStore.iterate(prefixRange(prefix.value), { limit: 1 }))
+        return true;
+      return false;
+    },
+    forgetKeys: (tenant) =>
+      stateStore instanceof EncryptingStore ? stateStore.forget(tenant) : Promise.resolve(),
+    audit: (event) => {
+      core.audit.record(event);
+    },
+  });
+  core.forwardHandlers.set(TENANT_OP_PREFIX, (rangeId, call) => purger.forwarded(rangeId, call));
+  const purgeTimer = setInterval(() => void purger.tick(), PURGE_TICK_MS);
+  purgeTimer.unref();
   const files = new RecordFiles({
     collections: core.collections,
-    blob: openBlobStore(config, clock),
+    blob,
     auth: appAuth,
     clock,
     thumbnailer: sharpThumbnailer,
@@ -307,7 +356,8 @@ export async function startNode(
     governor,
     audit: core.audit,
     kv: service,
-    browser: new KvBrowser(service),
+    browser,
+    exporter,
     cluster: new ClusterDirectory(core.pdAdmin),
     memory: core.memory,
     changes: core.changes,
@@ -401,6 +451,7 @@ export async function startNode(
   const close = async () => {
     ready = false;
     stopUsage();
+    clearInterval(purgeTimer);
     await mcp.close();
     await http.close();
     await resp.close();

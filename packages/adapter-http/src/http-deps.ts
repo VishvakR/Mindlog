@@ -8,6 +8,7 @@ import type {
   AccessControl,
   AdminService,
   AuditService,
+  TenantExporter,
   TenantGovernor,
   TenantService,
   ApiKeyService,
@@ -40,6 +41,8 @@ export interface HttpServerDeps {
   readonly tenants: TenantService;
   /** Per-tenant quotas and usage (PLAN 18.3); absent on harnesses without them. */
   readonly governor?: TenantGovernor;
+  /** Tenant exports (PLAN 24 phase 10); absent on harnesses without them. */
+  readonly exporter?: TenantExporter;
   /** The audit log (PLAN 18.5); absent on harnesses without it. */
   readonly audit?: AuditService;
   /** The application-layer authorization check (PLAN 18.2). */

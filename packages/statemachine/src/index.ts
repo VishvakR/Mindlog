@@ -53,3 +53,4 @@ export { STORE_FORMAT, ensureStoreFormat } from './system/store-format.js';
 export { CommandStamper } from './proposer/command-stamper.js';
 export type { StateGcResult } from './gc/collect-state-versions.js';
 export { collectStateVersions } from './gc/collect-state-versions.js';
+export { tenantPurgeHandler } from './tenant/tenant-purge.js';

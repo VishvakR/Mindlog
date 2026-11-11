@@ -16,7 +16,17 @@ import {
 } from '@mindlog/services';
 import type { HttpServerDeps } from '../http-deps.js';
 import type { AnyRouteSpec, Who } from '../route.js';
-import { defineRoute } from '../route.js';
+import { defineRoute, sendProblem } from '../route.js';
+
+const exportState = z.object({
+  id: z.string(),
+  status: z.enum(['running', 'done', 'failed']),
+  startedAt: z.number(),
+  finishedAt: z.number().optional(),
+  blob: z.string().optional(),
+  bytes: z.number().optional(),
+  error: z.string().optional(),
+});
 
 const keyInfo = z.object({
   id: z.string(),
@@ -52,6 +62,8 @@ export function tenantRoutes(
     return allowed.ok ? run() : allowed;
   };
   const tenantOf = (params: Readonly<Record<string, string>>) => params.tenant ?? '';
+  const noExports = () =>
+    err(mindlogError('UNIMPLEMENTED', 'exports are not available on this node'));
   const noKeys = () =>
     err(mindlogError('UNIMPLEMENTED', 'API keys are not available on this node'));
   const common = { tag: 'tenants', auth: 'identity' as const };
@@ -120,6 +132,67 @@ export function tenantRoutes(
       guarded(who, 'tenant.settings', tenantOf(params), () =>
         deps.tenants.updateSettings(tenantOf(params), body),
       ),
+  );
+  defineRoute(
+    app,
+    routes,
+    {
+      ...common,
+      method: 'DELETE',
+      path: '/api/tenants/:tenant',
+      summary: 'Delete a tenant: refuse its requests now, purge its data after the grace period',
+      response: tenantSchema,
+    },
+    ({ who, params }) =>
+      guarded(who, 'tenant.delete', tenantOf(params), () =>
+        deps.tenants.markDeleting(tenantOf(params)),
+      ),
+  );
+  defineRoute(
+    app,
+    routes,
+    {
+      ...common,
+      method: 'POST',
+      path: '/api/tenants/:tenant/export',
+      summary: 'Start exporting all of a tenant’s data as one archive',
+      response: exportState,
+    },
+    ({ who, params }) =>
+      guarded(who, 'data.export', tenantOf(params), () =>
+        deps.exporter ? deps.exporter.start(tenantOf(params)) : Promise.resolve(noExports()),
+      ),
+  );
+  defineRoute(
+    app,
+    routes,
+    {
+      ...common,
+      method: 'GET',
+      path: '/api/tenants/:tenant/export',
+      summary: 'The state of the tenant’s latest export',
+      response: exportState.or(z.null()),
+    },
+    ({ who, params }) =>
+      guarded(who, 'data.export', tenantOf(params), async () => {
+        const state = await deps.tenants.exportState(tenantOf(params));
+        return state.ok ? ok(state.value ?? null) : state;
+      }),
+  );
+  app.get(
+    '/api/tenants/:tenant/export/archive',
+    { config: { auth: 'identity' } },
+    async (request, reply) => {
+      const tenant = tenantOf(request.params as Record<string, string>);
+      const archive = await guarded(request.who, 'data.export', tenant, () =>
+        deps.exporter ? deps.exporter.archive(tenant) : Promise.resolve(noExports()),
+      );
+      if (!archive.ok) return sendProblem(reply, archive.error);
+      return reply
+        .type('application/gzip')
+        .header('content-disposition', `attachment; filename="${tenant}-export.ndjson.gz"`)
+        .send(Buffer.from(archive.value));
+    },
   );
   defineRoute(
     app,

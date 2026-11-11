@@ -1,5 +1,6 @@
 import { ACTIONS, ROLES } from '@mindlog/auth';
 import { isUserTenant } from '@mindlog/core';
+import { REDACTION_KINDS } from '@mindlog/memory';
 import { z } from 'zod';
 
 const limit = z.number().int().positive().optional();
@@ -16,7 +17,6 @@ export const quotasSchema = z.strictObject({
 });
 export type Quotas = z.infer<typeof quotasSchema>;
 
-export const REDACTION_KINDS = ['email', 'phone', 'id', 'card'] as const;
 export const redactionSchema = z.strictObject({
   enabled: z.boolean(),
   kinds: z.array(z.enum(REDACTION_KINDS)).default([...REDACTION_KINDS]),
@@ -62,8 +62,11 @@ export type TenantSettings = z.input<typeof tenantSettingsSchema>;
 
 export const tenantSchema = z.object({
   name: z.string(),
-  status: z.enum(['active', 'deleting']),
+  /** `deleting` refuses every request; `deleted` keeps the name so it is never reused. */
+  status: z.enum(['active', 'deleting', 'deleted']),
   created: z.string(),
+  /** When deletion was asked for; the purge starts after the grace period. */
+  deletingAt: z.string().optional(),
   quotas: quotasSchema,
   redaction: redactionSchema,
   auditRetentionDays: z.number(),

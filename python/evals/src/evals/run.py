@@ -28,6 +28,9 @@ def run_suite(
 ) -> dict[str, Any]:
     say(f"{name}: {len(haystacks)} scopes, {sum(len(h.turns) for h in haystacks)} turns")
     mappings, degraded = suites.ingest(client, haystacks, args.workers, say)
+    split: dict[str, Any] = {}
+    if args.split:
+        split = wait_for_splits(client, [h.scope for h in haystacks])
     # One query at a time, so the latency columns are per query, not queueing at the models.
     scores = suites.score(client, haystacks, mappings, tuple(args.recipes), 1)
     result: dict[str, Any] = {
@@ -37,6 +40,7 @@ def run_suite(
             "memories": sum(len(m) for m in mappings.values()),
             "degraded_writes": degraded,
             "note": note,
+            **({"split": split} if split else {}),
         },
         "recipes": {r: dataclasses.asdict(s) for r, s in scores.items()},
     }
@@ -45,6 +49,36 @@ def run_suite(
             client, haystacks, mappings, ("rag", "full"), args.workers
         )
     return result
+
+
+def wait_for_splits(client: Mindlog, scopes: list[str], quiet_polls: int = 3) -> dict[str, Any]:
+    """Splits every scope and waits until the cluster counts stop changing (ADR-0039).
+
+    The node runs with `memory.consolidation.enabled=false`, so nothing but the split
+    changes the memories between this run and the single-range one.
+    """
+    for s in scopes:
+        client.consolidate(s, ["split"])
+    last: list[int] = []
+    quiet = 0
+    deadline = time.monotonic() + 3600
+    while quiet < quiet_polls:
+        if time.monotonic() > deadline:
+            raise TimeoutError("semantic splits did not settle within an hour")
+        time.sleep(10)
+        busy = sum(client.pending(s, ("memory.split",)) for s in scopes)
+        counts = [client.clusters(s) for s in scopes]
+        quiet = quiet + 1 if busy == 0 and counts == last else 0
+        last = counts
+        say(f"splits: {sum(counts)} clusters over {len(scopes)} scopes, {busy} split jobs")
+    m = client.split_metrics()
+    return {
+        "clusters": sum(last),
+        "scopes_split": sum(1 for c in last if c > 1),
+        "max_clusters": max(last, default=1),
+        "moved": int(m["moved_total"]),
+        "moved_bytes": int(m["moved_bytes_total"]),
+    }
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -63,6 +97,13 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--recipes", nargs="+", default=list(suites.RECIPES))
     p.add_argument("--no-packing", dest="packing", action="store_false")
     p.add_argument("--out", type=Path, default=OUT, help="results path without extension")
+    p.add_argument(
+        "--split",
+        action="store_true",
+        help="split every scope after ingestion and wait for the splits (run the node with a "
+        "small memory.split.maxMemories and memory.consolidation.enabled=false); records "
+        "clusters and bytes moved (phase 10)",
+    )
     p.add_argument(
         "--consolidate",
         action="store_true",

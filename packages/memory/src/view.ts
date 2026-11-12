@@ -1,3 +1,4 @@
+import { baseUser } from './split/clusters.js';
 import type { Job, MemoryRecord, ScopeLifecycle } from '@mindlog/proto';
 import { JobState } from '@mindlog/proto';
 import type { JobView, LifecycleView, MemoryView } from './types.js';
@@ -9,7 +10,8 @@ export const hlcMs = (hlc: bigint): number => Number(hlc >> 16n);
 export function toView(r: MemoryRecord): MemoryView {
   return {
     id: r.id,
-    user: r.user,
+    // A cluster of a split scope answers as the scope (ADR-0039).
+    user: baseUser(r.user),
     ...(r.agent ? { agent: r.agent } : {}),
     ...(r.session ? { session: r.session } : {}),
     kind: r.kind,

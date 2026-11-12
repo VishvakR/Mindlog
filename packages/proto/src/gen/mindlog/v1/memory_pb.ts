@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mindlog/v1/memory.proto.
  */
 export const file_mindlog_v1_memory: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIoMFCgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCRIkCgV0ZXJtcxgaIAMoCzIVLm1pbmRsb2cudjEuVGVybUNvdW50EhMKC3Rlcm1fbGVuZ3RoGBsgASgNEgwKBHRpZXIYHCABKAkSDgoGcGlubmVkGB0gASgIEhQKDGNvbGRfc2VnbWVudBgeIAEoCRITCgtjb2xkX3NoYTI1NhgfIAEoCSJtCgxNZW1vcnlWZWN0b3ISEAoIbW9kZWxfaWQYASABKAkSDgoGdmVjdG9yGAIgASgMEgwKBGtpbmQYAyABKAkSDQoFdHJ1c3QYBCABKAkSDQoFYWdlbnQYBSABKAkSDwoHc2Vzc2lvbhgGIAEoCSIoCglUZXJtQ291bnQSDAoEdGVybRgBIAEoCRINCgVjb3VudBgCIAEoDSIrCg1FbnRpdHlNZW50aW9uEgwKBG5hbWUYASABKAkSDAoEdHlwZRgCIAEoCSJyCglOZXdNZW1vcnkSKAoGcmVjb3JkGAEgASgLMhgubWluZGxvZy52MS5NZW1vcnlSZWNvcmQSDgoGdmVjdG9yGAIgASgMEisKCG1lbnRpb25zGAMgAygLMhkubWluZGxvZy52MS5FbnRpdHlNZW50aW9uIokBCgpFbnRpdHlFZGdlEhAKCHNyY19uYW1lGAEgASgJEhAKCHNyY190eXBlGAIgASgJEhAKCHJlbGF0aW9uGAMgASgJEhAKCGRzdF9uYW1lGAQgASgJEhAKCGRzdF90eXBlGAUgASgJEg4KBndlaWdodBgGIAEoAhIRCgltZW1vcnlfaWQYByABKAkiJQoGSm9iUmVmEgoKAmlkGAEgASgJEg8KB2F0dGVtcHQYAiABKA0ixQIKDE1lbW9yeUNvbW1pdBIMCgR1c2VyGAEgASgJEicKCG1lbW9yaWVzGAIgAygLMhUubWluZGxvZy52MS5OZXdNZW1vcnkSJQoFZWRnZXMYAyADKAsyFi5taW5kbG9nLnYxLkVudGl0eUVkZ2USJAoHZW5xdWV1ZRgEIAMoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIkCghjb21wbGV0ZRgFIAEoCzISLm1pbmRsb2cudjEuSm9iUmVmEi0KCWNvbmZsaWN0cxgGIAMoCzIaLm1pbmRsb2cudjEuTWVtb3J5Q29uZmxpY3QSKAoJc3VwZXJzZWRlGAcgAygLMhUubWluZGxvZy52MS5TdXBlcnNlZGUSIQoEdGljaxgIIAEoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIPCgdyZWVtYmVkGAkgASgIIuUBCg5NZW1vcnlDb25mbGljdBIKCgJpZBgBIAEoCRIJCgFhGAIgASgJEgkKAWIYAyABKAkSEAoIc2NvcmVfYWIYBCABKAISEAoIc2NvcmVfYmEYBSABKAISEwoLZGV0ZWN0ZWRfYXQYBiABKAQSDgoGc3RhdHVzGAcgASgJEg4KBnBvbGljeRgIIAEoCRIOCgZvcmlnaW4YCSABKAkSEAoIbW9kZWxfaWQYCiABKAkSDAoEa2VlcBgLIAEoCRITCgtyZXNvbHZlZF9ieRgMIAEoCRITCgtyZXNvbHZlZF9hdBgNIAEoBCIpCglTdXBlcnNlZGUSCgoCaWQYASABKAkSEAoIdmFsaWRfdG8YAiABKAQiXQoPQ29uZmxpY3RSZXNvbHZlEgwKBHVzZXIYASABKAkSCgoCaWQYAiABKAkSDAoEa2VlcBgDIAEoCRISCgp2YWxpZF9mcm9tGAQgASgEEg4KBm5vd19tcxgFIAEoBCJHCgtNZW1vcnlUcnVzdBIMCgR1c2VyGAEgASgJEgsKA2lkcxgCIAMoCRINCgV0cnVzdBgDIAEoCRIOCgZyZWFzb24YBCABKAkiZAoMTWVtb3J5Rm9yZ2V0EgwKBHVzZXIYASABKAkSCwoDaWRzGAIgAygJEg4KBnJlYXNvbhgDIAEoCRISCgpzb3VyY2VfcmVmGAQgASgJEhUKDWNhc2NhZGVfbGltaXQYBSABKA0igAEKDE1lbW9yeUVudGl0eRIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSFQoNbWVudGlvbl9jb3VudBgDIAEoDRISCgpjcmVhdGVkX2F0GAQgASgEEg8KB3N1bW1hcnkYBSABKAkSGAoQc3VtbWFyeV9tZW50aW9ucxgGIAEoDSJCCgpNZW1vcnlFZGdlEg4KBndlaWdodBgBIAEoAhIQCghtZW1vcmllcxgCIAMoCRISCgpjcmVhdGVkX2F0GAMgASgEIisKDU1lbW9yeU91dGNvbWUSCwoDaWRzGAEgAygJEg0KBWNvdW50GAIgASgNIqEBCgxNZW1vcnlCcmFuY2gSDAoEbmFtZRgBIAEoCRISCgpmb3JrX2luZGV4GAIgASgEEhQKDGZvcmtfdmVyc2lvbhgDIAEoBBISCgpjcmVhdGVkX2J5GAQgASgJEg4KBnN0YXR1cxgFIAEoCRIRCgljbG9zZWRfYXQYBiABKAQSDgoGd3JpdGVzGAcgASgNEhIKCm1heF93cml0ZXMYCCABKA0iPgoMQnJhbmNoQ3JlYXRlEgwKBHVzZXIYASABKAkSDAoEbmFtZRgCIAEoCRISCgptYXhfd3JpdGVzGAMgASgNIisKCUJyYW5jaEFkZBIKCgJpZBgBIAEoCRISCgpxdWFyYW50aW5lGAIgASgIIkwKDFJlY29yZEZpZWxkcxIKCgJpZBgBIAEoCRIPCgdleHBpcmVkGAIgASgIEg0KBXRydXN0GAMgASgJEhAKCHZhbGlkX3RvGAQgASgEIloKCkVkZ2VXZWlnaHQSCwoDc3JjGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEgsKA2RzdBgDIAEoCRIOCgZ3ZWlnaHQYBCABKAISEAoIbWVtb3JpZXMYBSADKAkizwIKC0JyYW5jaE1lcmdlEgwKBHVzZXIYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZwb2xpY3kYAyABKAkSFwoPbWFpbl9nZW5lcmF0aW9uGAQgASgEEiMKBGFkZHMYBSADKAsyFS5taW5kbG9nLnYxLkJyYW5jaEFkZBIpCgdyZWNvcmRzGAYgAygLMhgubWluZGxvZy52MS5SZWNvcmRGaWVsZHMSJQoFZWRnZXMYByADKAsyFi5taW5kbG9nLnYxLkVkZ2VXZWlnaHQSLQoJY29uZmxpY3RzGAggAygLMhoubWluZGxvZy52MS5NZW1vcnlDb25mbGljdBIoCglzdXBlcnNlZGUYCSADKAsyFS5taW5kbG9nLnYxLlN1cGVyc2VkZRIQCghyZWplY3RlZBgKIAMoCRIZChFicmFuY2hfZ2VuZXJhdGlvbhgLIAEoBCIoCgpCcmFuY2hEcm9wEgwKBHVzZXIYASABKAkSDAoEbmFtZRgCIAEoCSLOAwoOU2NvcGVMaWZlY3ljbGUSFQoNbGFzdF93cml0ZV9tcxgBIAEoBBIaChJ3cml0ZXNfc2luY2Vfc2xlZXAYAiABKA0SEgoKZ3JhcGhfc2l6ZRgDIAEoDRIbChNncmFwaF9zaXplX2F0X3RoZW1lGAQgASgNEhMKC2VtYmVkX21vZGVsGAUgASgJEg8KB3JlZW1iZWQYBiABKAgSPgoLbGFzdF9ydW5fbXMYByADKAsyKS5taW5kbG9nLnYxLlNjb3BlTGlmZWN5Y2xlLkxhc3RSdW5Nc0VudHJ5EkAKC2NoZWNrcG9pbnRzGAggAygLMisubWluZGxvZy52MS5TY29wZUxpZmVjeWNsZS5DaGVja3BvaW50c0VudHJ5EhIKCnRpY2tfYXRfbXMYCSABKAQSCwoDaG90GAogASgNEgwKBGNvbGQYCyABKA0SGwoTd3JpdGVzX3NpbmNlX2V2b2x2ZRgMIAEoDRowCg5MYXN0UnVuTXNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAQ6AjgBGjIKEENoZWNrcG9pbnRzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASKkAQoMTWVtb3J5RXZvbHZlEgoKAmlkGAEgASgJEgwKBHRhZ3MYAiADKAkSEAoIc2V0X3RhZ3MYAyABKAgSEQoJbWV0YV9qc29uGAQgASgJEhIKCmltcG9ydGFuY2UYBSABKAISFgoOc2V0X2ltcG9ydGFuY2UYBiABKAgSKQoJYWRkX2xpbmtzGAcgAygLMhYubWluZGxvZy52MS5NZW1vcnlMaW5rInUKCFRpZXJNb3ZlEgoKAmlkGAEgASgJEgwKBHRpZXIYAiABKAkSDwoHc2VnbWVudBgDIAEoCRIOCgZzaGEyNTYYBCABKAkSDAoEdGV4dBgFIAEoCRIOCgZ2ZWN0b3IYBiABKAwSEAoIbW9kZWxfaWQYByABKAkiMwoNRW50aXR5U3VtbWFyeRIRCgllbnRpdHlfaWQYASABKAkSDwoHc3VtbWFyeRgCIAEoCSIoCgpSZWVtYmVkZGVkEgoKAmlkGAEgASgJEg4KBnZlY3RvchgCIAEoDCInCglQaW5DaGFuZ2USCgoCaWQYASABKAkSDgoGcGlubmVkGAIgASgIIsQDCg5NZW1vcnlNYWludGFpbhIMCgR1c2VyGAEgASgJEigKBmV2b2x2ZRgCIAMoCzIYLm1pbmRsb2cudjEuTWVtb3J5RXZvbHZlEiIKBHRpZXIYAyADKAsyFC5taW5kbG9nLnYxLlRpZXJNb3ZlEisKCGVudGl0aWVzGAQgAygLMhkubWluZGxvZy52MS5FbnRpdHlTdW1tYXJ5EicKB3JlZW1iZWQYBSADKAsyFi5taW5kbG9nLnYxLlJlZW1iZWRkZWQSFQoNcmVlbWJlZF9tb2RlbBgGIAEoCRIUCgxyZWVtYmVkX2RvbmUYByABKAgSIgoDcGluGAggAygLMhUubWluZGxvZy52MS5QaW5DaGFuZ2USJAoHZW5xdWV1ZRgJIAMoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIkCghjb21wbGV0ZRgKIAEoCzISLm1pbmRsb2cudjEuSm9iUmVmEhkKEWNoZWNrcG9pbnRfd29ya2VyGAsgASgJEhIKCmNoZWNrcG9pbnQYDCABKAkSJgoJbmV4dF90aWNrGA0gASgLMhMubWluZGxvZy52MS5Kb2JTcGVjEgwKBHRpY2sYDiABKAgiLgoRTWVtb3J5UmVjYWxsU3RhdHMSDAoEdXNlchgBIAEoCRILCgNpZHMYAiADKAliBnByb3RvMw", [file_mindlog_v1_jobs]);
+  fileDesc("ChdtaW5kbG9nL3YxL21lbW9yeS5wcm90bxIKbWluZGxvZy52MSI6CgpNZW1vcnlMaW5rEgoKAnRvGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEg4KBndlaWdodBgDIAEoAiI8CgxNZW1vcnlTb3VyY2USDAoEdHlwZRgBIAEoCRILCgNyZWYYAiABKAkSEQoJcHJpbmNpcGFsGAMgASgJIpUFCgxNZW1vcnlSZWNvcmQSCgoCaWQYASABKAkSDAoEdXNlchgCIAEoCRINCgVhZ2VudBgDIAEoCRIPCgdzZXNzaW9uGAQgASgJEgwKBGtpbmQYBSABKAkSDAoEdGV4dBgGIAEoCRIQCghlbnRpdGllcxgHIAMoCRIlCgVsaW5rcxgIIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluaxIoCgZzb3VyY2UYCSABKAsyGC5taW5kbG9nLnYxLk1lbW9yeVNvdXJjZRINCgV0cnVzdBgKIAEoCRISCgppbXBvcnRhbmNlGAsgASgCEhAKCHN0cmVuZ3RoGAwgASgCEhIKCmNyZWF0ZWRfYXQYDSABKAQSEgoKZXhwaXJlZF9hdBgOIAEoBBIMCgR0YWdzGA8gAygJEg8KB3ZlcnNpb24YECABKA0SFwoPZW1iZWRkaW5nX21vZGVsGBEgASgJEhEKCWxvZ19pbmRleBgSIAEoBBIOCgZicmFuY2gYEyABKAkSEgoKdmFsaWRfZnJvbRgUIAEoBBIQCgh2YWxpZF90bxgVIAEoBBIUCgxyZWNhbGxfY291bnQYFiABKA0SGAoQbGFzdF9yZWNhbGxlZF9hdBgXIAEoBBIRCgltZXRhX2pzb24YGCABKAkSFQoNZm9yZ2V0X3JlYXNvbhgZIAEoCRIkCgV0ZXJtcxgaIAMoCzIVLm1pbmRsb2cudjEuVGVybUNvdW50EhMKC3Rlcm1fbGVuZ3RoGBsgASgNEgwKBHRpZXIYHCABKAkSDgoGcGlubmVkGB0gASgIEhQKDGNvbGRfc2VnbWVudBgeIAEoCRITCgtjb2xkX3NoYTI1NhgfIAEoCRIQCghtb3ZlZF90bxggIAEoCSJtCgxNZW1vcnlWZWN0b3ISEAoIbW9kZWxfaWQYASABKAkSDgoGdmVjdG9yGAIgASgMEgwKBGtpbmQYAyABKAkSDQoFdHJ1c3QYBCABKAkSDQoFYWdlbnQYBSABKAkSDwoHc2Vzc2lvbhgGIAEoCSIoCglUZXJtQ291bnQSDAoEdGVybRgBIAEoCRINCgVjb3VudBgCIAEoDSIrCg1FbnRpdHlNZW50aW9uEgwKBG5hbWUYASABKAkSDAoEdHlwZRgCIAEoCSJyCglOZXdNZW1vcnkSKAoGcmVjb3JkGAEgASgLMhgubWluZGxvZy52MS5NZW1vcnlSZWNvcmQSDgoGdmVjdG9yGAIgASgMEisKCG1lbnRpb25zGAMgAygLMhkubWluZGxvZy52MS5FbnRpdHlNZW50aW9uIokBCgpFbnRpdHlFZGdlEhAKCHNyY19uYW1lGAEgASgJEhAKCHNyY190eXBlGAIgASgJEhAKCHJlbGF0aW9uGAMgASgJEhAKCGRzdF9uYW1lGAQgASgJEhAKCGRzdF90eXBlGAUgASgJEg4KBndlaWdodBgGIAEoAhIRCgltZW1vcnlfaWQYByABKAkiJQoGSm9iUmVmEgoKAmlkGAEgASgJEg8KB2F0dGVtcHQYAiABKA0ixQIKDE1lbW9yeUNvbW1pdBIMCgR1c2VyGAEgASgJEicKCG1lbW9yaWVzGAIgAygLMhUubWluZGxvZy52MS5OZXdNZW1vcnkSJQoFZWRnZXMYAyADKAsyFi5taW5kbG9nLnYxLkVudGl0eUVkZ2USJAoHZW5xdWV1ZRgEIAMoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIkCghjb21wbGV0ZRgFIAEoCzISLm1pbmRsb2cudjEuSm9iUmVmEi0KCWNvbmZsaWN0cxgGIAMoCzIaLm1pbmRsb2cudjEuTWVtb3J5Q29uZmxpY3QSKAoJc3VwZXJzZWRlGAcgAygLMhUubWluZGxvZy52MS5TdXBlcnNlZGUSIQoEdGljaxgIIAEoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIPCgdyZWVtYmVkGAkgASgIIuUBCg5NZW1vcnlDb25mbGljdBIKCgJpZBgBIAEoCRIJCgFhGAIgASgJEgkKAWIYAyABKAkSEAoIc2NvcmVfYWIYBCABKAISEAoIc2NvcmVfYmEYBSABKAISEwoLZGV0ZWN0ZWRfYXQYBiABKAQSDgoGc3RhdHVzGAcgASgJEg4KBnBvbGljeRgIIAEoCRIOCgZvcmlnaW4YCSABKAkSEAoIbW9kZWxfaWQYCiABKAkSDAoEa2VlcBgLIAEoCRITCgtyZXNvbHZlZF9ieRgMIAEoCRITCgtyZXNvbHZlZF9hdBgNIAEoBCIpCglTdXBlcnNlZGUSCgoCaWQYASABKAkSEAoIdmFsaWRfdG8YAiABKAQiXQoPQ29uZmxpY3RSZXNvbHZlEgwKBHVzZXIYASABKAkSCgoCaWQYAiABKAkSDAoEa2VlcBgDIAEoCRISCgp2YWxpZF9mcm9tGAQgASgEEg4KBm5vd19tcxgFIAEoBCJHCgtNZW1vcnlUcnVzdBIMCgR1c2VyGAEgASgJEgsKA2lkcxgCIAMoCRINCgV0cnVzdBgDIAEoCRIOCgZyZWFzb24YBCABKAkiZAoMTWVtb3J5Rm9yZ2V0EgwKBHVzZXIYASABKAkSCwoDaWRzGAIgAygJEg4KBnJlYXNvbhgDIAEoCRISCgpzb3VyY2VfcmVmGAQgASgJEhUKDWNhc2NhZGVfbGltaXQYBSABKA0igAEKDE1lbW9yeUVudGl0eRIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSFQoNbWVudGlvbl9jb3VudBgDIAEoDRISCgpjcmVhdGVkX2F0GAQgASgEEg8KB3N1bW1hcnkYBSABKAkSGAoQc3VtbWFyeV9tZW50aW9ucxgGIAEoDSJCCgpNZW1vcnlFZGdlEg4KBndlaWdodBgBIAEoAhIQCghtZW1vcmllcxgCIAMoCRISCgpjcmVhdGVkX2F0GAMgASgEIisKDU1lbW9yeU91dGNvbWUSCwoDaWRzGAEgAygJEg0KBWNvdW50GAIgASgNIqEBCgxNZW1vcnlCcmFuY2gSDAoEbmFtZRgBIAEoCRISCgpmb3JrX2luZGV4GAIgASgEEhQKDGZvcmtfdmVyc2lvbhgDIAEoBBISCgpjcmVhdGVkX2J5GAQgASgJEg4KBnN0YXR1cxgFIAEoCRIRCgljbG9zZWRfYXQYBiABKAQSDgoGd3JpdGVzGAcgASgNEhIKCm1heF93cml0ZXMYCCABKA0iPgoMQnJhbmNoQ3JlYXRlEgwKBHVzZXIYASABKAkSDAoEbmFtZRgCIAEoCRISCgptYXhfd3JpdGVzGAMgASgNIisKCUJyYW5jaEFkZBIKCgJpZBgBIAEoCRISCgpxdWFyYW50aW5lGAIgASgIIkwKDFJlY29yZEZpZWxkcxIKCgJpZBgBIAEoCRIPCgdleHBpcmVkGAIgASgIEg0KBXRydXN0GAMgASgJEhAKCHZhbGlkX3RvGAQgASgEIloKCkVkZ2VXZWlnaHQSCwoDc3JjGAEgASgJEhAKCHJlbGF0aW9uGAIgASgJEgsKA2RzdBgDIAEoCRIOCgZ3ZWlnaHQYBCABKAISEAoIbWVtb3JpZXMYBSADKAkizwIKC0JyYW5jaE1lcmdlEgwKBHVzZXIYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZwb2xpY3kYAyABKAkSFwoPbWFpbl9nZW5lcmF0aW9uGAQgASgEEiMKBGFkZHMYBSADKAsyFS5taW5kbG9nLnYxLkJyYW5jaEFkZBIpCgdyZWNvcmRzGAYgAygLMhgubWluZGxvZy52MS5SZWNvcmRGaWVsZHMSJQoFZWRnZXMYByADKAsyFi5taW5kbG9nLnYxLkVkZ2VXZWlnaHQSLQoJY29uZmxpY3RzGAggAygLMhoubWluZGxvZy52MS5NZW1vcnlDb25mbGljdBIoCglzdXBlcnNlZGUYCSADKAsyFS5taW5kbG9nLnYxLlN1cGVyc2VkZRIQCghyZWplY3RlZBgKIAMoCRIZChFicmFuY2hfZ2VuZXJhdGlvbhgLIAEoBCIoCgpCcmFuY2hEcm9wEgwKBHVzZXIYASABKAkSDAoEbmFtZRgCIAEoCSL6AwoOU2NvcGVMaWZlY3ljbGUSFQoNbGFzdF93cml0ZV9tcxgBIAEoBBIaChJ3cml0ZXNfc2luY2Vfc2xlZXAYAiABKA0SEgoKZ3JhcGhfc2l6ZRgDIAEoDRIbChNncmFwaF9zaXplX2F0X3RoZW1lGAQgASgNEhMKC2VtYmVkX21vZGVsGAUgASgJEg8KB3JlZW1iZWQYBiABKAgSPgoLbGFzdF9ydW5fbXMYByADKAsyKS5taW5kbG9nLnYxLlNjb3BlTGlmZWN5Y2xlLkxhc3RSdW5Nc0VudHJ5EkAKC2NoZWNrcG9pbnRzGAggAygLMisubWluZGxvZy52MS5TY29wZUxpZmVjeWNsZS5DaGVja3BvaW50c0VudHJ5EhIKCnRpY2tfYXRfbXMYCSABKAQSCwoDaG90GAogASgNEgwKBGNvbGQYCyABKA0SGwoTd3JpdGVzX3NpbmNlX2V2b2x2ZRgMIAEoDRIqCghjbHVzdGVycxgNIAMoCzIYLm1pbmRsb2cudjEuU2NvcGVDbHVzdGVyGjAKDkxhc3RSdW5Nc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoBDoCOAEaMgoQQ2hlY2twb2ludHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIjwKDFNjb3BlQ2x1c3RlchIKCgJpZBgBIAEoDRIQCghjZW50cm9pZBgCIAEoDBIOCgZzcHJlYWQYAyABKAEiogEKDE1lbW9yeVJlaG9tZRIMCgR1c2VyGAEgASgJEhIKCnNldF9sYXlvdXQYAiABKAgSKAoGbGF5b3V0GAMgAygLMhgubWluZGxvZy52MS5TY29wZUNsdXN0ZXISJQoGY29waWVzGAQgAygLMhUubWluZGxvZy52MS5OZXdNZW1vcnkSDQoFbW92ZWQYBSADKAkSEAoIbW92ZWRfdG8YBiABKAkipAEKDE1lbW9yeUV2b2x2ZRIKCgJpZBgBIAEoCRIMCgR0YWdzGAIgAygJEhAKCHNldF90YWdzGAMgASgIEhEKCW1ldGFfanNvbhgEIAEoCRISCgppbXBvcnRhbmNlGAUgASgCEhYKDnNldF9pbXBvcnRhbmNlGAYgASgIEikKCWFkZF9saW5rcxgHIAMoCzIWLm1pbmRsb2cudjEuTWVtb3J5TGluayJ1CghUaWVyTW92ZRIKCgJpZBgBIAEoCRIMCgR0aWVyGAIgASgJEg8KB3NlZ21lbnQYAyABKAkSDgoGc2hhMjU2GAQgASgJEgwKBHRleHQYBSABKAkSDgoGdmVjdG9yGAYgASgMEhAKCG1vZGVsX2lkGAcgASgJIjMKDUVudGl0eVN1bW1hcnkSEQoJZW50aXR5X2lkGAEgASgJEg8KB3N1bW1hcnkYAiABKAkiKAoKUmVlbWJlZGRlZBIKCgJpZBgBIAEoCRIOCgZ2ZWN0b3IYAiABKAwiJwoJUGluQ2hhbmdlEgoKAmlkGAEgASgJEg4KBnBpbm5lZBgCIAEoCCLEAwoOTWVtb3J5TWFpbnRhaW4SDAoEdXNlchgBIAEoCRIoCgZldm9sdmUYAiADKAsyGC5taW5kbG9nLnYxLk1lbW9yeUV2b2x2ZRIiCgR0aWVyGAMgAygLMhQubWluZGxvZy52MS5UaWVyTW92ZRIrCghlbnRpdGllcxgEIAMoCzIZLm1pbmRsb2cudjEuRW50aXR5U3VtbWFyeRInCgdyZWVtYmVkGAUgAygLMhYubWluZGxvZy52MS5SZWVtYmVkZGVkEhUKDXJlZW1iZWRfbW9kZWwYBiABKAkSFAoMcmVlbWJlZF9kb25lGAcgASgIEiIKA3BpbhgIIAMoCzIVLm1pbmRsb2cudjEuUGluQ2hhbmdlEiQKB2VucXVldWUYCSADKAsyEy5taW5kbG9nLnYxLkpvYlNwZWMSJAoIY29tcGxldGUYCiABKAsyEi5taW5kbG9nLnYxLkpvYlJlZhIZChFjaGVja3BvaW50X3dvcmtlchgLIAEoCRISCgpjaGVja3BvaW50GAwgASgJEiYKCW5leHRfdGljaxgNIAEoCzITLm1pbmRsb2cudjEuSm9iU3BlYxIMCgR0aWNrGA4gASgIIi4KEU1lbW9yeVJlY2FsbFN0YXRzEgwKBHVzZXIYASABKAkSCwoDaWRzGAIgAygJYgZwcm90bzM", [file_mindlog_v1_jobs]);
 
 /**
  * @generated from message mindlog.v1.MemoryLink
@@ -265,6 +265,14 @@ export type MemoryRecord = Message<"mindlog.v1.MemoryRecord"> & {
    * @generated from field: string cold_sha256 = 31;
    */
   coldSha256: string;
+
+  /**
+   * Set on the copy a semantic split left behind: the cluster scope now holding the memory
+   * (ADR-0039). Readers treat the record as absent here; its versions stay for history.
+   *
+   * @generated from field: string moved_to = 32;
+   */
+  movedTo: string;
 };
 
 /**
@@ -1261,6 +1269,13 @@ export type ScopeLifecycle = Message<"mindlog.v1.ScopeLifecycle"> & {
    * @generated from field: uint32 writes_since_evolve = 12;
    */
   writesSinceEvolve: number;
+
+  /**
+   * A semantic split (ADR-0039), kept on the root scope only: its clusters; empty when unsplit.
+   *
+   * @generated from field: repeated mindlog.v1.ScopeCluster clusters = 13;
+   */
+  clusters: ScopeCluster[];
 };
 
 /**
@@ -1269,6 +1284,85 @@ export type ScopeLifecycle = Message<"mindlog.v1.ScopeLifecycle"> & {
  */
 export const ScopeLifecycleSchema: GenMessage<ScopeLifecycle> = /*@__PURE__*/
   messageDesc(file_mindlog_v1_memory, 25);
+
+/**
+ * One cluster of a split scope: cluster 0 is the root scope itself, cluster n lives at
+ * the scope `user\u0000c<n>` (ADR-0039).
+ *
+ * @generated from message mindlog.v1.ScopeCluster
+ */
+export type ScopeCluster = Message<"mindlog.v1.ScopeCluster"> & {
+  /**
+   * @generated from field: uint32 id = 1;
+   */
+  id: number;
+
+  /**
+   * float32 little-endian, L2-normalised.
+   *
+   * @generated from field: bytes centroid = 2;
+   */
+  centroid: Uint8Array;
+
+  /**
+   * Mean distance of its memories to the centroid when it was last set; drift is measured against it.
+   *
+   * @generated from field: double spread = 3;
+   */
+  spread: number;
+};
+
+/**
+ * Describes the message mindlog.v1.ScopeCluster.
+ * Use `create(ScopeClusterSchema)` to create a new message.
+ */
+export const ScopeClusterSchema: GenMessage<ScopeCluster> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 26);
+
+/**
+ * A semantic split step (ADR-0039), on one scope: set the root's clusters, take in memories
+ * copied from another cluster with their stamps, or mark memories as moved away.
+ *
+ * @generated from message mindlog.v1.MemoryRehome
+ */
+export type MemoryRehome = Message<"mindlog.v1.MemoryRehome"> & {
+  /**
+   * @generated from field: string user = 1;
+   */
+  user: string;
+
+  /**
+   * @generated from field: bool set_layout = 2;
+   */
+  setLayout: boolean;
+
+  /**
+   * @generated from field: repeated mindlog.v1.ScopeCluster layout = 3;
+   */
+  layout: ScopeCluster[];
+
+  /**
+   * @generated from field: repeated mindlog.v1.NewMemory copies = 4;
+   */
+  copies: NewMemory[];
+
+  /**
+   * @generated from field: repeated string moved = 5;
+   */
+  moved: string[];
+
+  /**
+   * @generated from field: string moved_to = 6;
+   */
+  movedTo: string;
+};
+
+/**
+ * Describes the message mindlog.v1.MemoryRehome.
+ * Use `create(MemoryRehomeSchema)` to create a new message.
+ */
+export const MemoryRehomeSchema: GenMessage<MemoryRehome> = /*@__PURE__*/
+  messageDesc(file_mindlog_v1_memory, 27);
 
 /**
  * A worker's change to an existing memory: a new version, the old one kept at
@@ -1324,7 +1418,7 @@ export type MemoryEvolve = Message<"mindlog.v1.MemoryEvolve"> & {
  * Use `create(MemoryEvolveSchema)` to create a new message.
  */
 export const MemoryEvolveSchema: GenMessage<MemoryEvolve> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 26);
+  messageDesc(file_mindlog_v1_memory, 28);
 
 /**
  * Moves a memory between tiers. To cold: the record becomes a stub with
@@ -1379,7 +1473,7 @@ export type TierMove = Message<"mindlog.v1.TierMove"> & {
  * Use `create(TierMoveSchema)` to create a new message.
  */
 export const TierMoveSchema: GenMessage<TierMove> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 27);
+  messageDesc(file_mindlog_v1_memory, 29);
 
 /**
  * @generated from message mindlog.v1.EntitySummary
@@ -1401,7 +1495,7 @@ export type EntitySummary = Message<"mindlog.v1.EntitySummary"> & {
  * Use `create(EntitySummarySchema)` to create a new message.
  */
 export const EntitySummarySchema: GenMessage<EntitySummary> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 28);
+  messageDesc(file_mindlog_v1_memory, 30);
 
 /**
  * @generated from message mindlog.v1.Reembedded
@@ -1423,7 +1517,7 @@ export type Reembedded = Message<"mindlog.v1.Reembedded"> & {
  * Use `create(ReembeddedSchema)` to create a new message.
  */
 export const ReembeddedSchema: GenMessage<Reembedded> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 29);
+  messageDesc(file_mindlog_v1_memory, 31);
 
 /**
  * @generated from message mindlog.v1.PinChange
@@ -1445,7 +1539,7 @@ export type PinChange = Message<"mindlog.v1.PinChange"> & {
  * Use `create(PinChangeSchema)` to create a new message.
  */
 export const PinChangeSchema: GenMessage<PinChange> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 30);
+  messageDesc(file_mindlog_v1_memory, 32);
 
 /**
  * Command body 21: lifecycle changes of one user scope from a consolidation
@@ -1537,7 +1631,7 @@ export type MemoryMaintain = Message<"mindlog.v1.MemoryMaintain"> & {
  * Use `create(MemoryMaintainSchema)` to create a new message.
  */
 export const MemoryMaintainSchema: GenMessage<MemoryMaintain> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 31);
+  messageDesc(file_mindlog_v1_memory, 33);
 
 /**
  * Command body 23: memories a recall returned (PLAN 12.4 stage 10). Apply
@@ -1562,5 +1656,5 @@ export type MemoryRecallStats = Message<"mindlog.v1.MemoryRecallStats"> & {
  * Use `create(MemoryRecallStatsSchema)` to create a new message.
  */
 export const MemoryRecallStatsSchema: GenMessage<MemoryRecallStats> = /*@__PURE__*/
-  messageDesc(file_mindlog_v1_memory, 32);
+  messageDesc(file_mindlog_v1_memory, 34);
 

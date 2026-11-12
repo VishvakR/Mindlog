@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import { scenario } from './cluster.js';
-import { MEMORY_REGRESSION_SEEDS, REGRESSION_SEEDS } from './regressions.js';
+import {
+  MEMORY_REGRESSION_SEEDS,
+  REGRESSION_SEEDS,
+  SPLIT_REGRESSION_SEEDS,
+} from './regressions.js';
 
 /**
  * Deterministic simulation of whole clusters (PLAN 22.2). `pnpm test` runs a
@@ -35,6 +39,9 @@ const WITH_ENC = process.env.SIM_ENC === '1';
 // SIM_TENANT=1 adds the tenant deletion workload (purge under faults; phase 10).
 const WITH_TENANT = process.env.SIM_TENANT === '1';
 
+// SIM_SPLIT=1 adds the semantic split workload (k-means split, moves under faults; phase 10).
+const WITH_SPLIT = process.env.SIM_SPLIT === '1';
+
 async function violations(seed: bigint): Promise<string[]> {
   const nodes = seed % 2n === 0n ? 5 : 3;
   const sized = WITH_PD ? scenario(seed).nodes(5).pd(2) : scenario(seed).nodes(nodes);
@@ -44,7 +51,8 @@ async function violations(seed: bigint): Promise<string[]> {
   const lived = WITH_LIFE ? branched.lifecycle() : branched;
   const collected = WITH_COLL ? lived.collections() : lived;
   const encrypted = WITH_ENC ? collected.encrypted() : collected;
-  const base = WITH_TENANT ? encrypted.tenants() : encrypted;
+  const tenanted = WITH_TENANT ? encrypted.tenants() : encrypted;
+  const base = WITH_SPLIT ? tenanted.split() : tenanted;
   const result = await base.verbose(process.env.SIM_VERBOSE === '1').run();
   return result.violations.map((v) => `replay: SIM_SEED=${seed} SIM_VERBOSE=1 pnpm sim → ${v}`);
 }
@@ -143,6 +151,16 @@ describe('simulator', () => {
       const result = await scenario(seed)
         .nodes(seed % 2n === 0n ? 5 : 3)
         .memory(4)
+        .run();
+      expect(result.violations).toEqual([]);
+    }
+  });
+
+  test('split regression seeds', { timeout: 600_000 }, async () => {
+    for (const seed of SPLIT_REGRESSION_SEEDS) {
+      const result = await scenario(seed)
+        .nodes(seed % 2n === 0n ? 5 : 3)
+        .split()
         .run();
       expect(result.violations).toEqual([]);
     }

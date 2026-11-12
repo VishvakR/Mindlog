@@ -14,3 +14,9 @@ export const MEMORY_REGRESSION_SEEDS: readonly bigint[] = [
   84n,
   197n,
 ];
+
+/** Seeds that once failed with the semantic split workload (`SIM_SPLIT=1`). */
+export const SPLIT_REGRESSION_SEEDS: readonly bigint[] = [
+  // A forget missed a memory in flight: before its copy reached the target, after the source marked it.
+  74n,
+];

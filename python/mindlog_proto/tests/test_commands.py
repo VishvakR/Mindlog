@@ -73,6 +73,7 @@ def test_command_uses_body_numbers_10_to_13() -> None:
         100,
         101,
         102,
+        103,
         104,
     }
 

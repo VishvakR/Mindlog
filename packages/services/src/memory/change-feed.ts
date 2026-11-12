@@ -1,5 +1,5 @@
 import { collectionScope } from '@mindlog/jobs';
-import { hlcMs } from '@mindlog/memory';
+import { hlcMs, baseUser } from '@mindlog/memory';
 import { RecordOpKind } from '@mindlog/proto';
 import type { CommandApplied, EventBus, Unsubscribe } from '@mindlog/eventbus';
 
@@ -67,7 +67,8 @@ export function changesOf(e: CommandApplied): ChangeEvent[] {
   };
   const out: ChangeEvent[] = [];
   const add = (type: ChangeType, user: string, ids: readonly string[]) => {
-    if (ids.length > 0) out.push({ ...base, type, user, ids: [...ids] });
+    // Subscribers follow a scope, whichever of its clusters changed (ADR-0039).
+    if (ids.length > 0) out.push({ ...base, type, user: baseUser(user), ids: [...ids] });
   };
   switch (body.case) {
     case 'memoryCommit': {

@@ -17,6 +17,8 @@ export interface ConsolidationConfig {
   readonly hardForgetTenants: readonly string[];
   readonly deleteBelow: number;
   readonly modelTimeoutMs: number;
+  /** Hot memories at which a scope (or cluster) splits (ADR-0039); 0 never splits. */
+  readonly splitAt: number;
 }
 
 export const DEFAULT_CONSOLIDATION_CONFIG: ConsolidationConfig = {
@@ -30,6 +32,7 @@ export const DEFAULT_CONSOLIDATION_CONFIG: ConsolidationConfig = {
   hardForgetTenants: [],
   deleteBelow: 0.02,
   modelTimeoutMs: 20_000,
+  splitAt: 0,
 };
 
 const HOUR = 3_600_000;
@@ -40,6 +43,8 @@ export const EVERY = {
   forget: HOUR,
   entities: HOUR,
   cache: 5 * 60_000,
+  split: 10 * 60_000,
+  drift: HOUR,
 } as const;
 
 /** Graph growth since the last theme build that rebuilds themes (PLAN 12.6: 5%), and the least graph. */

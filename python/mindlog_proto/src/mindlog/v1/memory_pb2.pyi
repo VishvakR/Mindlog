@@ -28,7 +28,7 @@ class MemorySource(_message.Message):
     def __init__(self, type: _Optional[str] = ..., ref: _Optional[str] = ..., principal: _Optional[str] = ...) -> None: ...
 
 class MemoryRecord(_message.Message):
-    __slots__ = ("id", "user", "agent", "session", "kind", "text", "entities", "links", "source", "trust", "importance", "strength", "created_at", "expired_at", "tags", "version", "embedding_model", "log_index", "branch", "valid_from", "valid_to", "recall_count", "last_recalled_at", "meta_json", "forget_reason", "terms", "term_length", "tier", "pinned", "cold_segment", "cold_sha256")
+    __slots__ = ("id", "user", "agent", "session", "kind", "text", "entities", "links", "source", "trust", "importance", "strength", "created_at", "expired_at", "tags", "version", "embedding_model", "log_index", "branch", "valid_from", "valid_to", "recall_count", "last_recalled_at", "meta_json", "forget_reason", "terms", "term_length", "tier", "pinned", "cold_segment", "cold_sha256", "moved_to")
     ID_FIELD_NUMBER: _ClassVar[int]
     USER_FIELD_NUMBER: _ClassVar[int]
     AGENT_FIELD_NUMBER: _ClassVar[int]
@@ -60,6 +60,7 @@ class MemoryRecord(_message.Message):
     PINNED_FIELD_NUMBER: _ClassVar[int]
     COLD_SEGMENT_FIELD_NUMBER: _ClassVar[int]
     COLD_SHA256_FIELD_NUMBER: _ClassVar[int]
+    MOVED_TO_FIELD_NUMBER: _ClassVar[int]
     id: str
     user: str
     agent: str
@@ -91,7 +92,8 @@ class MemoryRecord(_message.Message):
     pinned: bool
     cold_segment: str
     cold_sha256: str
-    def __init__(self, id: _Optional[str] = ..., user: _Optional[str] = ..., agent: _Optional[str] = ..., session: _Optional[str] = ..., kind: _Optional[str] = ..., text: _Optional[str] = ..., entities: _Optional[_Iterable[str]] = ..., links: _Optional[_Iterable[_Union[MemoryLink, _Mapping]]] = ..., source: _Optional[_Union[MemorySource, _Mapping]] = ..., trust: _Optional[str] = ..., importance: _Optional[float] = ..., strength: _Optional[float] = ..., created_at: _Optional[int] = ..., expired_at: _Optional[int] = ..., tags: _Optional[_Iterable[str]] = ..., version: _Optional[int] = ..., embedding_model: _Optional[str] = ..., log_index: _Optional[int] = ..., branch: _Optional[str] = ..., valid_from: _Optional[int] = ..., valid_to: _Optional[int] = ..., recall_count: _Optional[int] = ..., last_recalled_at: _Optional[int] = ..., meta_json: _Optional[str] = ..., forget_reason: _Optional[str] = ..., terms: _Optional[_Iterable[_Union[TermCount, _Mapping]]] = ..., term_length: _Optional[int] = ..., tier: _Optional[str] = ..., pinned: _Optional[bool] = ..., cold_segment: _Optional[str] = ..., cold_sha256: _Optional[str] = ...) -> None: ...
+    moved_to: str
+    def __init__(self, id: _Optional[str] = ..., user: _Optional[str] = ..., agent: _Optional[str] = ..., session: _Optional[str] = ..., kind: _Optional[str] = ..., text: _Optional[str] = ..., entities: _Optional[_Iterable[str]] = ..., links: _Optional[_Iterable[_Union[MemoryLink, _Mapping]]] = ..., source: _Optional[_Union[MemorySource, _Mapping]] = ..., trust: _Optional[str] = ..., importance: _Optional[float] = ..., strength: _Optional[float] = ..., created_at: _Optional[int] = ..., expired_at: _Optional[int] = ..., tags: _Optional[_Iterable[str]] = ..., version: _Optional[int] = ..., embedding_model: _Optional[str] = ..., log_index: _Optional[int] = ..., branch: _Optional[str] = ..., valid_from: _Optional[int] = ..., valid_to: _Optional[int] = ..., recall_count: _Optional[int] = ..., last_recalled_at: _Optional[int] = ..., meta_json: _Optional[str] = ..., forget_reason: _Optional[str] = ..., terms: _Optional[_Iterable[_Union[TermCount, _Mapping]]] = ..., term_length: _Optional[int] = ..., tier: _Optional[str] = ..., pinned: _Optional[bool] = ..., cold_segment: _Optional[str] = ..., cold_sha256: _Optional[str] = ..., moved_to: _Optional[str] = ...) -> None: ...
 
 class MemoryVector(_message.Message):
     __slots__ = ("model_id", "vector", "kind", "trust", "agent", "session")
@@ -394,7 +396,7 @@ class BranchDrop(_message.Message):
     def __init__(self, user: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class ScopeLifecycle(_message.Message):
-    __slots__ = ("last_write_ms", "writes_since_sleep", "graph_size", "graph_size_at_theme", "embed_model", "reembed", "last_run_ms", "checkpoints", "tick_at_ms", "hot", "cold", "writes_since_evolve")
+    __slots__ = ("last_write_ms", "writes_since_sleep", "graph_size", "graph_size_at_theme", "embed_model", "reembed", "last_run_ms", "checkpoints", "tick_at_ms", "hot", "cold", "writes_since_evolve", "clusters")
     class LastRunMsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -421,6 +423,7 @@ class ScopeLifecycle(_message.Message):
     HOT_FIELD_NUMBER: _ClassVar[int]
     COLD_FIELD_NUMBER: _ClassVar[int]
     WRITES_SINCE_EVOLVE_FIELD_NUMBER: _ClassVar[int]
+    CLUSTERS_FIELD_NUMBER: _ClassVar[int]
     last_write_ms: int
     writes_since_sleep: int
     graph_size: int
@@ -433,7 +436,34 @@ class ScopeLifecycle(_message.Message):
     hot: int
     cold: int
     writes_since_evolve: int
-    def __init__(self, last_write_ms: _Optional[int] = ..., writes_since_sleep: _Optional[int] = ..., graph_size: _Optional[int] = ..., graph_size_at_theme: _Optional[int] = ..., embed_model: _Optional[str] = ..., reembed: _Optional[bool] = ..., last_run_ms: _Optional[_Mapping[str, int]] = ..., checkpoints: _Optional[_Mapping[str, str]] = ..., tick_at_ms: _Optional[int] = ..., hot: _Optional[int] = ..., cold: _Optional[int] = ..., writes_since_evolve: _Optional[int] = ...) -> None: ...
+    clusters: _containers.RepeatedCompositeFieldContainer[ScopeCluster]
+    def __init__(self, last_write_ms: _Optional[int] = ..., writes_since_sleep: _Optional[int] = ..., graph_size: _Optional[int] = ..., graph_size_at_theme: _Optional[int] = ..., embed_model: _Optional[str] = ..., reembed: _Optional[bool] = ..., last_run_ms: _Optional[_Mapping[str, int]] = ..., checkpoints: _Optional[_Mapping[str, str]] = ..., tick_at_ms: _Optional[int] = ..., hot: _Optional[int] = ..., cold: _Optional[int] = ..., writes_since_evolve: _Optional[int] = ..., clusters: _Optional[_Iterable[_Union[ScopeCluster, _Mapping]]] = ...) -> None: ...
+
+class ScopeCluster(_message.Message):
+    __slots__ = ("id", "centroid", "spread")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CENTROID_FIELD_NUMBER: _ClassVar[int]
+    SPREAD_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    centroid: bytes
+    spread: float
+    def __init__(self, id: _Optional[int] = ..., centroid: _Optional[bytes] = ..., spread: _Optional[float] = ...) -> None: ...
+
+class MemoryRehome(_message.Message):
+    __slots__ = ("user", "set_layout", "layout", "copies", "moved", "moved_to")
+    USER_FIELD_NUMBER: _ClassVar[int]
+    SET_LAYOUT_FIELD_NUMBER: _ClassVar[int]
+    LAYOUT_FIELD_NUMBER: _ClassVar[int]
+    COPIES_FIELD_NUMBER: _ClassVar[int]
+    MOVED_FIELD_NUMBER: _ClassVar[int]
+    MOVED_TO_FIELD_NUMBER: _ClassVar[int]
+    user: str
+    set_layout: bool
+    layout: _containers.RepeatedCompositeFieldContainer[ScopeCluster]
+    copies: _containers.RepeatedCompositeFieldContainer[NewMemory]
+    moved: _containers.RepeatedScalarFieldContainer[str]
+    moved_to: str
+    def __init__(self, user: _Optional[str] = ..., set_layout: _Optional[bool] = ..., layout: _Optional[_Iterable[_Union[ScopeCluster, _Mapping]]] = ..., copies: _Optional[_Iterable[_Union[NewMemory, _Mapping]]] = ..., moved: _Optional[_Iterable[str]] = ..., moved_to: _Optional[str] = ...) -> None: ...
 
 class MemoryEvolve(_message.Message):
     __slots__ = ("id", "tags", "set_tags", "meta_json", "importance", "set_importance", "add_links")

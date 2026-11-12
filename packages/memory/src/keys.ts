@@ -111,6 +111,13 @@ export const derivedKey = (tenant: string, user: Root, from: string, id: string)
 export const derivedPrefix = (tenant: string, user: Root, from: string): Uint8Array =>
   prefix(tenant, [...head(user), 'dv', from]);
 
+/**
+ * A forget that reached a cluster of a split scope before the memory did (ADR-0039): the
+ * memory's copy, if it arrives later, is dropped instead of coming back to life.
+ */
+export const forgottenKey = (tenant: string, user: string, id: string): Uint8Array =>
+  key(tenant, [user, 'fx', id]);
+
 /** Branch metadata of a user scope (ADR-0013); outside the branch's own space. */
 export const branchKey = (tenant: string, user: string, name: string): Uint8Array =>
   key(tenant, [user, 'B', name]);

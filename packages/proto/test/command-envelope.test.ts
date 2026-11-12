@@ -32,7 +32,7 @@ describe('Command envelope', () => {
     const bodyNumbers = CommandSchema.fields.map((f) => f.number).filter((n) => n >= 10);
     expect(bodyNumbers).toEqual([
       10, 11, 12, 13, 20, 21, 22, 23, 24, 25, 30, 31, 32, 40, 41, 50, 51, 60, 61, 62, 63, 71, 72,
-      80, 81, 82, 90, 91, 92, 93, 94, 95, 96, 100, 101, 102, 104,
+      80, 81, 82, 90, 91, 92, 93, 94, 95, 96, 100, 101, 102, 103, 104,
     ]);
   });
 

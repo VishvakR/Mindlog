@@ -324,4 +324,6 @@ export interface LifecycleView {
   readonly lastRunMs: Readonly<Record<string, number>>;
   readonly tickAtMs?: number;
   readonly coldTier: boolean;
+  /** Clusters of a split scope (ADR-0039); absent for an unsplit one. */
+  readonly clusters?: number;
 }

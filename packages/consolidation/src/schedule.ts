@@ -1,5 +1,5 @@
 import type { ScopeLifecycle } from '@mindlog/proto';
-import { LIFECYCLE_JOBS } from '@mindlog/memory';
+import { LIFECYCLE_JOBS, SPLIT_JOB } from '@mindlog/memory';
 import type { ConsolidationConfig } from './config.js';
 import { EVERY, THEME_GROWTH, THEME_MIN_GRAPH } from './config.js';
 
@@ -10,6 +10,8 @@ export interface ScheduleFacts {
   readonly hasCache: boolean;
   /** A cold tier is configured. */
   readonly coldTier: boolean;
+  /** The scope is split, or is a cluster of one (ADR-0039): its drift is checked hourly. */
+  readonly split?: boolean;
 }
 
 export interface TickPlan {
@@ -27,7 +29,8 @@ export interface TickPlan {
 export function planTick(
   s: ScopeLifecycle,
   nowMs: bigint,
-  c: Pick<ConsolidationConfig, 'idleMs' | 'sleepAfter' | 'sleepEveryMs'>,
+  c: Pick<ConsolidationConfig, 'idleMs' | 'sleepAfter' | 'sleepEveryMs'> &
+    Partial<Pick<ConsolidationConfig, 'splitAt'>>,
   f: ScheduleFacts,
 ): TickPlan {
   const last = (kind: string) => s.lastRunMs[kind] ?? 0n;
@@ -64,6 +67,13 @@ export function planTick(
   if (s.reembed) add(LIFECYCLE_JOBS.reembed, 'vectors of another model remain');
   if (f.hasCache && since(LIFECYCLE_JOBS.cache) >= BigInt(EVERY.cache))
     add(LIFECYCLE_JOBS.cache, 'cache entries may have expired');
+  const splitAt = c.splitAt ?? 0;
+  if (splitAt > 0) {
+    if (s.hot >= splitAt && since(SPLIT_JOB) >= BigInt(EVERY.split))
+      add(SPLIT_JOB, `${String(s.hot)} memories, the split threshold is ${String(splitAt)}`);
+    else if (f.split && s.hot > 0 && since(SPLIT_JOB) >= BigInt(EVERY.drift))
+      add(SPLIT_JOB, 'hourly drift check of a split scope');
+  }
   // A scope keeps ticking while something can still change without a write.
   const again = s.hot > 0 || s.reembed || f.hasCache || due.length > 0;
   return { due, again };

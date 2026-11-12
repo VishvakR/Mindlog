@@ -24,6 +24,7 @@ import {
   branchMergeHandler,
   branchDropHandler,
   memoryMaintainHandler,
+  memoryRehomeHandler,
   memoryRecallStatsHandler,
 } from '@mindlog/memory';
 import { FakeModels } from '@mindlog/models-client';
@@ -72,6 +73,7 @@ import { Bank } from './bank.js';
 import { BranchLoad } from './branch-load.js';
 import { LifecycleLoad } from './lifecycle-load.js';
 import { CollectionsLoad } from './collections-load.js';
+import { SplitLoad } from './split-load.js';
 import { TenantLoad } from './tenant-load.js';
 import { recordWriteHandler, schemaChangeHandler } from '@mindlog/collections';
 import { MemoryLoad } from './memory-load.js';
@@ -131,6 +133,8 @@ export interface ScenarioOptions {
   readonly encrypted: boolean;
   /** The tenant deletion workload (phase 10). */
   readonly tenants: boolean;
+  /** The semantic split workload (phase 10, ADR-0039); needs the memory workload. */
+  readonly split: boolean;
 }
 
 export interface SimResult {
@@ -156,6 +160,8 @@ export interface SimResult {
     collections?: Record<string, number>;
     /** Tenant deletion workload: acknowledged writes, rows purged, purge passes. */
     tenants?: Record<string, number>;
+    /** Semantic split workload: memories remembered, moved and forgotten. */
+    split?: Record<string, number>;
     /** At the end: ranges, and replicas created by PD operators (ids from 1000). */
     ranges: number;
     placed: number;
@@ -300,6 +306,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       branchMergeHandler,
       branchDropHandler,
       memoryMaintainHandler,
+      memoryRehomeHandler,
       memoryRecallStatsHandler,
       jobLeaseHandler,
       jobCompleteHandler,
@@ -770,6 +777,7 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       : undefined;
   const branches =
     memory && o.branches ? new BranchLoad({ world, memory, say, violate }) : undefined;
+  const splits = memory && o.split ? new SplitLoad({ world, memory, say, violate }) : undefined;
   const lifecycle =
     memory && o.lifecycle
       ? new LifecycleLoad({ world, memory, blob: coldTier, say, violate })
@@ -785,6 +793,17 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       world.at(world.now + world.between(lo, hi), tick);
     };
     for (let w = 0; w < 2; w++) every(50, 250, () => memory.remember());
+    if (splits) {
+      every(60, 200, () => splits.remember());
+      every(800, 1600, () => splits.forget());
+      // Retried until it lands: a crash or partition may swallow the first attempt.
+      world.at(o.durationMs / 3, () => {
+        every(800, 1500, () => splits.split());
+      });
+      every(200, 500, async () => {
+        await splits.move();
+      });
+    }
     every(400, 1200, () => memory.forget());
     every(300, 900, () => memory.cacheStore());
     if (branches) {
@@ -1041,6 +1060,12 @@ export async function runScenario(o: ScenarioOptions): Promise<SimResult> {
       await collections.check();
       stats.collections = collections.counts;
     }
+    if (splits) {
+      let settled: boolean | undefined = false;
+      for (let i = 0; i < 40 && settled === false; i++) settled = await settle(splits.settle());
+      await splits.check();
+      stats.split = splits.counts;
+    }
     if (memory) {
       await memory.check();
       await branches?.check();
@@ -1189,6 +1214,7 @@ export function scenario(seed: bigint) {
     collections: false,
     encrypted: false,
     tenants: false,
+    split: false,
   };
   const dsl = {
     pd: (spare = 0) => {
@@ -1205,6 +1231,7 @@ export function scenario(seed: bigint) {
     collections: () => ((o.collections = true), dsl),
     encrypted: () => ((o.encrypted = true), dsl),
     tenants: () => ((o.tenants = true), dsl),
+    split: () => ((o.split = true), (o.memory = o.memory || 2), dsl),
     nodes: (n: number) => ((o.nodes = n), dsl),
     clients: (n: number) => ((o.clients = n), dsl),
     keys: (n: number) => ((o.keys = n), dsl),

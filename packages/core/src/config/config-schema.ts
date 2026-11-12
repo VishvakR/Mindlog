@@ -134,6 +134,13 @@ export const configSchema = z.strictObject({
         })
         .prefault({}),
       // Forgetting curve (PLAN 13.7): retention below `coldBelow` moves to the cold tier.
+      // Semantic split (PLAN 8.5, ADR-0039): a scope or cluster this big splits in two; 0 never splits.
+      split: z
+        .strictObject({
+          maxMemories: z.number().int().min(0).default(100_000),
+          driftRatio: z.number().min(1).default(1.5),
+        })
+        .prefault({}),
       forgetting: z
         .strictObject({
           coldBelow: z.number().min(0).max(1).default(0.2),

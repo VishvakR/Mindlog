@@ -10,9 +10,10 @@ import { MemoryRecordSchema } from '@mindlog/proto';
 import { decodeKey } from '@mindlog/core';
 import type { ApplyContext, ApplyHandler } from '@mindlog/statemachine';
 import { errorResult } from '@mindlog/statemachine';
-import { derivedPrefix, recordKey, sourceRefPrefix } from '../keys.js';
+import { derivedPrefix, forgottenKey, recordKey, sourceRefPrefix } from '../keys.js';
+import { clusterIdOf } from '../split/clusters.js';
 import { MEMORY_KINDS } from '../types.js';
-import { LIFECYCLE_JOBS, updateLifecycle } from '../lifecycle.js';
+import { LIFECYCLE_JOBS, readLifecycle, updateLifecycle } from '../lifecycle.js';
 import {
   bumpGeneration,
   forgetMemory,
@@ -27,7 +28,9 @@ const KINDS = new Set<string>(MEMORY_KINDS);
 /** A memory record exists and is not forgotten (for `cacheSetHandler`, ADR-0012). */
 export const liveMemory: LiveMemory = async (ctx, tenant, user, id) => {
   const bytes = await ctx.txn.get(recordKey(tenant, user, id));
-  return bytes !== undefined && fromBinary(MemoryRecordSchema, bytes).expiredAt === 0n;
+  if (bytes === undefined) return false;
+  const record = fromBinary(MemoryRecordSchema, bytes);
+  return record.expiredAt === 0n && record.movedTo === '';
 };
 
 /**
@@ -166,6 +169,12 @@ async function taintedBy(
   return seen;
 }
 
+/** Whether a scope is a cluster of a split scope, or a split root (ADR-0039). */
+async function inSplit(ctx: ApplyContext, tenant: string, user: string): Promise<boolean> {
+  if (clusterIdOf(user) > 0) return true;
+  return (await readLifecycle(ctx, tenant, user)).clusters.length > 0;
+}
+
 /**
  * `MemoryForget`: expires the current ones among `ids`, plus everything a
  * tainted source led to; unknown or forgotten ids are skipped. Cache entries
@@ -205,6 +214,8 @@ export const memoryForgetHandler: ApplyHandler = {
       const record = await readRecord(ctx, tenant, root, id);
       const own = branch === undefined || (record && !(await readRecord(ctx, tenant, user, id)));
       if (own) {
+        if (!record && !branch && (await inSplit(ctx, tenant, user)))
+          ctx.txn.put(forgottenKey(tenant, user, id), new Uint8Array());
         if (!record || record.expiredAt !== 0n) continue;
         await forgetMemory(ctx, tenant, root, record, reason);
         forgotten.push(id);

@@ -7,6 +7,7 @@ import type { AsOf, CallContext, MemoryRange, MemoryScope, MemoryView } from '..
 import { toView } from '../view.js';
 import { unpackCogx } from './cogx.js';
 import type { ImportItem } from './mcube.js';
+import type { CubeParts } from './mcube.js';
 import { IMPORT_LIMITS, packCube, unpackCube } from './mcube.js';
 
 const encoder = new TextEncoder();
@@ -27,6 +28,16 @@ export class CubeOps {
     scope: MemoryScope,
     asOf?: AsOf,
   ): Promise<Result<Uint8Array, MindlogError>> {
+    const parts = await this.exportParts(range, scope, asOf);
+    return parts.ok ? ok(packCube(parts.value)) : parts;
+  }
+
+  /** What a `.mcube` holds, unpacked, so the clusters of a split scope can be merged (ADR-0039). */
+  async exportParts(
+    range: MemoryRange,
+    scope: MemoryScope,
+    asOf?: AsOf,
+  ): Promise<Result<CubeParts, MindlogError>> {
     const at = asOf ? await this.#c.version(range, scope, asOf) : undefined;
     const reads = new MemoryReads(range.reader, scope.tenant, scope.user, at);
     const memories: MemoryView[] = [];
@@ -56,18 +67,16 @@ export class CubeOps {
       edges.push({ src: e.src, relation: e.relation, dst: e.dst, weight: e.edge.weight });
     const branches = [];
     for await (const b of reads.branches()) branches.push({ ...branchView(b) });
-    return ok(
-      packCube({
-        scope: { tenant: scope.tenant, user: scope.user },
-        asOfVersion: at ?? 0n,
-        exportedAtMs: Number(this.#c.deps.clock.now()),
-        embeddingModel: (await this.#ops.lifecycle(range, scope)).embedModel,
-        memories,
-        entities,
-        edges,
-        branches,
-      }),
-    );
+    return ok({
+      scope: { tenant: scope.tenant, user: scope.user },
+      asOfVersion: at ?? 0n,
+      exportedAtMs: Number(this.#c.deps.clock.now()),
+      embeddingModel: (await this.#ops.lifecycle(range, scope)).embedModel,
+      memories,
+      entities,
+      edges,
+      branches,
+    });
   }
 
   /**

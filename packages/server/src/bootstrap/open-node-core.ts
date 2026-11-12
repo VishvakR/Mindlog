@@ -34,6 +34,7 @@ import {
   branchMergeHandler,
   branchDropHandler,
   memoryMaintainHandler,
+  memoryRehomeHandler,
   memoryRecallStatsHandler,
 } from '@mindlog/memory';
 import { cacheInvalidateHandler, cacheSetHandler } from '@mindlog/cache';
@@ -300,6 +301,7 @@ export async function openNodeCore(
     branchDropHandler,
     // Memory lifecycle (ADR-0033): every v8 binary applies it; proposing waits for cluster version 8.
     memoryMaintainHandler,
+    memoryRehomeHandler,
     memoryRecallStatsHandler,
     // Collections (ADR-0034): every v9 binary applies them; proposing waits for cluster version 9.
     recordWriteHandler,

@@ -70,6 +70,7 @@ message Command {
     AuditAppend audit_append = 100;
     AuditExpire audit_expire = 101;
     TenantPurge tenant_purge = 102;
+    MemoryRehome memory_rehome = 103;
     AuditOutboxAck audit_outbox_ack = 104;
   }
 

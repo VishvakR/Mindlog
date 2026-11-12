@@ -103,6 +103,23 @@ class Mindlog:
         reply = cast(dict[str, Any], self._call("MEM.JOBS", scope, "LIMIT", 200))
         return cast(list[dict[str, Any]], reply["jobs"])
 
+    def clusters(self, scope: str) -> int:
+        """Clusters of a split scope (ADR-0039); 1 when it is not split."""
+        reply = cast(dict[str, Any], self._call("MEM.JOBS", scope, "LIMIT", 1))
+        return int(reply.get("clusters", 1))
+
+    def split_metrics(self) -> dict[str, float]:
+        """Memories and bytes semantic splits moved, and clusters they made, from the metrics."""
+        with urllib.request.urlopen(self._metrics, timeout=10) as r:
+            text = r.read().decode()
+        out: dict[str, float] = {}
+        for name in ("moved_total", "moved_bytes_total"):
+            m = re.search(rf"^mindlog_memory_split_{name} (\S+)$", text, re.M)
+            out[name] = float(m.group(1)) if m else 0.0
+        m = re.search(r"^mindlog_memory_splits_total (\S+)$", text, re.M)
+        out["splits"] = float(m.group(1)) if m else 0.0
+        return out
+
     def pending(self, scope: str, kinds: tuple[str, ...]) -> int:
         """Queued or running jobs of these kinds in a scope."""
         return sum(

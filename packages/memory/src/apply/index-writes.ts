@@ -93,11 +93,16 @@ export async function writeMemory(
   tenant: string,
   user: Root,
   m: NewMemory,
+  /** A memory a semantic split moves here keeps the stamps it was written with (ADR-0039). */
+  keepStamps = false,
 ): Promise<string> {
   const record = create(MemoryRecordSchema, m.record);
-  record.createdAt = ctx.version;
-  record.logIndex = ctx.index;
+  if (!keepStamps) {
+    record.createdAt = ctx.version;
+    record.logIndex = ctx.index;
+  }
   record.expiredAt = 0n;
+  record.movedTo = '';
   const ids: string[] = [];
   for (const mention of m.mentions) {
     const id = entityId(mention.type, mention.name);
@@ -154,6 +159,16 @@ export async function forgetMemory(
   record.expiredAt = ctx.version;
   record.forgetReason = reason;
   ctx.txn.put(recordKey(tenant, user, record.id), toBinary(MemoryRecordSchema, record));
+  await unindexMemory(ctx, tenant, user, record);
+}
+
+/** Removes a memory from every index of its scope, keeping the record (forget, split moves). */
+export async function unindexMemory(
+  ctx: ApplyContext,
+  tenant: string,
+  user: Root,
+  record: MemoryRecord,
+): Promise<void> {
   ctx.txn.delete(vectorKey(tenant, user, record.id));
   for (const { term } of record.terms) {
     ctx.txn.delete(postingKey(tenant, user, term, record.id));

@@ -71,6 +71,9 @@ message MemoryRecord {
   // Blob key and sha256 (hex) of the cold segment holding the full record.
   string cold_segment = 30;
   string cold_sha256 = 31;
+  // Set on the copy a semantic split left behind: the cluster scope now holding the memory
+  // (ADR-0039). Readers treat the record as absent here; its versions stay for history.
+  string moved_to = 32;
 }
 
 // Stored at m/(user, 'v', id).
@@ -328,6 +331,29 @@ message ScopeLifecycle {
   uint32 cold = 11;
   // Memories committed since evolution was last enqueued.
   uint32 writes_since_evolve = 12;
+  // A semantic split (ADR-0039), kept on the root scope only: its clusters; empty when unsplit.
+  repeated ScopeCluster clusters = 13;
+}
+
+// One cluster of a split scope: cluster 0 is the root scope itself, cluster n lives at
+// the scope `user\u0000c<n>` (ADR-0039).
+message ScopeCluster {
+  uint32 id = 1;
+  // float32 little-endian, L2-normalised.
+  bytes centroid = 2;
+  // Mean distance of its memories to the centroid when it was last set; drift is measured against it.
+  double spread = 3;
+}
+
+// A semantic split step (ADR-0039), on one scope: set the root's clusters, take in memories
+// copied from another cluster with their stamps, or mark memories as moved away.
+message MemoryRehome {
+  string user = 1;
+  bool set_layout = 2;
+  repeated ScopeCluster layout = 3;
+  repeated NewMemory copies = 4;
+  repeated string moved = 5;
+  string moved_to = 6;
 }
 
 // A worker's change to an existing memory: a new version, the old one kept at

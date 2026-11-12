@@ -61,8 +61,12 @@ const toolTrace = z.strictObject({
   success: z.boolean(),
 });
 
+/** A caller's id for a write: the same id applies once, so an offline queue can replay safely. */
+const clientRequestId = z.string().min(1).max(128).optional();
+
 export const rememberSchema = z.strictObject({
   scope: memoryScopeSchema,
+  requestId: clientRequestId,
   /** Required unless `toolTrace` is given (the engine refuses empty content). */
   content: z
     .string()
@@ -125,6 +129,7 @@ export const listMemorySchema = z.strictObject({
 export const forgetSchema = z
   .strictObject({
     scope: memoryScopeSchema,
+    requestId: clientRequestId,
     ids: z.array(memoryId).max(100).default([]),
     reason: z.string().max(500).optional(),
     /** Taint cascade: forget everything from this source and derived from it (PLAN 13.4). */
@@ -137,6 +142,12 @@ export const forgetSchema = z
   });
 
 export const historySchema = z.strictObject({ scope: memoryScopeSchema, id: memoryId });
+
+/** Several memories by id, for clients that follow the change stream (embedded replicas). */
+export const getManySchema = z.strictObject({
+  scope: memoryScopeSchema,
+  ids: z.array(memoryId).min(1).max(100),
+});
 
 export const graphSchema = z.strictObject({
   scope: memoryScopeSchema,
@@ -217,9 +228,13 @@ export const pinSchema = z.strictObject({
 });
 
 /** Consolidation workers by short name (`sleep`, `dedup`, …). */
-export const WORKER_NAMES = Object.values(LIFECYCLE_JOBS)
-  .map((k) => k.replace('consolidation.', ''))
-  .filter((k) => k !== 'tick') as [string, ...string[]];
+export const WORKER_NAMES: [string, ...string[]] = [
+  // The semantic split (ADR-0039), only when named.
+  'split',
+  ...Object.values(LIFECYCLE_JOBS)
+    .map((k) => k.replace('consolidation.', ''))
+    .filter((k) => k !== 'tick'),
+];
 
 export const consolidateSchema = z.strictObject({
   scope: memoryScopeSchema,
@@ -257,6 +272,7 @@ export const scopesSchema = z.strictObject({ limit: z.int().min(1).max(1000).def
 export type RememberRequest = z.input<typeof rememberSchema>;
 export type RecallRequest = z.input<typeof recallSchema>;
 export type GetMemoryRequest = z.input<typeof getMemorySchema>;
+export type GetManyRequest = z.input<typeof getManySchema>;
 export type ListMemoryRequest = z.input<typeof listMemorySchema>;
 export type ForgetRequest = z.input<typeof forgetSchema>;
 export type HistoryRequest = z.input<typeof historySchema>;

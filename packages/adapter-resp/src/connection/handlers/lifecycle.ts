@@ -89,6 +89,7 @@ export const memJobsCommand: ConnectionCommand = {
             [text('cold'), replies.integer(r.lifecycle.cold)],
             [text('reembed'), flag(r.lifecycle.reembed)],
             [text('embed_model'), text(r.lifecycle.embedModel)],
+            [text('clusters'), replies.integer(r.lifecycle.clusters ?? 1)],
           ]),
       );
     }),

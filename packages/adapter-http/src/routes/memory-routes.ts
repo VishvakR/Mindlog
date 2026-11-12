@@ -10,6 +10,7 @@ import {
   conflictsSchema,
   mergeSchema,
   forgetSchema,
+  getManySchema,
   getMemorySchema,
   graphSchema,
   historySchema,
@@ -38,6 +39,7 @@ type Method =
   | 'recall'
   | 'pack'
   | 'get'
+  | 'getMany'
   | 'list'
   | 'forget'
   | 'history'
@@ -68,6 +70,7 @@ const CALLS: Record<
   // The packed context is part of every recall; `pack` names that use (MEM.PACK).
   pack: (m, c, i) => m.recall(c, i),
   get: (m, c, i) => m.get(c, i),
+  getMany: (m, c, i) => m.getMany(c, i),
   list: (m, c, i) => m.list(c, i),
   forget: (m, c, i) => m.forget(c, i),
   history: (m, c, i) => m.history(c, i),
@@ -113,6 +116,11 @@ const ROUTES: ReadonlyArray<{
     schema: recallSchema,
   },
   { op: 'get', summary: 'One memory of a scope', schema: getMemorySchema },
+  {
+    op: 'getMany',
+    summary: 'Several memories of a scope by id (for change-stream followers)',
+    schema: getManySchema,
+  },
   { op: 'list', summary: 'Memories of a scope, oldest first, by cursor', schema: listMemorySchema },
   { op: 'forget', summary: 'Forget memories (append-only; history is kept)', schema: forgetSchema },
   { op: 'history', summary: 'Stored versions of a memory, newest first', schema: historySchema },

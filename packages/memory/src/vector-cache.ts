@@ -82,7 +82,8 @@ export class VectorCache {
         body.case === 'memoryTrust' ||
         body.case === 'conflictResolve' ||
         body.case === 'branchMerge' ||
-        body.case === 'memoryMaintain'
+        body.case === 'memoryMaintain' ||
+        body.case === 'memoryRehome'
       ) {
         // Trust, tiers and models change vector rows; rebuild on next use rather than track which.
         this.#entries.delete(`${command.tenant}\u0000${body.value.user}`);

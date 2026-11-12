@@ -33,6 +33,7 @@ import { LifecycleOps } from './lifecycle-ops.js';
 import { CubeOps } from './cube/cube-ops.js';
 import type { RedactionKind } from './ingest/redact.js';
 import { fromToolTrace } from './ingest/tool-trace.js';
+import { SplitOps } from './split/split-ops.js';
 import type { ScopeReads } from './read/memory-reads.js';
 import { MemoryReads } from './read/memory-reads.js';
 import type { MemoryConfig, MemoryEngineDeps } from './engine-config.js';
@@ -85,6 +86,8 @@ export class MemoryEngine {
   readonly #cold: ColdReads | undefined;
   readonly #stats: RecallStats;
   readonly #ops: LifecycleOps;
+  /** The scope's semantic split (ADR-0039). */
+  readonly split: SplitOps;
   readonly #cubes: CubeOps;
 
   constructor(deps: MemoryEngineDeps) {
@@ -102,6 +105,7 @@ export class MemoryEngine {
     };
     this.#ops = new LifecycleOps(core);
     this.#cubes = new CubeOps(core, this.#ops);
+    this.split = new SplitOps(core, this.#ops);
     this.#stats = new RecallStats({
       flush: (p) => this.#ops.flushStats(p),
       maxIds: this.#config.maxPendingRecalls,
@@ -849,6 +853,16 @@ export class MemoryEngine {
   }
 
   /** The scope as a `.mcube` (PLAN 13.11), at `asOf` or now. */
+  /** The parts of the scope's `.mcube`, unpacked (ADR-0039). */
+  exportParts(range: MemoryRange, scope: MemoryScope, asOf?: AsOf) {
+    return this.#cubes.exportParts(range, scope, asOf);
+  }
+
+  /** The MVCC version (HLC) an `ASOF index` names on this scope's range. */
+  versionAt(range: MemoryRange, scope: MemoryScope, asOf: AsOf): Promise<bigint> {
+    return this.#version(range, scope, asOf);
+  }
+
   exportCube(
     range: MemoryRange,
     scope: MemoryScope,

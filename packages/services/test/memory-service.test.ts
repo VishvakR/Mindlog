@@ -25,7 +25,7 @@ describe('MemoryService', () => {
       content: 'Ana lives in Lisbon.',
     });
     expect(added.ok).toBe(true);
-    expect(m.forwarded.map((c) => c.kind === 'memory' && c.op)).toEqual(['remember']);
+    expect(m.forwarded.map((c) => c.kind === 'memory' && c.op)).toEqual(['layout', 'remember']);
     const id = added.ok ? (added.value.ids[0] ?? '') : '';
     const got = await m.service.get(m.caller, { scope: { user: 'u1' }, id });
     expect(got.ok && got.value?.text).toBe('Ana lives in Lisbon.');

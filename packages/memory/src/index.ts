@@ -5,6 +5,7 @@
 export { liveMemory, memoryCommitHandler, memoryForgetHandler } from './apply/memory-handlers.js';
 export { conflictResolveHandler, memoryTrustHandler } from './apply/review-handlers.js';
 export { memoryMaintainHandler, memoryRecallStatsHandler } from './apply/lifecycle-handlers.js';
+export { memoryRehomeHandler } from './apply/rehome-handler.js';
 export type { ColdEntry, EncodedSegment } from './cold-segment.js';
 export { STUB_CHARS, decodeSegment, encodeSegment, segmentKey, stubText } from './cold-segment.js';
 export { traceText } from './ingest/tool-trace.js';
@@ -75,5 +76,22 @@ export type { TrustPolicy } from './ingest/text.js';
 export { trustOf } from './ingest/text.js';
 export { TRUST_LEVELS } from './review.js';
 export { hlcMs, toJobView, toLifecycleView, toView } from './view.js';
-export type { CubeManifest, ImportItem } from './cube/mcube.js';
-export { CUBE_FORMAT, IMPORT_LIMITS } from './cube/mcube.js';
+export type { CubeManifest, CubeParts, ImportItem } from './cube/mcube.js';
+export { CUBE_FORMAT, IMPORT_LIMITS, packCube } from './cube/mcube.js';
+export {
+  MAX_CLUSTERS,
+  SPLIT_JOB,
+  baseUser,
+  bytesOf,
+  cluster,
+  clusterIdOf,
+  clusterUser,
+  distance,
+  normalise,
+  rankClusters,
+  vectorOf,
+} from './split/clusters.js';
+export type { KmeansRunner, TwoMeans } from './split/kmeans.js';
+export { inlineKmeans, twoMeans } from './split/kmeans.js';
+export type { RouteResult } from './split/split-ops.js';
+export { SplitOps } from './split/split-ops.js';

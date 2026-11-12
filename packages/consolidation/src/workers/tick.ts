@@ -2,7 +2,7 @@ import { fromBinary } from '@bufbuild/protobuf';
 import { entryPrefix } from '@mindlog/cache';
 import { ok } from '@mindlog/core';
 import type { Worker } from '@mindlog/jobs';
-import { LIFECYCLE_JOBS } from '@mindlog/memory';
+import { LIFECYCLE_JOBS, clusterIdOf } from '@mindlog/memory';
 import { JobState } from '@mindlog/proto';
 import { CacheEntrySchema } from '@mindlog/proto';
 import { MvccReader } from '@mindlog/storage';
@@ -35,6 +35,7 @@ export function tickWorker(d: ConsolidationDeps): Worker {
       running,
       hasCache,
       coldTier: d.cold !== undefined,
+      split: state.clusters.length > 0 || clusterIdOf(run.scope.user) > 0,
     });
     if (plan.due.length > 0)
       d.logger.info('consolidation due', {

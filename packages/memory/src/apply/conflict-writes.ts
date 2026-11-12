@@ -14,7 +14,9 @@ export async function readRecord(
   id: string,
 ): Promise<MemoryRecord | undefined> {
   const bytes = await ctx.txn.get(recordKey(tenant, user, id));
-  return bytes ? fromBinary(MemoryRecordSchema, bytes) : undefined;
+  const record = bytes ? fromBinary(MemoryRecordSchema, bytes) : undefined;
+  // A memory a semantic split moved away is absent here (ADR-0039); its cluster has it.
+  return record?.movedTo ? undefined : record;
 }
 
 /** Stores a changed record as its next version; the vector row follows a trust change. */

@@ -150,7 +150,9 @@ export class MemoryReads implements ScopeReads {
   /** A record and the MVCC version (HLC) that wrote it. */
   async recordVersion(id: string): Promise<{ record: MemoryRecord; version: bigint } | undefined> {
     const v = await this.#mvcc.getVersioned(recordKey(this.tenant, this.user, id), this.#at);
-    return v && { record: fromBinary(MemoryRecordSchema, v.value), version: v.index };
+    if (!v) return undefined;
+    const record = fromBinary(MemoryRecordSchema, v.value);
+    return record.movedTo ? undefined : { record, version: v.index };
   }
 
   /** A memory's vector row (none for cold memories or degraded writes). */
@@ -159,16 +161,20 @@ export class MemoryReads implements ScopeReads {
     return bytes ? fromBinary(MemoryVectorSchema, bytes) : undefined;
   }
 
+  /** A memory of this scope; one a semantic split moved to another cluster is absent (ADR-0039). */
   async record(id: string): Promise<MemoryRecord | undefined> {
     const bytes = await this.#get(recordKey(this.tenant, this.user, id));
-    return bytes ? fromBinary(MemoryRecordSchema, bytes) : undefined;
+    const record = bytes ? fromBinary(MemoryRecordSchema, bytes) : undefined;
+    return record?.movedTo ? undefined : record;
   }
 
   /** Records in id order (ULIDs, so creation order), after `after`. */
   async *records(after?: string): AsyncGenerator<MemoryRecord> {
     const options = after ? { after: recordKey(this.tenant, this.user, after) } : {};
-    for await (const { value } of this.#scan(recordPrefix(this.tenant, this.user), options))
-      yield fromBinary(MemoryRecordSchema, value);
+    for await (const { value } of this.#scan(recordPrefix(this.tenant, this.user), options)) {
+      const record = fromBinary(MemoryRecordSchema, value);
+      if (!record.movedTo) yield record;
+    }
   }
 
   /** Every stored state of a record, newest first, within MVCC retention. */

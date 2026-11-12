@@ -1,6 +1,9 @@
-import type { MindlogError, MindlogErrorCode, Result } from '@mindlog/core';
+import { createHash } from 'node:crypto';
+import type { Clock, Hlc, MindlogError, MindlogErrorCode, Result } from '@mindlog/core';
 import {
   ERROR_CODES,
+  SystemClock,
+  hlcPhysical,
   isUserTenant,
   KeyFamily,
   decodeKey,
@@ -30,21 +33,32 @@ import type {
   LifecycleView,
 } from '@mindlog/memory';
 import type { RedactionKind } from '@mindlog/memory';
-import { scopeKey, toJobView, toLifecycleView } from '@mindlog/memory';
+import {
+  MAX_CLUSTERS,
+  SPLIT_JOB,
+  baseUser,
+  clusterUser,
+  scopeKey,
+  toJobView,
+  toLifecycleView,
+} from '@mindlog/memory';
+import { create, fromBinary } from '@bufbuild/protobuf';
 import type { KvReply } from '@mindlog/proto';
-import { JobState } from '@mindlog/proto';
+import { JobState, NewMemorySchema, ScopeClusterSchema } from '@mindlog/proto';
 import type { CommandStamper } from '@mindlog/statemachine';
-import type { z } from 'zod';
+import { z } from 'zod';
 import type { Access } from '@mindlog/auth';
 import type { Caller, Placement, RangeCall, RangeRouter, RangeTarget } from '../kv/range-router.js';
 import type { Authorize } from '../tenants/authorize.js';
 import type { AdmitClass } from '../tenants/governor.js';
+import { ScopeSplits } from './scope-splits.js';
 import { modelTenant } from '../tenants/model-meter.js';
 import type {
   CacheDeleteRequest,
   CacheLookupRequest,
   CacheStoreRequest,
   ForgetRequest,
+  GetManyRequest,
   GetMemoryRequest,
   GraphRequest,
   HistoryRequest,
@@ -67,6 +81,8 @@ import type {
 import {
   cacheDeleteSchema,
   cacheLookupSchema,
+  getManySchema,
+  memoryScopeSchema,
   cacheStoreSchema,
   conflictsSchema,
   forgetSchema,
@@ -98,6 +114,8 @@ export const CACHE_CLUSTER_VERSION = 6;
 export const LOG_NATIVE_CLUSTER_VERSION = 7;
 /** Cluster version that knows the lifecycle commands (ADR-0033). */
 export const LIFECYCLE_CLUSTER_VERSION = 8;
+/** Cluster version that knows `MemoryRehome` (ADR-0039). */
+export const SPLIT_CLUSTER_VERSION = 10;
 
 const JOB_STATES = {
   queued: JobState.QUEUED,
@@ -125,6 +143,8 @@ export interface MemoryServiceDeps {
   readonly admit?: (tenant: string, cls: AdmitClass) => Promise<Result<void, MindlogError>>;
   /** The tenant's redaction policy (PLAN 12.3 stage 2), looked up where ingestion runs. */
   readonly redaction?: (tenant: string) => Promise<readonly RedactionKind[]>;
+  /** For the split layout cache; the system clock by default. */
+  readonly clock?: Clock;
 }
 
 /** Who is asking. Interfaces pass `access`; the node's own workers do not. */
@@ -157,7 +177,7 @@ const OPS = {
   remember: op({
     schema: rememberSchema,
     write: true,
-    run: ({ memory: e }, r, scope, { validFrom, validTo, ...i }, c) =>
+    run: ({ memory: e }, r, scope, { validFrom, validTo, requestId: _id, ...i }, c) =>
       e.remember(
         r,
         {
@@ -189,6 +209,19 @@ const OPS = {
     write: false,
     run: ({ memory: e }, r, scope, i) =>
       e.get(r, scope, i.id, { asOf: toAsOf(i.asOf), branch: i.branch }),
+  }),
+  getMany: op({
+    schema: getManySchema,
+    write: false,
+    run: async ({ memory: e }, r, scope, i) => {
+      const out: MemoryView[] = [];
+      for (const id of i.ids) {
+        const got = await e.get(r, scope, id, {});
+        if (!got.ok) return got;
+        if (got.value) out.push(got.value);
+      }
+      return ok({ memories: out });
+    },
   }),
   list: op({
     schema: listMemorySchema,
@@ -311,7 +344,7 @@ const OPS = {
       e.consolidate(
         r,
         scope,
-        i.workers?.map((w) => `consolidation.${w}` as LifecycleJob),
+        i.workers?.map((w) => (w === 'split' ? SPLIT_JOB : `consolidation.${w}`) as LifecycleJob),
         c,
       ),
   }),
@@ -417,6 +450,136 @@ const OPS = {
   }),
 };
 
+const clusterSchema = z.strictObject({
+  id: z.int().min(0),
+  centroid: z.string().max(65_536),
+  spread: z.number(),
+});
+
+/**
+ * Operations the service runs on one cluster of a split scope (ADR-0039).
+ * Never reachable from an interface: only `ScopeSplits` and the split worker
+ * call them, here or on the node a call is forwarded to.
+ */
+const INTERNAL_OPS = {
+  layout: op({
+    schema: z.strictObject({ scope: memoryScopeSchema }),
+    write: false,
+    run: async ({ memory: e }, r, scope) =>
+      ok({ clusters: (await e.split.clusters(r, scope)).map((c) => c.id).sort((a, b) => a - b) }),
+  }),
+  clusters: op({
+    schema: z.strictObject({ scope: memoryScopeSchema }),
+    write: false,
+    run: async ({ memory: e }, r, scope) =>
+      ok({
+        clusters: (await e.split.clusters(r, scope)).map((c) => ({
+          id: c.id,
+          centroid: Buffer.from(c.centroid).toString('base64'),
+          spread: c.spread,
+        })),
+      }),
+  }),
+  route: op({
+    schema: z.strictObject({
+      scope: memoryScopeSchema,
+      text: z.string().max(65_536),
+      kind: z.enum(['query', 'passage']),
+    }),
+    write: false,
+    run: async ({ memory: e }, r, scope, i) => {
+      const routed = await e.split.route(r, scope, i.text, i.kind);
+      return routed.ok
+        ? ok({ clusters: routed.value.clusters, degraded: routed.value.degraded })
+        : routed;
+    },
+  }),
+  asOfTime: op({
+    schema: z.strictObject({ scope: memoryScopeSchema, index: z.string().regex(/^\d{1,20}$/) }),
+    write: false,
+    run: async ({ memory: e }, r, scope, i) =>
+      ok({
+        time: Number(hlcPhysical((await e.versionAt(r, scope, { index: BigInt(i.index) })) as Hlc)),
+      }),
+  }),
+  derived: op({
+    schema: z.strictObject({
+      scope: memoryScopeSchema,
+      ids: z.array(z.string().max(64)).max(10_000),
+    }),
+    write: false,
+    run: async ({ memory: e }, r, scope, i) => ok(await e.split.derived(r, scope, i.ids)),
+  }),
+  exportParts: op({
+    schema: exportSchema,
+    write: false,
+    run: async ({ memory: e }, r, scope, i) => {
+      const parts = await e.exportParts(r, scope, toAsOf(i.asOf));
+      return parts.ok
+        ? ok({ ...parts.value, asOfVersion: String(parts.value.asOfVersion) })
+        : parts;
+    },
+  }),
+  rehome: op({
+    schema: z.strictObject({
+      scope: memoryScopeSchema,
+      setLayout: z.boolean().optional(),
+      layout: z.array(clusterSchema).max(MAX_CLUSTERS).optional(),
+      /** `NewMemory` messages, base64. */
+      copies: z.array(z.string()).max(1_000).optional(),
+      moved: z.array(z.string().max(64)).max(1_000).optional(),
+      movedTo: z.string().max(256).optional(),
+    }),
+    write: true,
+    version: SPLIT_CLUSTER_VERSION,
+    run: ({ memory: e }, r, scope, i, c) =>
+      e.split.rehome(
+        r,
+        scope,
+        {
+          ...(i.setLayout ? { setLayout: true } : {}),
+          ...(i.layout
+            ? {
+                layout: i.layout.map((l) =>
+                  create(ScopeClusterSchema, {
+                    id: l.id,
+                    centroid: new Uint8Array(Buffer.from(l.centroid, 'base64')),
+                    spread: l.spread,
+                  }),
+                ),
+              }
+            : {}),
+          ...(i.copies
+            ? { copies: i.copies.map((b) => fromBinary(NewMemorySchema, Buffer.from(b, 'base64'))) }
+            : {}),
+          ...(i.moved ? { moved: i.moved } : {}),
+          ...(i.movedTo ? { movedTo: i.movedTo } : {}),
+        },
+        c,
+      ),
+  }),
+};
+
+const ALL_OPS = { ...OPS, ...INTERNAL_OPS };
+
+/** A request id per cluster: clusters may share a range, whose idempotency table must not merge them. */
+const clusterRequestId = (id: Uint8Array | undefined, cluster: number): Uint8Array | undefined =>
+  id && cluster > 0 ? Uint8Array.of(...id, cluster) : id;
+
+/** A caller's request id as an idempotency key: scoped to the tenant and principal that sent it. */
+const clientRequestKey = (caller: Caller, id: string): Uint8Array =>
+  new Uint8Array(
+    createHash('sha256').update(`${caller.tenant}\u0000${caller.principal}\u0000${id}`).digest(),
+  ).slice(0, 16);
+
+/** `recall#2`: the operation and the cluster it runs on. */
+function parseOp(op: string): { name: string; cluster: number } {
+  const at = op.lastIndexOf('#');
+  return at < 0
+    ? { name: op, cluster: 0 }
+    : { name: op.slice(0, at), cluster: Number(op.slice(at + 1)) };
+}
+
 type Ops = typeof OPS;
 type OpName = keyof Ops;
 type OutputOf<N extends OpName> = Ops[N] extends Op<z.ZodType, infer O> ? O : never;
@@ -451,9 +614,11 @@ function invalid(issues: z.core.$ZodIssue[]): MindlogError {
  */
 export class MemoryService {
   readonly #d: MemoryServiceDeps;
+  readonly #splits: ScopeSplits;
 
   constructor(deps: MemoryServiceDeps) {
     this.#d = deps;
+    this.#splits = new ScopeSplits(deps.clock ?? new SystemClock());
   }
 
   remember(
@@ -486,6 +651,13 @@ export class MemoryService {
     input: ForgetRequest,
   ): Promise<Result<{ ids: string[]; count: number }, MindlogError>> {
     return this.#execute(caller, 'forget', input);
+  }
+
+  getMany(
+    caller: MemoryCaller,
+    input: GetManyRequest,
+  ): Promise<Result<{ memories: MemoryView[] }, MindlogError>> {
+    return this.#execute(caller, 'getMany', input);
   }
 
   history(
@@ -655,7 +827,8 @@ export class MemoryService {
           const decoded = decodeKey(key);
           const user = decoded.ok ? decoded.value.tuple[0] : undefined;
           if (typeof user !== 'string') break;
-          users.add(user);
+          // A split scope's clusters list as the one scope (ADR-0039).
+          users.add(baseUser(user));
           next = prefixRange(scopeKey(caller.tenant, user)).end;
         }
         if (!next || users.size >= parsed.data.limit) break;
@@ -718,17 +891,77 @@ export class MemoryService {
           `the cluster has not reached the version of ${name} commands yet; retry`,
         ),
       );
+    const given = (input as { requestId?: string }).requestId;
     const requestId = spec.write
-      ? this.#d.stamper.stamp(caller.tenant, caller.principal, {
-          case: 'memoryForget',
-          value: { user: '', ids: [], reason: '' },
-        }).requestId
+      ? given === undefined
+        ? this.#requestId(caller)
+        : clientRequestKey(caller, given)
       : undefined;
-    const key = scopeKey(caller.tenant, input.scope.user);
+    const clusters = await this.#splits.clusters(caller.tenant, input.scope.user, () =>
+      this.#runOn<{ clusters: number[] }>(
+        caller,
+        'layout',
+        INTERNAL_OPS.layout,
+        { scope: { user: input.scope.user } },
+        undefined,
+        0,
+      ),
+    );
+    if (!clusters.ok) return clusters;
+    if (clusters.value.length > 1)
+      return this.#splits.run(name, input, clusters.value, (n, i, c) =>
+        this.clusterCall(caller, n, i, c, requestId),
+      ) as Promise<Result<OutputOf<N>, MindlogError>>;
+    return this.#runOn(caller, name, spec, input, requestId, 0);
+  }
+
+  #requestId(caller: Caller): Uint8Array {
+    return this.#d.stamper.stamp(caller.tenant, caller.principal, {
+      case: 'memoryForget',
+      value: { user: '', ids: [], reason: '' },
+    }).requestId;
+  }
+
+  /**
+   * Runs an operation, public or internal, on one cluster of a scope (ADR-0039).
+   * The split worker and `ScopeSplits` use it; the caller was authorized already.
+   */
+  async clusterCall<T>(
+    caller: MemoryCaller,
+    name: string,
+    raw: unknown,
+    cluster: number,
+    requestId?: Uint8Array,
+  ): Promise<Result<T, MindlogError>> {
+    const spec = (ALL_OPS as unknown as Record<string, Op<z.ZodType, T> | undefined>)[name];
+    if (!spec) return err(mindlogError('INVALID_ARGUMENT', `unknown memory operation ${name}`));
+    const parsed = spec.schema.safeParse(raw);
+    if (!parsed.success) return err(invalid(parsed.error.issues));
+    const id = spec.write
+      ? clusterRequestId(requestId ?? this.#requestId(caller), cluster)
+      : undefined;
+    return this.#runOn(caller, name, spec, parsed.data, id, cluster);
+  }
+
+  /** Drops this node's cached layout of a scope, after a split changed it. */
+  layoutChanged(tenant: string, user: string): void {
+    this.#splits.forget(tenant, user);
+  }
+
+  async #runOn<O>(
+    caller: Caller,
+    name: string,
+    spec: Op<z.ZodType, O>,
+    input: unknown,
+    requestId: Uint8Array | undefined,
+    cluster: number,
+  ): Promise<Result<O, MindlogError>> {
+    const { user } = (input as { scope: { user: string } }).scope;
+    const key = scopeKey(caller.tenant, clusterUser(user, cluster));
     let placed = await this.#locate(key);
     for (let attempt = 0; ; attempt++) {
       if (!placed.ok) return placed;
-      const result = await this.#once(placed.value, caller, name, spec, input, requestId);
+      const result = await this.#once(placed.value, caller, name, spec, input, requestId, cluster);
       if (result.ok || !RETRYABLE.has(result.error.code) || attempt >= MAX_RETRIES) return result;
       await backoff(attempt);
       placed = this.#d.router.refresh
@@ -749,20 +982,21 @@ export class MemoryService {
   async #once<O>(
     placement: Placement,
     caller: Caller,
-    name: OpName,
+    name: string,
     spec: Op<z.ZodType, O>,
     input: unknown,
     requestId: Uint8Array | undefined,
+    cluster: number,
   ): Promise<Result<O, MindlogError>> {
     const call: RangeCall = {
       kind: 'memory',
-      op: name,
+      op: cluster > 0 ? `${name}#${String(cluster)}` : name,
       json: JSON.stringify(input),
       ...(requestId ? { requestId } : {}),
     };
     if (placement.local)
       return modelTenant.run(caller.tenant, () =>
-        this.#local(placement.local as RangeTarget, caller, spec, input, requestId),
+        this.#local(placement.local as RangeTarget, caller, spec, input, requestId, cluster),
       );
     const reply = await this.#d.router.forward(placement, caller, call);
     if (!reply.ok) return reply;
@@ -779,8 +1013,11 @@ export class MemoryService {
     spec: Op<z.ZodType, O>,
     input: unknown,
     requestId: Uint8Array | undefined,
+    cluster = 0,
   ): Promise<Result<O, MindlogError>> {
-    const { scope } = input as { scope: { user: string; agent?: string; session?: string } };
+    const given = (input as { scope: { user: string; agent?: string; session?: string } }).scope;
+    // Below the service a cluster of a split scope is just another user (ADR-0039).
+    const scope = { ...given, user: clusterUser(given.user, cluster) };
     if (!spec.write) {
       const ready = await target.readBarrier.read('lease');
       if (!ready.ok) return ready;
@@ -807,7 +1044,8 @@ export class MemoryService {
     const target = this.#d.router.local(rangeId);
     if (!target)
       return replies.error('RANGE_MOVED', `this node holds no replica of range ${String(rangeId)}`);
-    const spec = (OPS as Record<string, Op<z.ZodType, unknown> | undefined>)[call.op];
+    const { name, cluster } = parseOp(call.op);
+    const spec = (ALL_OPS as unknown as Record<string, Op<z.ZodType, unknown> | undefined>)[name];
     if (!spec) return replies.error('INVALID_ARGUMENT', `unknown memory operation ${call.op}`);
     let raw: unknown;
     try {
@@ -818,7 +1056,7 @@ export class MemoryService {
     const parsed = spec.schema.safeParse(raw);
     if (!parsed.success)
       return replies.error('INVALID_ARGUMENT', invalid(parsed.error.issues).message);
-    const result = await this.#local(target, caller, spec, parsed.data, call.requestId);
+    const result = await this.#local(target, caller, spec, parsed.data, call.requestId, cluster);
     return result.ok
       ? replies.bulk(encoder.encode(JSON.stringify(result.value ?? null)))
       : replies.error(result.error.code, result.error.message);

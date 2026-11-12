@@ -27,9 +27,11 @@ import {
   LIFECYCLE_CLUSTER_VERSION,
   MemoryService,
   meterModels,
+  splitWorker,
 } from '@mindlog/services';
 import type { CommandStamper } from '@mindlog/statemachine';
 import type { KvReader } from '@mindlog/storage';
+import { openKmeansPool } from './kmeans-pool.js';
 import { openPprPool } from './ppr-pool.js';
 
 export interface MemoryParts {
@@ -176,6 +178,7 @@ export function openMemory(deps: {
       hardForgetTenants: forgetting.hardForgetTenants,
       deleteBelow: forgetting.deleteBelow,
       modelTimeoutMs: config.models.timeoutMs * 10,
+      splitAt: config.memory.split.maxMemories,
     },
     ...(cold ? { cold } : {}),
   }))
@@ -198,7 +201,21 @@ export function openMemory(deps: {
     router,
     stamper: deps.stamper,
     ...(deps.clusterVersion ? { clusterVersion: deps.clusterVersion } : {}),
+    clock,
   });
+  const kmeans = openKmeansPool();
+  workers.register(
+    splitWorker({
+      memory: service,
+      engine,
+      ranges,
+      kmeans: kmeans.run,
+      clock,
+      logger,
+      metrics,
+      config: config.memory.split,
+    }),
+  );
   const changes = new ChangeFeed();
   changes.attach(deps.events);
   return {
@@ -210,6 +227,7 @@ export function openMemory(deps: {
     close: async () => {
       await engine.close();
       await ppr.close();
+      await kmeans.close();
     },
   };
 }

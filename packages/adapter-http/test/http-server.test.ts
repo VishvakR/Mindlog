@@ -268,6 +268,7 @@ describe('admin and OpenAPI', () => {
       '/api/memory/export',
       '/api/memory/forget',
       '/api/memory/get',
+      '/api/memory/getMany',
       '/api/memory/graph',
       '/api/memory/history',
       '/api/memory/import',

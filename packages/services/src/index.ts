@@ -90,6 +90,7 @@ export {
   cacheStoreSchema,
   conflictsSchema,
   forgetSchema,
+  getManySchema,
   getMemorySchema,
   graphSchema,
   historySchema,
@@ -153,3 +154,6 @@ export type {
   RecordHooks,
 } from './collections/record-hooks.js';
 export { CRON_COLLECTION, cronRecordId, ensureCrons } from './collections/crons.js';
+export type { SplitConfig, SplitWorkerDeps } from './memory/split-worker.js';
+export { splitWorker } from './memory/split-worker.js';
+export { SPLIT_CLUSTER_VERSION } from './memory/memory-service.js';

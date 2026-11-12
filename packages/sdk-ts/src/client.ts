@@ -84,6 +84,16 @@ export class MindlogClient {
     };
   }
 
+  /** The full URL of an API path. */
+  url(path: string): string {
+    return `${this.#base}${path}`;
+  }
+
+  /** The headers that authenticate a request: `token`, else the session's. */
+  authHeaders(token?: string): Record<string, string> {
+    return this.#headers({}, token ?? this.authStore.token);
+  }
+
   /** Calls the API; a `FormData` body is sent as multipart, anything else as JSON. */
   async send<T>(
     path: string,

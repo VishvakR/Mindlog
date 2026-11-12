@@ -2,13 +2,18 @@
   "name": "@mindlog/sdk",
   "version": "0.0.0",
   "private": true,
-  "description": "TypeScript client for Mindlog collections, auth, files and realtime (PLAN 15, 16)",
+  "description": "TypeScript client for Mindlog memory, collections, auth, files and realtime, with a Node embedded replica (PLAN 13.10, 15.5, 16)",
   "type": "module",
   "exports": {
     ".": {
       "@mindlog/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./replica": {
+      "@mindlog/source": "./src/replica.ts",
+      "types": "./dist/replica.d.ts",
+      "default": "./dist/replica.js"
     }
   },
   "files": [

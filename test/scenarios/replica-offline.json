@@ -1,0 +1,22 @@
+{
+  "description": "PLAN 24 phase 10: an embedded replica keeps reading while the network is cut, and replays what it wrote meanwhile exactly once. Both SDKs run these steps (test/integration/sdk-replica.test.ts, python/sdk/tests/test_scenario.py).",
+  "user": "ann",
+  "steps": [
+    { "do": "waitOnline" },
+    { "do": "remember", "text": "Ann keeps her passport in the blue drawer.", "queued": false },
+    { "do": "recall", "query": "passport", "top": "passport" },
+    { "do": "remote", "text": "Ann booked a window seat." },
+    { "do": "waitLocal", "contains": "window seat" },
+    { "do": "cut" },
+    { "do": "waitOffline" },
+    { "do": "recall", "query": "blue drawer passport", "top": "passport" },
+    { "do": "remember", "text": "Ann lost her umbrella at the airport.", "queued": true },
+    { "do": "recall", "query": "umbrella airport", "top": "umbrella", "pending": true },
+    { "do": "remote", "text": "Ann rebooked to Saturday." },
+    { "do": "restore" },
+    { "do": "waitDrained" },
+    { "do": "waitLocal", "contains": "Saturday" },
+    { "do": "localOnce", "contains": "umbrella" },
+    { "do": "serverOnce", "contains": "umbrella" }
+  ]
+}

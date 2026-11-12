@@ -29,6 +29,7 @@ run() {
   MINDLOG_MODELS__ENDPOINT=127.0.0.1:50051 \
     MINDLOG_MEMORY__SPLIT__MAX_MEMORIES="$split" \
     MINDLOG_MEMORY__CONSOLIDATION__ENABLED=false \
+    MINDLOG_LISTEN__MCP__HTTP__PORT=0 \
     node packages/server/dist/bin.js --single-node --port 6390 --http-port 8099 \
     --data-dir "$WORK/$name" >"$WORK/$name.log" 2>&1 &
   local node=$!

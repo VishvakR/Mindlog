@@ -54,6 +54,8 @@ import { openNodeCore } from './open-node-core.js';
 import { RangeJobs } from './range-jobs.js';
 import { openAppAuth } from './open-app-auth.js';
 import { openBlobStore } from './open-memory.js';
+import type { BackupResult } from './backups.js';
+import { Backups } from './backups.js';
 import { sharpThumbnailer } from './sharp-thumbnailer.js';
 import { runMigrations } from './run-migrations.js';
 import { mindlogVersion, serverInfo } from './server-info.js';
@@ -84,6 +86,8 @@ export interface RunningNode {
   readonly admin: AdminService;
   /** Log entries replayed into state at startup (ADR-0005). */
   readonly replayed: number;
+  /** Backs up the ranges this node leads into `backups/<id>/` (ADR-0041). */
+  backupNow(id?: string): Promise<Result<BackupResult, MindlogError>>;
   /** Stops accepting, finishes in-flight work, flushes state and closes the stores. */
   close(): Promise<void>;
 }
@@ -292,6 +296,21 @@ export async function startNode(
   });
   const exportIds = new UlidGenerator(clock, new SystemRandom());
   const blob = openBlobStore(config, clock);
+  const backups = new Backups({
+    blob,
+    replicas: () => [...core.store.replicas(), ...(core.pd?.store.replicas() ?? [])],
+    nodeId: BigInt(config.node.raftId),
+    ...config.backup,
+    chunkBytes: config.raft.snapshotChunkBytes,
+    clock,
+    logger,
+    metrics,
+  });
+  // Checked often so a bucket a leader change skipped is filled in; ranges already written are skipped.
+  const backupTicker =
+    config.backup.intervalMs > 0
+      ? ticker('backup', () => backups.tick(), Math.min(config.backup.intervalMs, 30_000), logger)
+      : undefined;
   const browser = new KvBrowser(service);
   const exporter = new TenantExporter({
     tenants,
@@ -382,6 +401,7 @@ export async function startNode(
     overview: () => overview(core, context, config, () => httpAddress),
     settings: () => redactedSettings(config),
     recentLogs: (limit) => logs.recent(limit),
+    backup: (id) => backups.backupNow(id),
     dashboardDir: options.dashboardDir ?? DEFAULT_DASHBOARD_DIR,
     options: httpOptions,
   });
@@ -452,6 +472,7 @@ export async function startNode(
     ready = false;
     stopUsage();
     await purgeTicker.stop();
+    await backupTicker?.stop();
     await mcp.close();
     await http.close();
     await resp.close();
@@ -485,6 +506,7 @@ export async function startNode(
     logger,
     metrics,
     replayed: core.replayed,
+    backupNow: (id) => backups.backupNow(id),
     close: () => (closing ??= close()),
   });
 }

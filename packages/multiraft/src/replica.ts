@@ -41,6 +41,7 @@ import type {
   RaftLogStore,
   SplitPoint,
   StateMachine,
+  StateSnapshot,
 } from '@mindlog/statemachine';
 import type { InboundHandler, RaftTransport, Scheduler } from './ports.js';
 
@@ -161,6 +162,7 @@ export class Replica implements Proposer, InboundHandler {
     commitLatency: Histogram;
     dropped: Counter;
     snapshots: Counter;
+    failures: Counter;
   };
 
   private constructor(deps: ReplicaDeps, raw: RawNode) {
@@ -210,6 +212,11 @@ export class Replica implements Proposer, InboundHandler {
         name: 'mindlog_raft_snapshots_total',
         help: 'Snapshots sent or installed',
         labelNames: ['range', 'direction'],
+      }),
+      failures: m.counter({
+        name: 'mindlog_raft_replica_failures_total',
+        help: 'Replicas stopped by a storage or apply error (fail-stop, e.g. disk full)',
+        labelNames: ['range'],
       }),
     };
   }
@@ -287,6 +294,11 @@ export class Replica implements Proposer, InboundHandler {
 
   get failure(): unknown {
     return this.#failure;
+  }
+
+  /** A consistent view of the range's state at its applied point, for backups (ADR-0041). */
+  snapshot(): Promise<StateSnapshot> {
+    return this.#deps.machine.snapshot();
   }
 
   /** Resolves once this node knows a leader (itself or another). */
@@ -909,6 +921,7 @@ export class Replica implements Proposer, InboundHandler {
   /** Fail-stop: a storage or apply error stops the replica for good (CLAUDE.md rule 6). */
   #fail(cause: unknown): void {
     this.#failure = cause;
+    this.#m.failures.inc(1, this.#labels);
     this.#stopTicks?.();
     this.#deps.logger.fatal('replica stopped after a storage or apply failure', {
       error: cause instanceof Error ? cause.message : String(cause),

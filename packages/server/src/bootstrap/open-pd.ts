@@ -45,6 +45,8 @@ export interface PdRole {
   readonly service: PdService;
   /** A client that talks to this PD without the network. */
   readonly client: InProcessPdClient;
+  /** The replica of range 0, for backups (ADR-0041). */
+  readonly store: Store;
   close(): Promise<void>;
 }
 
@@ -188,6 +190,7 @@ export async function openPdRole(deps: PdRoleDeps): Promise<PdRole> {
   return {
     service,
     client: new InProcessPdClient(service),
+    store,
     async close() {
       service.stop();
       await store.close();

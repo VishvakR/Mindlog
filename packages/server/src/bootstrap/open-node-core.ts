@@ -160,7 +160,7 @@ export interface NodeCore {
 }
 
 /** Opens the log and state LevelDB instances (ADR-0005), closing the first if the second fails. */
-async function openStores(dataDir: string, master: Uint8Array | undefined) {
+export async function openStores(dataDir: string, master: Uint8Array | undefined) {
   await mkdir(dataDir, { recursive: true });
   const rawLog = await LevelDbStore.open(join(dataDir, 'raftlog'));
   if (!rawLog.ok) return rawLog;

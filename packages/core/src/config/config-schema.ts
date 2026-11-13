@@ -180,6 +180,15 @@ export const configSchema = z.strictObject({
         .default({ type: 'local', path: 'blobs' }),
     })
     .prefault({}),
+  // Full range backups to the default blob store (PLAN 10.5, ADR-0041); intervalMs 0 = off.
+  backup: z
+    .strictObject({
+      intervalMs: z.number().int().min(0).default(0),
+      keep: z.number().int().min(1).default(7),
+      // Restore the previous backup into memory after each one (on range 0's leader).
+      verify: z.boolean().default(false),
+    })
+    .prefault({}),
   features: z
     .strictObject({
       // Cross-range transactions (ADR-0030): off until the simulator has exercised them.

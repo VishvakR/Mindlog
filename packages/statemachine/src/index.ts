@@ -29,6 +29,7 @@ export {
 } from './range/span.js';
 export { localRanges } from './range/local-ranges.js';
 export { loadTombstones, writeTombstone } from './range/tombstones.js';
+export { soleVoter } from './range/sole-voter.js';
 export { errorResult } from './apply/command-results.js';
 export type { PendingAudit } from './audit/audit.js';
 export {

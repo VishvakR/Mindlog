@@ -56,4 +56,25 @@ export function adminRoutes(
     },
     () => Promise.resolve(ok({ entries: [...(deps.recentLogs?.(200) ?? [])] })),
   );
+  const backup = deps.backup;
+  if (backup)
+    defineRoute(
+      app,
+      routes,
+      {
+        method: 'POST',
+        path: '/api/admin/backups',
+        summary:
+          'Back up the ranges this node leads to the blob store; pass the same id to every node',
+        tag: 'admin',
+        body: z.object({
+          id: z
+            .string()
+            .regex(/^[A-Za-z0-9._-]{1,64}$/)
+            .optional(),
+        }),
+        response: z.object({ id: z.string(), ranges: z.array(z.string()) }),
+      },
+      ({ body }) => backup(body.id),
+    );
 }

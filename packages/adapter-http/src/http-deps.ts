@@ -3,7 +3,16 @@ import type {
   ConnectionLimits,
   ServerContext,
 } from '@mindlog/adapter-resp';
-import type { Clock, Logger, Metrics, RecentLog, TlsProvider, Tracer } from '@mindlog/core';
+import type {
+  Clock,
+  Logger,
+  Metrics,
+  MindlogError,
+  RecentLog,
+  Result,
+  TlsProvider,
+  Tracer,
+} from '@mindlog/core';
 import type {
   AccessControl,
   AdminService,
@@ -84,6 +93,10 @@ export interface HttpServerDeps {
   readonly overview: () => Promise<Record<string, unknown>>;
   /** The latest log entries, newest first, for the dashboard. */
   readonly recentLogs?: (limit: number) => readonly RecentLog[];
+  /** Backs up the ranges this node leads (ADR-0041); absent where backups are not wired. */
+  readonly backup?: (
+    id?: string,
+  ) => Promise<Result<{ readonly id: string; readonly ranges: string[] }, MindlogError>>;
   /** Effective configuration with secrets redacted. */
   readonly settings: () => Record<string, unknown>;
   /** Built dashboard assets; `/_/` explains how to build them when missing. */

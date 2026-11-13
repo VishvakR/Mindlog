@@ -682,6 +682,7 @@ v1 scope: implement the protocol for collections' unique-index writes; keep the 
 - **Incremental**: committed log segments since the last backup.
 - **Point-in-time restore**: restore snapshot + replay log to the requested time.
 - Backups are verified by a scheduled restore-into-scratch-cluster job (phase 11).
+- **As built (phase 11, ADR-0041):** full backups only. Each range's leader writes its snapshot plus a manifest to `backups/<id>/` on the default blob store (`backup.intervalMs`, `POST /api/admin/backups`); `mindlog-server backup verify` restores into memory and `backup restore` into a new one-node data directory. There is no TSO cut across ranges, no incremental log and no point-in-time restore.
 
 ### 10.6 Encryption at rest (phase 10)
 
@@ -2029,6 +2030,7 @@ storage:
   coldTier: { enabled: true, blob: default }
 blob:
   default: { type: local, path: ./blobs }      # or { type: s3, endpoint: http://minio:9000, bucket: mindlog }
+backup: { intervalMs: 0, keep: 7, verify: false }   # 0 = off; full range snapshots (ADR-0041)
 models:
   endpoint: 127.0.0.1:50051
   timeoutsMs: { embed: 2000, ner: 3000, nli: 3000, rerank: 3000, extract: 20000 }

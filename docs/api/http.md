@@ -28,6 +28,7 @@ The WebSocket console cannot set headers, so it sends the token as a subprotocol
 | `PUT /api/kv/keys/:key/ttl` | bearer | `{ttlMs}`; `null` removes the expiry | 204, or 404 |
 | `GET /api/admin/overview` | bearer | | Node id, version, uptime, keys, applied index, clients, memory |
 | `GET /api/admin/settings` | bearer | | Effective configuration, secrets replaced |
+| `POST /api/admin/backups` | bearer | `{id?}`; give every node the same id | `{id, ranges}`: the ranges this node led and wrote (ADR-0041) |
 | `GET /api/console` | bearer (subprotocol) | WebSocket, binary RESP frames both ways | A RESP connection authenticated as the superuser |
 | `GET /api/openapi.json` | — | | OpenAPI 3.1 |
 | `GET /_/*` | — | | The dashboard |

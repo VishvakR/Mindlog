@@ -4,6 +4,7 @@
 export { PD_DESCRIPTOR, PD_HANDLERS, decodeU64, encodeU64, integerResult } from './pd-handlers.js';
 export { FIRST_ALLOCATED_ID, INFINITY, PD_RANGE_ID } from './pd-keys.js';
 export { PdView, contains } from './pd-view.js';
+export { clearPlacement } from './pd-restore.js';
 export type {
   ClusterView,
   NodeView,

@@ -15,6 +15,8 @@ export const USAGE = `Usage: mindlog-server --single-node [options]
        mindlog-server superuser upsert <email> <password> [-c <path>] [--data-dir <path>]
        mindlog-server apikey create --tenant <t> --name <n> [--user <u>] | list | revoke <id>
        mindlog-server mcp --api-key <key> [--url http://127.0.0.1:8765/mcp]
+       mindlog-server keys rotate-master --new-key-file <path>
+       mindlog-server backup verify <id> | restore <id> --data-dir <new-dir>
 
 Options:
   --single-node          Run one node with a local durable log (phase 1)

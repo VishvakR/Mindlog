@@ -52,3 +52,4 @@ Proposals, messages and ticks in one event-loop turn are collected, then each Re
 | `mindlog_raft_commit_latency_seconds` | histogram | `range` |
 | `mindlog_raft_proposals_dropped_total` | counter | `range`, `reason` (`busy`, `not_leader`, `deadline`) |
 | `mindlog_raft_snapshots_total` | counter | `range`, `direction` (`sent`, `installed`) |
+| `mindlog_raft_replica_failures_total` | counter | `range`; a storage or apply error fail-stopped the replica (e.g. disk full) |

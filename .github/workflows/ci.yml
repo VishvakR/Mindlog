@@ -57,9 +57,43 @@ jobs:
           uv run ruff check
           uv run ruff format --check
       - name: Typecheck
-        run: uv run mypy model_service mindlog_proto/tests
+        run: |
+          uv run mypy model_service mindlog_proto/tests sdk/tests
+          uv run mypy -p mindlog.sdk
       - name: Tests
         run: uv run pytest
+
+  supply-chain:
+    name: Dependency audit and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: npm advisories (high and critical)
+        run: pnpm audit --audit-level high
+      - name: Python advisories
+        working-directory: python
+        run: |
+          uv export --frozen --all-packages --no-emit-workspace \
+            --format requirements.txt > "$RUNNER_TEMP/requirements.txt"
+          uvx --from 'pip-audit>=2.7,<3' pip-audit --disable-pip -r "$RUNNER_TEMP/requirements.txt"
+      - name: SBOM (CycloneDX)
+        run: scripts/sbom.sh dist/sbom
+      - uses: actions/upload-artifact@v5
+        with:
+          name: sbom
+          path: dist/sbom
 
   sim:
     name: Simulator (1,000 seeds)
@@ -102,6 +136,9 @@ jobs:
       - name: redis-py compatibility (RESP2 and RESP3)
         working-directory: python
         run: uv run pytest compat -m compat
+      - name: Python SDK and embedded replica against a node
+        working-directory: python
+        run: uv run pytest sdk/tests -m integration
       - name: kill -9 loses no acknowledged write (50 iterations)
         run: pnpm test:durability
       - name: redis-benchmark smoke run

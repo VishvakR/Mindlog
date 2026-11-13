@@ -646,7 +646,7 @@ Every new failure path gets a simulator scenario.
 | Compatibility, fuzzing, chaos, load | Redis client suites, parser fuzzers, Docker + `tc`/iptables, redis-benchmark/memtier | Nightly / weekly / per release |
 | AI evaluation | LongMemEval, LoCoMo, ablations, conflict F1, cache hit/false-hit | Per change to the memory engine |
 
-### 18.2 What exists today (phase 10)
+### 18.2 What exists today (phase 11)
 
 | Area | Status |
 |---|---|
@@ -680,12 +680,12 @@ Every new failure path gets a simulator scenario.
 | `@mindlog/adapter-resp` | RESP2/RESP3 parser and writer, JSON command specs, `COMMAND`/`DOCS`, HELLO/CLIENT/INFO/CONFIG GET, pipelining, limits, TCP server, `resp.command` spans, `MEM.*` (incl. review, branches, lifecycle and `MEM.WATCH` push messages) and `CACHE.*`, preauthenticated connections for the console |
 | `@mindlog/adapter-http` | Fastify: `/health`, `/ready`, `/metrics`, `/api/kv/*`, superuser login, admin overview and settings, `/api/memory/*`, `/api/realtime` (SSE), `/api/admin/api-keys`, `/api/collections/*`, `/api/files/*`, record subscriptions on `/api/realtime`, `/api/tenants/*` (keys, members, policies, quotas, usage, export, deletion), `/api/audit`, TLS, OpenAPI from Zod, RFC 9457 errors, RESP console over WebSocket, dashboard at `/_/` |
 | `web/` | React + shadcn/ui dashboard (ADR-0023): login, overview, cluster (nodes, ranges, placement decisions), memory explorer (with quarantine review), recall playground, knowledge graph, conflicts inbox, branches, time travel, live feed, jobs (lifecycle counts, export/import), version history and cold-tier marks, collections (schemas, rule editor, records), data browser with typed editors, console, settings, tenants (usage, quotas, redaction, export, deletion, keys, members), logs & audit; role-aware navigation for tenant members |
-| `@mindlog/server` | Composition root: `mindlog-server` as a one-voter range (`--single-node`) or a cluster member (`cluster.peers`), `superuser upsert`, `apikey create|list|revoke`, `keys rotate-master`, `mcp` (stdio relay), TLS and mTLS with hot reload, the `production` profile checks, graceful shutdown, `mindlog-maelstrom` node binary |
+| `@mindlog/server` | Composition root: `mindlog-server` as a one-voter range (`--single-node`) or a cluster member (`cluster.peers`), `superuser upsert`, `apikey create|list|revoke`, `keys rotate-master`, `backup verify|restore` and scheduled full backups (ADR-0041), `mcp` (stdio relay), TLS and mTLS with hot reload, the `production` profile checks, graceful shutdown, `mindlog-maelstrom` node binary |
 | Python | `model_service`: gRPC `ModelsService` on ONNX Runtime (MiniLM embeddings and reranker, DeBERTa NLI, GLiNER, extractive or GGUF summaries), micro-batching, admission control, models only from `models/` (ADR-0020); `demo_agents` (two-session MCP demo, the phase 7 multi-agent demo); `evals` (LongMemEval, LoCoMo, cache, conflict set, sleep-time before/after, forced semantic split); redis-py compatibility suite; `mindlog` SDK (`mindlog.sdk`: client, embedded replica on `sqlite3`, LangGraph store and checkpointer, CrewAI storage) |
 | Deploy | `Dockerfile`s, `docker-compose.yml` (`dev`: node, model service, Prometheus, Grafana, Jaeger; `chaos`: 3-node cluster; `cluster` and `cluster-join`: 3 nodes that also run the placement driver, plus a fourth; `offline`: node, model service and demo agent on a network with no route out), `scripts/chaos/`, `scripts/load-and-rebalance.sh` (kill the leader, partition a node), Grafana dashboard in `deploy/grafana/` |
 | Simulation and linearizability | `test/sim` (`pnpm sim`, `scripts/sim.sh`; faults: splits, merges, leader transfers, membership, clock skew; `SIM_PD=1` placement driver, `SIM_BANK=1` bank transfers across ranges, `SIM_MEM=1` memory workload, `SIM_BRANCH=1` branches, `SIM_LIFE=1` lifecycle, `SIM_COLL=1` collections, `SIM_ENC=1` encryption, `SIM_TENANT=1` tenant purge, `SIM_SPLIT=1` semantic split), `test/maelstrom` (Jepsen Maelstrom `lin-kv` in Docker), `test/integration/failover.test.ts`, `test/integration/degraded.test.ts`, `test/bench/recall.test.ts`, `test/bench/lifecycle.test.ts` (30-day forgetting vs LRU) |
 | CI | Lint, typecheck, tests (TS, web, Python), protobuf drift and breaking checks, Conventional Commits, gate job (redis-py, kill -9 durability, redis-benchmark, 3-node failover), 1,000 simulator seeds, supply chain (`pnpm audit`, `pip-audit`, SBOMs); nightly Maelstrom and 100,000 seeds |
-| Gates | Phases 0 to 10 (`docs/phases/phase-N.md`) |
+| Gates | Phases 0 to 11 (`docs/phases/phase-N.md`); measured SLOs in `docs/slo.md`, runbooks in `docs/runbooks/` |
 
 Everything else in this document is designed but not built yet; it arrives phase by phase (PLAN 24).
 

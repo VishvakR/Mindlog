@@ -1739,6 +1739,20 @@ Tasks
 Exit gate: all SLO targets measured and published (met or explained); zero acknowledged-write loss across chaos runs; docs and demo public.
 References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly].
 
+As built (scoped down by the user: "implement what is necessary; benchmark is not required"):
+- Full backups, verify and restore (ADR-0041), and a fail-stop metric for disk errors.
+- The 11 runbooks; a docs index, getting started, the MCP tool reference and an OpenAPI dump.
+- `docs/slo.md`, filled in from earlier gate measurements, with the unmeasured rows explained.
+- License, changelog, a release workflow on `v*` tags, and versions at 1.0.0.
+- The demo video script and the design write-up.
+
+Not done:
+- the benchmark suite, profiling and hot-path work, and new chaos scripts;
+- recording the video;
+- publishing to registries.
+
+Evidence: `docs/phases/phase-11.md`.
+
 ---
 
 ## 25. Architecture decision records to write
@@ -1785,6 +1799,7 @@ References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly]
 | 038 | Per-tenant quotas and rate limits with PD budget redistribution |
 | 039 | Semantic split as sub-scopes, with copy-then-mark re-homing |
 | 040 | Embedded replica sync: follow then snapshot, offline queue with client request ids |
+| 041 | Full backups from range snapshots; restore as a one-node cluster; no PITR in v1 |
 
 ---
 

@@ -4,7 +4,7 @@ Mindlog speaks RESP2 and RESP3 on port 6379 (PLAN 15.1), so Redis clients such a
 
 Every write is appended to the durable log and applied before it is acknowledged (ADR-0005, ADR-0021). A `+OK` therefore survives `kill -9`.
 
-## Supported commands (phase 3)
+## Supported commands
 
 | Group | Commands |
 |---|---|

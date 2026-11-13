@@ -197,6 +197,10 @@ describe('MCP over Streamable HTTP', () => {
       'resolve_conflict',
     ]);
     for (const t of tools.tools) expect(t.description?.length ?? 0).toBeGreaterThan(40);
+    const { readFile } = await import('node:fs/promises');
+    const doc = await readFile(new URL('../../../docs/api/mcp-tools.md', import.meta.url), 'utf8');
+    const undocumented = tools.tools.filter((t) => !doc.includes(`### \`${t.name}\``));
+    expect(undocumented.map((t) => t.name)).toEqual([]);
     const prompts = await client.listPrompts();
     expect(prompts.prompts.map((p) => p.name)).toEqual(['recall-context']);
     const templates = await client.listResourceTemplates();

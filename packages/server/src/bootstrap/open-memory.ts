@@ -202,6 +202,7 @@ export function openMemory(deps: {
     stamper: deps.stamper,
     ...(deps.clusterVersion ? { clusterVersion: deps.clusterVersion } : {}),
     clock,
+    splitFanout: config.memory.split.recallClusters,
   });
   const kmeans = openKmeansPool();
   workers.register(

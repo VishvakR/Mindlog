@@ -145,6 +145,8 @@ export interface MemoryServiceDeps {
   readonly redaction?: (tenant: string) => Promise<readonly RedactionKind[]>;
   /** For the split layout cache; the system clock by default. */
   readonly clock?: Clock;
+  /** Clusters a recall of a split scope searches (`memory.split.recallClusters`); 2 by default. */
+  readonly splitFanout?: number;
 }
 
 /** Who is asking. Interfaces pass `access`; the node's own workers do not. */
@@ -618,7 +620,7 @@ export class MemoryService {
 
   constructor(deps: MemoryServiceDeps) {
     this.#d = deps;
-    this.#splits = new ScopeSplits(deps.clock ?? new SystemClock());
+    this.#splits = new ScopeSplits(deps.clock ?? new SystemClock(), deps.splitFanout);
   }
 
   remember(

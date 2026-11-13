@@ -139,6 +139,8 @@ export const configSchema = z.strictObject({
         .strictObject({
           maxMemories: z.number().int().min(0).default(100_000),
           driftRatio: z.number().min(1).default(1.5),
+          // Clusters a recall searches when the query has an embedding (PLAN 8.5: top-2).
+          recallClusters: z.number().int().min(1).max(8).default(2),
         })
         .prefault({}),
       forgetting: z

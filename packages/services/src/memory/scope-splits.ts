@@ -23,8 +23,6 @@ type Input = Readonly<Record<string, unknown>> & {
 };
 type Written = { ids: string[]; count: number };
 
-/** Clusters a recall searches when it has a query vector (PLAN 8.5: top-2). */
-const FANOUT = 2;
 /** RRF's constant (ADR-0011). */
 const RRF_K = 60;
 const LAYOUT_TTL_MS = 2_000;
@@ -70,7 +68,11 @@ function splitCursor(
 export class ScopeSplits {
   readonly #layouts = new Map<string, { at: number; clusters: number[] }>();
 
-  constructor(private readonly clock: Clock) {}
+  /** `fanout`: clusters a recall searches when it has a query vector (PLAN 8.5: top-2). */
+  constructor(
+    private readonly clock: Clock,
+    private readonly fanout = 2,
+  ) {}
 
   /** The scope's cluster ids (with 0), cached briefly; one id means unsplit. */
   async clusters(
@@ -241,7 +243,7 @@ export class ScopeSplits {
     );
     const ranked = routed.ok ? routed.value.clusters : [...clusters];
     const degraded = !routed.ok || routed.value.degraded;
-    const chosen = degraded ? [...clusters] : ranked.slice(0, FANOUT);
+    const chosen = degraded ? [...clusters] : ranked.slice(0, this.fanout);
     const results = await Promise.all(chosen.map((c) => call<RecallOutput>('recall', input, c)));
     const outs: RecallOutput[] = [];
     for (const r of results) {

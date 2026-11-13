@@ -1,12 +1,18 @@
 # uv workspace for Mindlog's Python side: the model sidecar, generated protobuf
-# code, the retrieval eval harness, and (later) the SDK (PLAN 23.2). Run everything
+# code, the retrieval eval harness, and the SDK (PLAN 23.2). Run everything
 # through uv: `uv sync`, `uv run pytest`, `uv run ruff check`, `uv run mypy`.
 [project]
 name = "mindlog-python"
 version = "0.0.0"
 description = "Mindlog Python workspace root"
 requires-python = ">=3.12"
-dependencies = ["mindlog-demo-agents", "mindlog-evals", "mindlog-model-service", "mindlog-proto"]
+dependencies = [
+    "mindlog[langgraph]",
+    "mindlog-demo-agents",
+    "mindlog-evals",
+    "mindlog-model-service",
+    "mindlog-proto",
+]
 
 [dependency-groups]
 dev = [
@@ -22,13 +28,14 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["model_service", "mindlog_proto", "demo_agents", "evals"]
+members = ["model_service", "mindlog_proto", "demo_agents", "evals", "sdk"]
 
 [tool.uv.sources]
 mindlog-model-service = { workspace = true }
 mindlog-proto = { workspace = true }
 mindlog-demo-agents = { workspace = true }
 mindlog-evals = { workspace = true }
+mindlog = { workspace = true }
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,16 @@
+[project]
+name = "mindlog"
+version = "0.0.0"
+description = "Python client for Mindlog memory, with an embedded replica and LangGraph and CrewAI adapters (PLAN 15.5)"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+langgraph = ["langgraph>=0.4"]
+
+[build-system]
+requires = ["uv_build>=0.9.27,<0.10"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "mindlog.sdk"

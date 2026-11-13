@@ -19,7 +19,8 @@ cleanup() {
 trap cleanup EXIT
 up() { for _ in $(seq 1 600); do (echo >"/dev/tcp/127.0.0.1/$1") 2>/dev/null && return 0; sleep 1; done; return 1; }
 
-(cd python && uv run python -m model_service) >"$WORK/models.log" 2>&1 &
+# exec: the tracked pid is uv itself, which passes SIGTERM on to the model service.
+(cd python && exec uv run python -m model_service) >"$WORK/models.log" 2>&1 &
 PIDS+=($!)
 up 50051 || { echo "model service did not start"; tail -20 "$WORK/models.log"; exit 1; }
 
@@ -33,6 +34,7 @@ run() {
     node packages/server/dist/bin.js --single-node --port 6390 --http-port 8099 \
     --data-dir "$WORK/$name" >"$WORK/$name.log" 2>&1 &
   local node=$!
+  PIDS+=("$node")
   up 6390 || { echo "node did not start"; tail -20 "$WORK/$name.log"; exit 1; }
   (cd python && uv run python -m evals.run --suite longmemeval --n "$N" \
     --recipes vector hybrid hybrid_ppr --no-packing --out "../docs/evals/phase-10-$name" "$@")

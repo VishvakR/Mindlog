@@ -1,0 +1,230 @@
+{
+  "longmemeval": {
+    "meta": {
+      "degraded_writes": 5250,
+      "memories": 25456,
+      "note": "stratified sample of 100 (seed 6), abstention questions excluded.",
+      "questions": 100,
+      "scopes": 100,
+      "split": {
+        "clusters": 387,
+        "max_clusters": 5,
+        "moved": 24774,
+        "moved_bytes": 56311624,
+        "scopes_split": 100
+      }
+    },
+    "recipes": {
+      "hybrid": {
+        "by_category": {
+          "knowledge-update": {
+            "ndcg@10": 0.5581914865869935,
+            "ndcg@5": 0.3842406912570206,
+            "recall_all@10": 0.7647058823529411,
+            "recall_all@5": 0.058823529411764705,
+            "recall_any@10": 0.9411764705882353,
+            "recall_any@5": 0.7647058823529411
+          },
+          "multi-session": {
+            "ndcg@10": 0.5385765848579397,
+            "ndcg@5": 0.45547032938970466,
+            "recall_all@10": 0.41379310344827586,
+            "recall_all@5": 0.13793103448275862,
+            "recall_any@10": 0.9655172413793104,
+            "recall_any@5": 0.896551724137931
+          },
+          "single-session-assistant": {
+            "ndcg@10": 1.0,
+            "ndcg@5": 1.0,
+            "recall_all@10": 1.0,
+            "recall_all@5": 1.0,
+            "recall_any@10": 1.0,
+            "recall_any@5": 1.0
+          },
+          "single-session-preference": {
+            "ndcg@10": 0.42346615527211295,
+            "ndcg@5": 0.3758471076530654,
+            "recall_all@10": 0.5714285714285714,
+            "recall_all@5": 0.42857142857142855,
+            "recall_any@10": 0.5714285714285714,
+            "recall_any@5": 0.42857142857142855
+          },
+          "single-session-user": {
+            "ndcg@10": 0.7661521913145496,
+            "ndcg@5": 0.7661521913145496,
+            "recall_all@10": 0.8666666666666667,
+            "recall_all@5": 0.8666666666666667,
+            "recall_any@10": 0.8666666666666667,
+            "recall_any@5": 0.8666666666666667
+          },
+          "temporal-reasoning": {
+            "ndcg@10": 0.5975610778122807,
+            "ndcg@5": 0.5548810591312574,
+            "recall_all@10": 0.6451612903225806,
+            "recall_all@5": 0.5161290322580645,
+            "recall_any@10": 0.8709677419354839,
+            "recall_any@5": 0.8064516129032258
+          }
+        },
+        "p50_ms": 66.63325000408804,
+        "p95_ms": 98.03929100598907,
+        "session": {
+          "ndcg@10": 0.7750545283769967,
+          "ndcg@5": 0.7162855057251919,
+          "recall_all@10": 0.86,
+          "recall_all@5": 0.64,
+          "recall_any@10": 0.96,
+          "recall_any@5": 0.93
+        },
+        "turn": {
+          "ndcg@10": 0.5908891560166287,
+          "ndcg@5": 0.5206525676002947,
+          "recall_all@10": 0.63,
+          "recall_all@5": 0.38,
+          "recall_any@10": 0.89,
+          "recall_any@5": 0.81
+        }
+      },
+      "hybrid_ppr": {
+        "by_category": {
+          "knowledge-update": {
+            "ndcg@10": 0.49042355370418184,
+            "ndcg@5": 0.38977282227655224,
+            "recall_all@10": 0.5882352941176471,
+            "recall_all@5": 0.17647058823529413,
+            "recall_any@10": 0.9411764705882353,
+            "recall_any@5": 0.8235294117647058
+          },
+          "multi-session": {
+            "ndcg@10": 0.5147640521981165,
+            "ndcg@5": 0.43054266044963896,
+            "recall_all@10": 0.41379310344827586,
+            "recall_all@5": 0.20689655172413793,
+            "recall_any@10": 0.9310344827586207,
+            "recall_any@5": 0.8275862068965517
+          },
+          "single-session-assistant": {
+            "ndcg@10": 1.0,
+            "ndcg@5": 1.0,
+            "recall_all@10": 1.0,
+            "recall_all@5": 1.0,
+            "recall_any@10": 1.0,
+            "recall_any@5": 1.0
+          },
+          "single-session-preference": {
+            "ndcg@10": 0.38859802008112504,
+            "ndcg@5": 0.34097897246207737,
+            "recall_all@10": 0.5714285714285714,
+            "recall_all@5": 0.42857142857142855,
+            "recall_any@10": 0.5714285714285714,
+            "recall_any@5": 0.42857142857142855
+          },
+          "single-session-user": {
+            "ndcg@10": 0.7187565130690755,
+            "ndcg@5": 0.6994855246478829,
+            "recall_all@10": 0.8666666666666667,
+            "recall_all@5": 0.8,
+            "recall_any@10": 0.8666666666666667,
+            "recall_any@5": 0.8
+          },
+          "temporal-reasoning": {
+            "ndcg@10": 0.596267451513454,
+            "ndcg@5": 0.5352022224920366,
+            "recall_all@10": 0.6451612903225806,
+            "recall_all@5": 0.45161290322580644,
+            "recall_any@10": 0.8709677419354839,
+            "recall_any@5": 0.8064516129032258
+          }
+        },
+        "p50_ms": 79.86616600101115,
+        "p95_ms": 137.28000000264728,
+        "session": {
+          "ndcg@10": 0.7691045525733697,
+          "ndcg@5": 0.6983713224644243,
+          "recall_all@10": 0.86,
+          "recall_all@5": 0.61,
+          "recall_any@10": 0.96,
+          "recall_any@5": 0.91
+        },
+        "turn": {
+          "ndcg@10": 0.5625118276023755,
+          "ndcg@5": 0.4958227970594684,
+          "recall_all@10": 0.6,
+          "recall_all@5": 0.39,
+          "recall_any@10": 0.88,
+          "recall_any@5": 0.79
+        }
+      },
+      "vector": {
+        "by_category": {
+          "knowledge-update": {
+            "ndcg@10": 0.3728604340578439,
+            "ndcg@5": 0.28103888945254424,
+            "recall_all@10": 0.35294117647058826,
+            "recall_all@5": 0.058823529411764705,
+            "recall_any@10": 0.7058823529411765,
+            "recall_any@5": 0.5294117647058824
+          },
+          "multi-session": {
+            "ndcg@10": 0.44424812619396603,
+            "ndcg@5": 0.3812061780947859,
+            "recall_all@10": 0.3103448275862069,
+            "recall_all@5": 0.10344827586206896,
+            "recall_any@10": 0.896551724137931,
+            "recall_any@5": 0.8620689655172413
+          },
+          "single-session-assistant": {
+            "ndcg@10": 1.0,
+            "ndcg@5": 1.0,
+            "recall_all@10": 1.0,
+            "recall_all@5": 1.0,
+            "recall_any@10": 1.0,
+            "recall_any@5": 1.0
+          },
+          "single-session-preference": {
+            "ndcg@10": 0.6068865604830468,
+            "ndcg@5": 0.6068865604830468,
+            "recall_all@10": 0.8571428571428571,
+            "recall_all@5": 0.8571428571428571,
+            "recall_any@10": 0.8571428571428571,
+            "recall_any@5": 0.8571428571428571
+          },
+          "single-session-user": {
+            "ndcg@10": 0.6393084062972202,
+            "ndcg@5": 0.5948639618527758,
+            "recall_all@10": 0.8666666666666667,
+            "recall_all@5": 0.7333333333333333,
+            "recall_any@10": 0.8666666666666667,
+            "recall_any@5": 0.7333333333333333
+          },
+          "temporal-reasoning": {
+            "ndcg@10": 0.4878071901501743,
+            "ndcg@5": 0.40171136808182967,
+            "recall_all@10": 0.5483870967741935,
+            "recall_all@5": 0.3225806451612903,
+            "recall_any@10": 0.8064516129032258,
+            "recall_any@5": 0.6451612903225806
+          }
+        },
+        "p50_ms": 29.433040996082127,
+        "p95_ms": 47.44987500453135,
+        "session": {
+          "ndcg@10": 0.760487652756303,
+          "ndcg@5": 0.6970526785726938,
+          "recall_all@10": 0.86,
+          "recall_all@5": 0.59,
+          "recall_any@10": 0.97,
+          "recall_any@5": 0.94
+        },
+        "turn": {
+          "ndcg@10": 0.491816779511034,
+          "ndcg@5": 0.42456858047151724,
+          "recall_all@10": 0.52,
+          "recall_all@5": 0.32,
+          "recall_any@10": 0.83,
+          "recall_any@5": 0.72
+        }
+      }
+    }
+  }
+}

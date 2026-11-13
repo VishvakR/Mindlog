@@ -42,8 +42,19 @@ class Mindlog:
 
     def add(self, scope: str, text: str, kind: str = "episodic") -> tuple[list[str], bool]:
         """Stores a turn; True when it was stored raw and left to the enrichment jobs."""
-        reply = cast(dict[str, Any], self._call("MEM.ADD", scope, _clip(text), "KIND", kind))
-        return [_str(i) for i in reply["ids"]], bool(reply.get("degraded"))
+        for attempt in range(5):
+            try:
+                reply = cast(
+                    dict[str, Any], self._call("MEM.ADD", scope, _clip(text), "KIND", kind)
+                )
+                return [_str(i) for i in reply["ids"]], bool(reply.get("degraded"))
+            except redis.ResponseError as e:
+                # shortcut: MEM.ADD takes no request id, so a TIMEOUT that still applied leaves
+                # one extra copy of the turn; add REQUESTID to MEM.ADD if that ever matters.
+                if attempt == 4 or not str(e).startswith(("TIMEOUT", "BUSY")):
+                    raise
+                time.sleep(0.5 * 2**attempt)
+        raise AssertionError("unreachable")
 
     def search(self, scope: str, query: str, k: int, recipe: str) -> list[str]:
         items = cast(

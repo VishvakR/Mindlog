@@ -101,6 +101,7 @@ import type { PdRole } from './open-pd.js';
 import { BINARY_VERSION, openPdRole } from './open-pd.js';
 import { WorkerHooks } from './open-hooks.js';
 import { openMemory } from './open-memory.js';
+import { ticker } from './ticker.js';
 
 export interface CoreDeps {
   readonly logger: Logger;
@@ -575,8 +576,7 @@ export async function openNodeCore(
     retention: () => access.tenantRetention(),
   });
   running.audit = audit;
-  const auditTimer = setInterval(() => void audit.tick(), AUDIT_TICK_MS);
-  auditTimer.unref();
+  const auditTicker = ticker('audit', () => audit.tick(), AUDIT_TICK_MS, logger);
   const started = store as Store | undefined;
   if (!started) throw new Error('the store opens before the replica');
   return ok({
@@ -604,6 +604,7 @@ export async function openNodeCore(
     replayed: Number(machine.appliedIndex - before),
     async close() {
       tls?.stop();
+      await auditTicker.stop();
       await agent?.stop();
       await started.close();
       await pd?.close();

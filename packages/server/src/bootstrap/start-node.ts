@@ -57,6 +57,7 @@ import { openBlobStore } from './open-memory.js';
 import { sharpThumbnailer } from './sharp-thumbnailer.js';
 import { runMigrations } from './run-migrations.js';
 import { mindlogVersion, serverInfo } from './server-info.js';
+import { ticker } from './ticker.js';
 
 export interface NodeOptions {
   readonly logger?: Logger;
@@ -325,8 +326,7 @@ export async function startNode(
     },
   });
   core.forwardHandlers.set(TENANT_OP_PREFIX, (rangeId, call) => purger.forwarded(rangeId, call));
-  const purgeTimer = setInterval(() => void purger.tick(), PURGE_TICK_MS);
-  purgeTimer.unref();
+  const purgeTicker = ticker('tenant purge', () => purger.tick(), PURGE_TICK_MS, logger);
   const files = new RecordFiles({
     collections: core.collections,
     blob,
@@ -451,7 +451,7 @@ export async function startNode(
   const close = async () => {
     ready = false;
     stopUsage();
-    clearInterval(purgeTimer);
+    await purgeTicker.stop();
     await mcp.close();
     await http.close();
     await resp.close();

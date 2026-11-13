@@ -197,3 +197,50 @@ describe('main apikey and mcp', () => {
     expect(mcp.err()).toContain('--api-key');
   });
 });
+
+describe('main keys', () => {
+  const keyOf = (byte: number) => Buffer.alloc(32, byte).toString('base64');
+  const masterEnv = (key: string) => ({ MINDLOG_STORAGE__ENCRYPTION__MASTER_KEY: key });
+  const apikey = (dataDir: string) => ['apikey', 'list', '--data-dir', dataDir];
+
+  test('rotate-master re-wraps the data keys, and only the new key opens the directory', async () => {
+    const setup = await io(masterEnv(keyOf(1)));
+    const dataDir = join(setup.cwd, 'data');
+    const create = ['apikey', 'create', '--tenant', 'acme', '--name', 'k', '--data-dir', dataDir];
+    expect(await main(create, setup.value)).toEqual({ kind: 'exit', code: EXIT.ok });
+    const newKey = join(setup.cwd, 'new.key');
+    await writeFile(newKey, `${keyOf(2)}\n`);
+
+    const rotate = await io(masterEnv(keyOf(1)));
+    const args = ['keys', 'rotate-master', '--new-key-file', newKey, '--data-dir', dataDir];
+    expect(await main(args, rotate.value)).toEqual({ kind: 'exit', code: EXIT.ok });
+    expect(rotate.out()).toMatch(/state: re-wrapped \d+ data keys/);
+
+    const fresh = await io(masterEnv(keyOf(2)));
+    expect(await main(apikey(dataDir), fresh.value)).toEqual({ kind: 'exit', code: EXIT.ok });
+    expect(fresh.out()).toContain('acme');
+    const stale = await io(masterEnv(keyOf(1)));
+    expect(await main(apikey(dataDir), stale.value)).not.toEqual({ kind: 'exit', code: EXIT.ok });
+  });
+
+  test('usage errors: no subcommand, no key file, no encryption, or a short key', async () => {
+    const run = async (args: string[], env: Record<string, string> = {}) => {
+      const r = await io(env);
+      return { result: await main(['keys', ...args], r.value), err: r.err() };
+    };
+    const usage = { kind: 'exit', code: EXIT.usage };
+    expect((await run([])).result).toEqual(usage);
+    expect((await run(['rotate-master'])).result).toEqual(usage);
+    expect((await run(['--bogus'])).result).toEqual(usage);
+    const dir = await tempDir();
+    const short = join(dir, 'short.key');
+    await writeFile(short, Buffer.alloc(8).toString('base64'));
+    const off = await run(['rotate-master', '--new-key-file', short, '--data-dir', dir]);
+    expect(off.result).toEqual(usage);
+    expect(off.err).toContain('Encryption must be on');
+    const bad = await run(['rotate-master', '--new-key-file', short, '--data-dir', dir], {
+      MINDLOG_STORAGE__ENCRYPTION__MASTER_KEY: 'too-short',
+    });
+    expect(bad.result).toEqual({ kind: 'exit', code: EXIT.config });
+  });
+});

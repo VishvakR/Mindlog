@@ -117,6 +117,43 @@ describe.each(ROLES)('role %s over HTTP', (role) => {
   });
 });
 
+describe('tenant admin routes', () => {
+  test('a member lists only its own tenant; unknown keys and accounts are 404', async () => {
+    const admin = key('tenant_admin');
+    const listed = await call('GET', '/api/tenants', admin);
+    expect((listed.body.tenants as Array<{ name: string }>).map((t) => t.name)).toEqual(['acme']);
+    expect((await call('GET', '/api/tenants', key('agent'))).status).toBe(403);
+    expect((await call('GET', '/api/tenants', undefined)).status).toBe(401);
+    expect((await call('DELETE', '/api/tenants/acme/keys/nope', admin)).status).toBe(404);
+    expect((await call('DELETE', '/api/tenants/acme/members/no@acme.test', admin)).status).toBe(
+      404,
+    );
+    expect((await call('GET', '/api/tenants/acme', admin)).body).toMatchObject({ name: 'acme' });
+    expect((await call('GET', '/api/tenants/acme/usage', admin)).status).toBe(200);
+  });
+
+  test('an admin manages members and policies of its tenant', async () => {
+    const admin = key('tenant_admin');
+    const member = {
+      email: 'dev@acme.test',
+      password: 'a long enough password',
+      role: 'developer',
+    };
+    expect((await call('PUT', '/api/tenants/acme/members', admin, member)).status).toBe(200);
+    const members = await call('GET', '/api/tenants/acme/members', admin);
+    expect((members.body.members as Array<{ email: string }>).map((m) => m.email)).toContain(
+      member.email,
+    );
+    expect((await call('DELETE', '/api/tenants/acme/members/dev@acme.test', admin)).status).toBe(
+      204,
+    );
+    const policies = await call('GET', '/api/tenants/acme/policies', admin);
+    expect((await call('PUT', '/api/tenants/acme/policies', admin, policies.body)).status).toBe(
+      200,
+    );
+  });
+});
+
 describe('credentials', () => {
   test('no credential is refused', async () => {
     expect((await call('GET', '/api/kv/keys', undefined)).status).toBe(401);

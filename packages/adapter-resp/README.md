@@ -39,6 +39,7 @@ To add a command: implement it, add its spec to the right group file, and list i
 - **A protocol error is answered after the commands before it, then the connection closes**, as in Valkey.
 - **Every connection is bounded**: parser limits, `maxPipeline` queued commands (reading pauses beyond it), and `outputBufferBytes` unsent bytes (the client is disconnected beyond it).
 - **No business logic here**: errors come from `ERROR_CODES`, and data commands go through `KvService`.
+- **A key binds the session** (ADR-0036): `AUTH mlk_…` (or `AUTH <user> mlk_…`) sets the connection's tenant and role, and `KvService` checks each command's action (`kv.read`/`kv.write` from the command flags, `memory.*` for `MEM.*`; `CLUSTER.*` and `CONFIG` need a superuser). With `listen.resp.tls` the listener is `node:tls` and plaintext connections are refused.
 
 ## Metrics emitted
 

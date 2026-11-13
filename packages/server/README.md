@@ -27,7 +27,14 @@ node packages/server/dist/bin.js superuser upsert admin@example.com 'a long pass
 | `--data-dir <path>` | `node.dataDir` | |
 | `--log-level <level>` | `observability.logLevel` | |
 
-Precedence: defaults → `mindlog.yaml` → `MINDLOG_<SECTION>__<KEY>` environment variables → flags (PLAN 19.6). Exit codes: `64` usage error, `78` invalid configuration, `1` startup failure (for example a data directory locked by another node or a busy port).
+Precedence: defaults → `mindlog.yaml` → `MINDLOG_<SECTION>__<KEY>` environment variables → flags (PLAN 19.6). Any variable can instead name a file with `_FILE` (`MINDLOG_STORAGE__ENCRYPTION__MASTER_KEY_FILE=/run/secrets/master`), and config values can be `${file:/path}`; secrets are shown in settings only through an allow-list.
+
+Security (phase 10):
+
+- `tls.enabled` with `tls.ca`, `tls.cert`, `tls.key` turns on TLS for RESP (`listen.resp.tls`), HTTP and MCP, and mutual TLS between nodes, to PD and to the model sidecar. The files are checked every `tls.reloadMs`; a new valid certificate is served without a restart, a broken one is logged and ignored.
+- `profile: production` refuses to start without TLS or with secret files others can read (chmod 600), and RESP sessions must authenticate even without a static password.
+- `storage.encryption.masterKey` (base64 of 32 bytes) encrypts a new data directory at rest (ADR-0014); an encrypted directory refuses to open without the key, or with another one. `mindlog-server keys rotate-master --new-key-file <path>` re-wraps the node's data keys, server stopped.
+- `tenancy.deleteGraceMs` (default one day) is how long a deleted tenant waits before it is purged. Exit codes: `64` usage error, `78` invalid configuration, `1` startup failure (for example a data directory locked by another node or a busy port).
 
 ## Public API
 

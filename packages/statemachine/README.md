@@ -14,6 +14,8 @@ Deterministic command apply, idempotency, the Raft log store and state snapshots
 | `ensureStoreFormat`, `STORE_FORMAT` | Format marker check (format 3): stamps a new store, refuses an older one (ADR-0026, ADR-0027) |
 | `ApplyHandler`, `ApplyContext`, `ApplyHandlerRegistry`, `BodyCase` | One handler per command body (`kvWrite`, `kvBatch`, `expire`, `gcThreshold`, …), registered by the composition root |
 | `CommandStamper` | Request id (ULID) and HLC for a new command, decided before proposing |
+| Audit (ADR-0037) | `AuditAppend` (100) writes rows into `tenant·s·('audit-<day>', atMs, id)` after checking they are in the range's span; audited commands put a range-local outbox row in their own batch, carried across merges by a range hook, and `AuditOutboxAck` (104) removes the drained ones; `AuditExpire` (101) deletes days past retention |
+| `TenantPurge` (102) | Removes every MVCC version of a deleted tenant's keys in the range, a bounded batch from a cursor, and scrubs the tenant's range-local rows (jobs, expiry, locks, audit outbox) |
 | `IdempotencyTable`, `errorResult`, `rangeLocalKey` and node key helpers | Stored results per range and request id; deterministic error results; the raw `$node` key layout, where a range's own state is `$node/s/(r, rangeId, tag, …)` (ADR-0028) |
 
 ## Invariants

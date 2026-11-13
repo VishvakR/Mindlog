@@ -609,6 +609,8 @@ Scheduling operators are **steps** (add learner → promote → transfer leader 
 
 Semantic split is the research piece. It needs: centroid storage in the range descriptor, re-clustering when drift exceeds a threshold (mean distance of new items to their centroid rises above 1.5× the value at split time), and background re-homing of items. Measure recall@10 against a single-range baseline and the bytes moved; this is a strong section for the write-up.
 
+As built (ADR-0039): a cluster is a sub-scope, the user string `user\u0000c<n>`, so each cluster is its own first key element and the memory engine, jobs, caches and range guards work unchanged; there is no inserted `cluster` component and no migration. The `split` consolidation worker runs seeded k-means (k = 2) in the worker pool, because PD has no access to embeddings, and the centroids and split-time mean distance live in the root scope's `ScopeLifecycle.clusters`, not in the range descriptor. Writes embed once on the root leader and go to the nearest cluster; recall fans out to the nearest `memory.split.recallClusters` clusters (default 2; all of them, at most 8, without an embedding) and fuses by RRF; other ops address every cluster. Re-homing uses `MemoryRehome` (103): the target keeps the original stamps, the source keeps the record with a `movedTo` marker. Results in `docs/evals/phase-10-split.md`.
+
 ### 8.6 Node lifecycle
 
 `joining` → `live` → (`draining` → `decommissioned`) | `suspect` → `dead`. A node is `suspect` after 3 missed store heartbeats and `dead` after 5 minutes; PD then re-replicates its ranges.
@@ -684,6 +686,8 @@ v1 scope: implement the protocol for collections' unique-index writes; keep the 
 ### 10.6 Encryption at rest (phase 10)
 
 Per-tenant data keys (AES-256-GCM) wrapped by a master key from a file or environment KMS; values encrypted before writing, keys left in plaintext for ordering (document this trade-off in ADR-014).
+
+As built (ADR-0014): `EncryptingStore` wraps the `KvStore` of a data dir created with `storage.encryption.masterKey` set (new data dirs only; a format marker refuses a mismatch). Values are sealed as `0xE1·keyId·nonce·ciphertext·tag` with the full key as AAD; the tenant is parsed from the key, and Raft log entries and range-local rows use a node key because no tenant is visible there. DEKs are per node, wrapped by the master key in `$node·s·('crypto', …)`, and never replicated, so snapshots stream decrypted over mTLS and are re-encrypted on the receiver. Blobs use `EncryptingBlobStore` with an HKDF key per tenant. `mindlog-server keys rotate-master` rewraps offline; DEK rotation is not built. Index terms are keys, so memory text is not fully hidden. Deleting a tenant destroys its DEK once its prefix is empty (crypto-shred).
 
 ---
 
@@ -951,6 +955,7 @@ Specified in 8.5. Additional requirement: recall over a semantically split scope
 - Bootstrap: download a scope snapshot (`snapshot(t)` read), then follow the change stream from that index.
 - Reads served locally (session consistency: the SDK waits until its local index ≥ the index returned by its own last write). Writes go to the leader.
 - Offline: reads keep working; writes queue locally with request ids and replay on reconnect (idempotent).
+- As built (ADR-0040): `EmbeddedReplica.open(client, { path, users })` in `@mindlog/sdk/replica` (Node's `node:sqlite`, not LevelDB) and `mindlog.sdk.replica.EmbeddedReplica` in Python (`sqlite3`) share one SQLite schema. Bootstrap follows the change stream first, then lists the scope, so no change falls between; change events carry ids and the replica fetches them with `getMany`; `resync` re-reads the scope. Client request ids are hashed with the tenant and principal into the server's idempotency key. Offline search is keyword (BM25), plus vectors only when the caller passes an embedder. Read-your-writes holds by the write's answer, stored locally, not by a log cursor. Both SDKs run the shared scenario `test/scenarios/replica-offline.json` against a real node through a proxy whose link is cut.
 
 ### 13.11 Memory cubes (export/import) and tool traces
 
@@ -1245,9 +1250,13 @@ Authorization decisions use `(principal, action, resource)` with resources expre
 
 Append-only system family `s/audit/(tenant, hlc, id)`: who, acting-for, what, resource, request id, result. Exportable; retained per policy; viewable in the dashboard.
 
+As built (ADR-0037): rows are `tenant·s·('audit-<day>', atMs, id)`, so each tenant's log stays in its own key space and a day bucket keeps the family splittable. Apply never writes them directly, since a command may only write its own range: audited commands write a range-local outbox row atomically with the change, and `AuditService` drains it through `AuditAppend` (100) and acknowledges with `AuditOutboxAck` (104). Denials, logins and admin changes go through a bounded in-memory queue (dropped entries are counted). Retention is the replicated `AuditExpire` (101). A tenant's deletion is recorded in `$system`, because the purge removes the tenant's own log.
+
 ### 18.6 Supply chain
 
 Lockfiles committed; `pnpm audit` and `pip-audit` in CI; SBOM generation (CycloneDX) per release; pinned model checkpoints with checksums; container images built from minimal bases and scanned.
+
+As built: the CI `supply-chain` job runs `pnpm audit --audit-level high`, `pip-audit` over the hashed `uv export`, and `scripts/sbom.sh`, which writes CycloneDX 1.5 files for Node (cdxgen 12.9.0 pinned, through `pnpm dlx`, because pnpm 10 has no `sbom` command) and Python (`uv export --format cyclonedx1.5`) and uploads them as an artifact. Image scanning is not built.
 
 ---
 
@@ -1768,6 +1777,13 @@ References: [R-jepsen-analyses], [R-redis-benchmark], [R-memtier], [R-dragonfly]
 | 031 | Memory key layout under the user scope and scope placement |
 | 032 | Memory and job commands |
 | 033 | Memory lifecycle: consolidation tick, `MemoryMaintain`, forgetting curve, cold tier on a blob store |
+| 034 | Collections: one key prefix per collection, record and schema bodies |
+| 035 | App auth: passwords, OTP, OAuth2, JWT, delegated agent tokens |
+| 036 | Tenant registry, roles and a pure policy decision |
+| 037 | Audit log through a range-local outbox |
+| 038 | Per-tenant quotas and rate limits with PD budget redistribution |
+| 039 | Semantic split as sub-scopes, with copy-then-mark re-homing |
+| 040 | Embedded replica sync: follow then snapshot, offline queue with client request ids |
 
 ---
 

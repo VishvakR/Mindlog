@@ -39,6 +39,15 @@ execute(session, argv)
 - **Hooks** are the `RecordHooks` port: before hooks run after the rule check and may change the body or refuse; after hooks are jobs enqueued in the write; `ensureCrons` starts one self-rescheduling job per cron.
 - Writes need cluster version 9 (`COLLECTIONS_CLUSTER_VERSION`).
 
+## Tenants, authorization, quotas and audit (phase 10)
+
+- **`TenantService`** (ADR-0036): the registry `tenant:<name>` in `$system` (status `active | deleting | deleted`, quotas, redaction, audit retention, policy rows, export state), API keys with role, scope patterns and expiry, and dashboard accounts limited to one tenant. Deleted names are never reused.
+- **`AccessControl`** resolves a credential to `(tenant, role, principal)` and calls `decide` for every request of every interface; only a superuser may name another tenant. `AccessPorts` lets lower services take it late (`attach`). Refusals are audited.
+- **`TenantGovernor`** (ADR-0038): token buckets per (tenant, operation class) before routing → `RATE_LIMITED`; storage, key and memory quotas from `UsageSampler` (approximate sizes, sampled every 30 s) → `QUOTA_EXCEEDED`; connections counted at auth; model-seconds through `ModelMeter`. PD redistributes each tenant's rate across nodes from heartbeat demand.
+- **`AuditService`** (ADR-0037): drains each leader range's audit outbox through `AuditAppend`, queues denials, logins and admin changes (bounded, drops counted), lists with cursors and expires rows by retention (`AuditExpire`).
+- **`TenantExporter`** writes a tenant's KV, collections, memories and files as one gzipped NDJSON blob; **`TenantPurger`** runs the deletion after the grace period: `TenantPurge` range by range from a checkpointed cursor, then blobs and the data key.
+- **Semantic split** (ADR-0039): `ScopeSplits` reads a scope's cluster layout and fans `MemoryService` ops out over its clusters (a recall searches the nearest `memory.split.recallClusters`, default 2); the `split` worker runs k-means and moves memories with `MemoryRehome`.
+
 ## Invariants
 
 - **Authorization before anything else.** With a password configured, only `AUTH` runs before authentication. Without one, the `default` user is `nopass` as in Valkey: `AUTH default <anything>` succeeds, while one-argument `AUTH` is an error.
@@ -55,5 +64,10 @@ execute(session, argv)
 |---|---|---|
 | `mindlog_kv_command_latency_seconds` | histogram | `command` |
 | `mindlog_kv_command_errors_total` | counter | `command`, `code` |
+| `mindlog_tenant_rate_limited_total` | counter | `tenant`, `class` |
+| `mindlog_tenant_quota_rejections_total` | counter | `tenant`, `quota` |
+| `mindlog_tenant_quota_usage_count` | gauge | `tenant`, `quota` |
+| `mindlog_audit_written_total`, `mindlog_audit_dropped_total` | counter | — |
+| `mindlog_memory_splits_total`, `mindlog_memory_split_moved_total`, `mindlog_memory_split_moved_bytes_total` | counter | — |
 
 Spans: `kv.<command>` with `mindlog.tenant` and `mindlog.command`.

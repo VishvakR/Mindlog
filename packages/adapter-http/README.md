@@ -22,6 +22,11 @@ HTTP adapter (layer `interfaces`, PLAN 15.3 and 17, ADR-0024). Fastify serves:
 | `POST /api/collections/:c/request-otp`, `auth-with-otp`, `auth-with-oauth2`, `request-verification`, `confirm-verification`, `request-password-reset`, `confirm-password-reset`; `GET /api/oauth2-redirect` | — | Opt-in flows: 400 when the collection or node has them off |
 | `POST /api/auth/delegate` | API key | An agent's key plus a user's token → a delegated token |
 | `POST /api/files/token` | app token | Short-lived token for protected files |
+| `GET/POST /api/tenants`, `GET/PATCH/DELETE /api/tenants/:tenant` | `GET`: `tenant.read` (a superuser sees all); `PATCH`: tenant admin; `POST`, `DELETE`: superuser | Tenant registry (ADR-0036): create with quotas, redaction and retention; `DELETE` marks it `deleting` and purges after the grace period |
+| `PUT /api/tenants/:tenant/quotas`, `GET …/usage` | quotas: superuser; usage: `tenant.read` | Quotas and approximate usage (ADR-0038) |
+| `GET/PUT …/policies`, `GET/POST …/keys`, `DELETE …/keys/:id`, `GET/PUT …/members`, `DELETE …/members/:email` | tenant admin | Policy rows, API keys (role, scope patterns, expiry), dashboard accounts |
+| `POST/GET /api/tenants/:tenant/export` | tenant admin | Start and poll the tenant export (one gzipped NDJSON blob) |
+| `GET /api/tenants/:tenant/audit` | tenant admin | The audit log, newest first, with cursors (ADR-0037) |
 | `GET /api/console` | bearer (subprotocol) | RESP over WebSocket, subprotocols `mindlog.resp` + `bearer.<token>` |
 | `GET /api/openapi.json` | — | OpenAPI 3.1 built from the Zod schemas |
 | `GET /_/*` | — | Dashboard static assets with SPA fallback and CSP |
@@ -37,8 +42,10 @@ HTTP adapter (layer `interfaces`, PLAN 15.3 and 17, ADR-0024). Fastify serves:
   `KvBrowser`, `AdminService` or a RESP `Connection`; no storage access.
 - Every error is RFC 9457 `application/problem+json` from the core error table; `cause` is never
   serialised.
-- Every `/api/*` route except login, `exists`, the OpenAPI document and the full-stack routes requires a valid
-  superuser token. Full-stack routes resolve the caller themselves (`identityOf`): a superuser token, an app JWT, an API key, or a guest; the tenant comes from the credential, else `X-Mindlog-Tenant`, else `collections.defaultTenant`. There are no cookies (no CSRF surface).
+- Admin and cluster routes require a superuser token. Memory, KV, realtime and tenant routes take any
+  credential (superuser token, dashboard account, API key) and ask `AccessControl` (ADR-0036); the
+  tenant comes from the credential, and `X-Mindlog-Tenant` or a body `tenant` is honoured for
+  superusers only. Admin changes, failed ones with their status, go to the audit log. Full-stack routes resolve the caller themselves (`identityOf`): a superuser token, an app JWT, an API key, or a guest; the tenant comes from the credential, else `X-Mindlog-Tenant`, else `collections.defaultTenant`. There are no cookies (no CSRF surface).
 - Request bodies are bounded by `bodyLimit`; console frames by the RESP parser limits.
 
 ## Metrics and spans

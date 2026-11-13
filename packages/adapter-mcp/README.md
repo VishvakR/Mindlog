@@ -16,7 +16,7 @@ Agents remember and recall over the Model Context Protocol (PLAN 15.2). The adap
 
 ## Invariants
 
-- Every call runs as its API key: the key's tenant, and the key's user when it is pinned to one (`authorizeScope`). The default scope is the key's user, or the tenant-wide scope. Keys never carry admin rights.
+- Every call runs as its API key: the key's tenant, role and scope patterns, and the key's user when it is pinned to one, through the same `AccessControl` decision as REST and RESP (ADR-0036). The default scope is the key's user, or the tenant-wide scope. Keys of the `agent` role never carry admin rights.
 - Memory text in results and prompts is data from past sessions. Tool descriptions tell the model so.
 
 ## Metrics and spans

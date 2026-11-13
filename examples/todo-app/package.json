@@ -1,6 +1,7 @@
 {
   "name": "todo-app",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "A todo app built on Mindlog alone: sign-in, per-user data, attachments and live updates",
   "type": "module",

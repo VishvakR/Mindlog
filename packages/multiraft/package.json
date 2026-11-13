@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/multiraft",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Range replicas: drives the Raft core with storage, transport and timers",
   "type": "module",

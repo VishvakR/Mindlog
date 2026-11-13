@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/proto",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Generated protobuf types for replicated commands and internal RPCs",
   "type": "module",

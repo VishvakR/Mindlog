@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/models-client",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Model ports (embedder, entity recognizer, NLI, reranker, extractor), the gRPC adapter to the model service, a circuit breaker and deterministic fakes",
   "type": "module",

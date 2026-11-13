@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/consolidation",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Memory consolidation and lifecycle workers: the scope tick, sleep-time on branches, evolution, dedup, themes, entity summaries, forgetting with the cold tier, re-embedding and the cache janitor (PLAN 12.6, ADR-0033)",
   "type": "module",

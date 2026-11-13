@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/storage",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Ordered key-value storage behind the KvStore port, with MVCC on top",
   "type": "module",

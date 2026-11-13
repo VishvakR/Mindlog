@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/blob",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Blob storage behind one port: local disk, S3-compatible (MinIO) with SigV4, and an in-memory fake (PLAN 10.4, 16.5)",
   "type": "module",

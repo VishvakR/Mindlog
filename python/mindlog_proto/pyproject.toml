@@ -1,6 +1,7 @@
 [project]
 name = "mindlog-proto"
-version = "0.0.0"
+version = "1.0.0"
+license = "MIT"
 description = "Generated protobuf types for Mindlog commands and internal RPCs"
 requires-python = ">=3.12"
 dependencies = [

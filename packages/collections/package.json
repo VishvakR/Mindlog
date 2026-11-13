@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/collections",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Full-stack collections: schemas, field types, record and schema commands with indexes and unique claims (PLAN 16, ADR-0034)",
   "type": "module",

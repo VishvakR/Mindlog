@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/cache",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Memory-aware semantic cache: replicated entries in the scope's range, dependency invalidation inside apply, L1/L2 lookup with a pluggable similarity evaluator",
   "type": "module",

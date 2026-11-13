@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/memory",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Agent memory engine: apply handlers, indexes in apply, the ingestion and recall pipelines, degraded mode and the enrich worker",
   "type": "module",

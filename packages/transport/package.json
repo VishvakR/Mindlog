@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/transport",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Raft transport between nodes over Connect (gRPC on HTTP/2)",
   "type": "module",

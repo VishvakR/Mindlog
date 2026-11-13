@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/kv",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Redis data types and commands as deterministic, replicated operations",
   "type": "module",

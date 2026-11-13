@@ -1,6 +1,7 @@
 [project]
 name = "mindlog-model-service"
-version = "0.0.0"
+version = "1.0.0"
+license = "MIT"
 description = "Stateless local inference sidecar for Mindlog (embeddings, NER, NLI, rerank, extraction)"
 requires-python = ">=3.12"
 dependencies = [

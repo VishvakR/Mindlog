@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/router",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Request routing: finds the range of a key, runs on the local leader or forwards to its node",
   "type": "module",

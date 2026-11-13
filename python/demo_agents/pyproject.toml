@@ -1,6 +1,7 @@
 [project]
 name = "mindlog-demo-agents"
-version = "0.0.0"
+version = "1.0.0"
+license = "MIT"
 description = "A scripted agent that remembers in one MCP session and recalls in the next (phase 5 demo)"
 requires-python = ">=3.12"
 dependencies = [

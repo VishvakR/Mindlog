@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/jobs",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Durable jobs in the scope's range: enqueue, replicated leases and completion, backoff, dead letters and the leader-only runner",
   "type": "module",

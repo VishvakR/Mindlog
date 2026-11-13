@@ -1148,7 +1148,7 @@ wheels = [
 
 [[package]]
 name = "mindlog"
-version = "0.0.0"
+version = "1.0.0"
 source = { editable = "sdk" }
 
 [package.optional-dependencies]
@@ -1162,7 +1162,7 @@ provides-extras = ["langgraph"]
 
 [[package]]
 name = "mindlog-demo-agents"
-version = "0.0.0"
+version = "1.0.0"
 source = { editable = "demo_agents" }
 dependencies = [
     { name = "mcp" },
@@ -1173,7 +1173,7 @@ requires-dist = [{ name = "mcp", specifier = "==2.3.0" }]
 
 [[package]]
 name = "mindlog-evals"
-version = "0.0.0"
+version = "1.0.0"
 source = { editable = "evals" }
 dependencies = [
     { name = "mindlog-proto" },
@@ -1190,7 +1190,7 @@ requires-dist = [
 
 [[package]]
 name = "mindlog-model-service"
-version = "0.0.0"
+version = "1.0.0"
 source = { editable = "model_service" }
 dependencies = [
     { name = "grpcio" },
@@ -1226,7 +1226,7 @@ download = [{ name = "huggingface-hub", specifier = ">=2.2.0" }]
 
 [[package]]
 name = "mindlog-proto"
-version = "0.0.0"
+version = "1.0.0"
 source = { editable = "mindlog_proto" }
 dependencies = [
     { name = "grpcio" },
@@ -1241,7 +1241,7 @@ requires-dist = [
 
 [[package]]
 name = "mindlog-python"
-version = "0.0.0"
+version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
     { name = "mindlog", extra = ["langgraph"] },

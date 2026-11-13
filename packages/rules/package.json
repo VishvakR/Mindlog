@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/rules",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "PocketBase-compatible filter and access-rule language: lexer, parser, checker, planner and evaluator (ADR-0018)",
   "type": "module",

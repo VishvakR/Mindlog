@@ -1,0 +1,65 @@
+# Release (PLAN 24 phase 11): on a pushed tag v*, build and push the server and
+# model-service images to GHCR, pack the SDKs and attach them to a GitHub release.
+# Nothing is published to npm or PyPI; the packages stay private.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Images, SDK packages and GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v10.3.0
+      - name: Check the tag matches the version
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          test "${GITHUB_REF_NAME}" = "v${version}" || { echo "tag ${GITHUB_REF_NAME} != v${version}"; exit 1; }
+      - name: Install and build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+      - name: Pack the SDKs
+        run: |
+          mkdir -p dist-release
+          pnpm --filter @mindlog/sdk pack --pack-destination "$PWD/dist-release"
+          (cd python && uv build --package mindlog --out-dir ../dist-release)
+          bash scripts/sbom.sh dist-release
+      - name: Build and push images
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          version="${GITHUB_REF_NAME#v}"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+          docker build -t "ghcr.io/${owner}/mindlog:${version}" -t "ghcr.io/${owner}/mindlog:latest" .
+          docker build -t "ghcr.io/${owner}/mindlog-model-service:${version}" \
+            -t "ghcr.io/${owner}/mindlog-model-service:latest" -f python/model_service/Dockerfile python
+          for image in mindlog mindlog-model-service; do
+            docker push "ghcr.io/${owner}/${image}:${version}"
+            docker push "ghcr.io/${owner}/${image}:latest"
+          done
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 ~ "^## \\[?"v {found=1; next} /^## / && found {exit} found' CHANGELOG.md > notes.md
+          gh release create "${GITHUB_REF_NAME}" dist-release/* --title "Mindlog ${GITHUB_REF_NAME}" --notes-file notes.md

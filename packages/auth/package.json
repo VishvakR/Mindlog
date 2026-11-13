@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/auth",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "End-user auth for full-stack mode: argon2id, HS256 JWTs, identities, rate limits, and opt-in SMTP and OAuth2 (ADR-0035)",
   "type": "module",

@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/adapter-mcp",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "MCP server for agents: memory tools, resources and prompts over Streamable HTTP and a stdio proxy",
   "type": "module",

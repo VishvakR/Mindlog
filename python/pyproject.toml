@@ -3,7 +3,8 @@
 # through uv: `uv sync`, `uv run pytest`, `uv run ruff check`, `uv run mypy`.
 [project]
 name = "mindlog-python"
-version = "0.0.0"
+version = "1.0.0"
+license = "MIT"
 description = "Mindlog Python workspace root"
 requires-python = ">=3.12"
 dependencies = [

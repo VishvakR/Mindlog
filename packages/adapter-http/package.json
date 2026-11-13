@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/adapter-http",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "HTTP adapter: health, metrics, REST API, WebSocket console and the dashboard",
   "type": "module",

@@ -1,7 +1,8 @@
 {
   "name": "@mindlog/web",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "description": "Mindlog dashboard: React + shadcn/ui, served by adapter-http at /_/ (ADR-0023)",
   "type": "module",
   "scripts": {

@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/server",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Composition root: configuration, wiring, lifecycle and the mindlog-server CLI",
   "type": "module",

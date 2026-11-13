@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/core",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Shared foundations: Result, errors, ids, HLC, key encoding, ports, config and telemetry",
   "type": "module",

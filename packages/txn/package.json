@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/txn",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Percolator transactions across ranges: apply handlers, lock resolution and the coordinator",
   "type": "module",

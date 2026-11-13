@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/adapter-resp",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "RESP2/RESP3 protocol adapter: parser, writer, connections and the TCP server",
   "type": "module",

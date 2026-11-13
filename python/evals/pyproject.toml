@@ -1,6 +1,7 @@
 [project]
 name = "mindlog-evals"
-version = "0.0.0"
+version = "1.0.0"
+license = "MIT"
 description = "Retrieval evals for Mindlog's memory (LongMemEval, LoCoMo), recipe ablations, packing curves and cache false positives (phase 6), conflict detection (phase 7)"
 requires-python = ">=3.12"
 dependencies = [

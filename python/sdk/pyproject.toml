@@ -1,6 +1,7 @@
 [project]
 name = "mindlog"
-version = "0.0.0"
+version = "1.0.0"
+license = "MIT"
 description = "Python client for Mindlog memory, with an embedded replica and LangGraph and CrewAI adapters (PLAN 15.5)"
 requires-python = ">=3.12"
 dependencies = []

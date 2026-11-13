@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/branching",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Memory branch merges: state-based CRDTs (OR-set, PN-counter, LWW register) and the pure merge planner (ADR-0013)",
   "type": "module",

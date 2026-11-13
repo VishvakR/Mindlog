@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/sdk",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "TypeScript client for Mindlog memory, collections, auth, files and realtime, with a Node embedded replica (PLAN 13.10, 15.5, 16)",
   "type": "module",

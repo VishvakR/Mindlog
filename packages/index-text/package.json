@@ -1,6 +1,7 @@
 {
   "name": "@mindlog/index-text",
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Tokenizer, Porter stemmer and BM25 scoring over a postings reader port",
   "type": "module",

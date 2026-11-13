@@ -435,9 +435,7 @@ describe('app auth edges', () => {
     const n = await setup();
     const a = n.auth;
     const signed = must(await a.authWithPassword('acme', 'users', email, 'password123'));
-    expect((await a.delegate({ id: 'k', tenant: 'acme' }, signed.refreshToken)).ok).toBe(
-      false,
-    );
+    expect((await a.delegate({ id: 'k', tenant: 'acme' }, signed.refreshToken)).ok).toBe(false);
     const again = must(await a.refresh('acme', 'users', { token: signed.token }));
     expect(again.record['id']).toBe(n.ann);
     expect((await a.refresh('acme', 'plain', { token: signed.token })).ok).toBe(false);

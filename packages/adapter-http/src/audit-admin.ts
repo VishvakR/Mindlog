@@ -26,5 +26,6 @@ export function auditAdminChange(
     action: `${request.method} ${route}`,
     resource: `tenant:${params.tenant ?? tenant}`,
     ok: status < 400,
+    ...(status < 400 ? {} : { detail: `HTTP ${String(status)}` }),
   });
 }

@@ -5,7 +5,14 @@ import type { KvReply } from '@mindlog/proto';
 import { strings, toRecord } from '../admin/kv-strings.js';
 import type { KvService } from '../kv/kv-service.js';
 import { Session } from '../session/session.js';
-import type { CreateTenant, Quotas, Redaction, TenantInfo, TenantSettings } from './schemas.js';
+import type {
+  CreateTenant,
+  Quotas,
+  Redaction,
+  TenantInfo,
+  TenantRecord,
+  TenantSettings,
+} from './schemas.js';
 import {
   createTenantSchema,
   policiesSchema,
@@ -30,12 +37,6 @@ export interface ExportState {
   readonly blob?: string;
   readonly bytes?: number;
   readonly error?: string;
-}
-
-/** A registered tenant plus its replicated policy rows, as request paths read them. */
-export interface TenantRecord {
-  readonly info: TenantInfo;
-  readonly policies: readonly PolicyRow[];
 }
 
 const invalid = (issues: readonly { path: PropertyKey[]; message: string }[]) =>

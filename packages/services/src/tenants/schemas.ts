@@ -1,3 +1,4 @@
+import type { PolicyRow } from '@mindlog/auth';
 import { ACTIONS, ROLES } from '@mindlog/auth';
 import { isUserTenant } from '@mindlog/core';
 import { REDACTION_KINDS } from '@mindlog/memory';
@@ -72,3 +73,9 @@ export const tenantSchema = z.object({
   auditRetentionDays: z.number(),
 });
 export type TenantInfo = z.infer<typeof tenantSchema>;
+
+/** A registry row as request paths read it: the tenant and its policy rows. */
+export interface TenantRecord {
+  readonly info: TenantInfo;
+  readonly policies: readonly PolicyRow[];
+}

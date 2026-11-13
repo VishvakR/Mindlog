@@ -1,8 +1,7 @@
 import { RateLimiter } from '@mindlog/auth';
 import type { Clock, Counter, Gauge, Metrics, MindlogError, Result } from '@mindlog/core';
 import { err, mindlogError, ok } from '@mindlog/core';
-import type { Quotas } from './schemas.js';
-import type { TenantRecord } from './tenant-service.js';
+import type { Quotas, TenantRecord } from './schemas.js';
 
 /** What a request costs: `free` covers deletes, so a tenant at its quota can make room. */
 export type AdmitClass = 'write' | 'memory' | 'recall' | 'free';

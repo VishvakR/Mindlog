@@ -75,6 +75,10 @@ describe('the audit log', () => {
     );
     const entry = (await audit('a')).find((e) => e.action.includes('/quotas'));
     expect(entry).toMatchObject({ ok: true, principal: 'superuser:root@example.com' });
+    expect((await call('PUT', '/api/tenants/a/quotas', root, { writeQps: -1 })).status).toBe(400);
+    await until(async () => (await audit('a')).some((e) => !e.ok), 'the failed change');
+    const failed = (await audit('a')).find((e) => !e.ok);
+    expect(failed).toMatchObject({ action: 'PUT /api/tenants/:tenant/quotas', detail: 'HTTP 400' });
   });
 
   test('a refused request is recorded with the reason', async () => {

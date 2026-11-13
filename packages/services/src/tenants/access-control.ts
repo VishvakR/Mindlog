@@ -6,7 +6,7 @@ import type { RedactionKind } from '@mindlog/memory';
 import type { AuditEvent } from '../audit/audit-service.js';
 import type { Authorize } from './authorize.js';
 import type { AdmitClass, TenantGovernor } from './governor.js';
-import type { TenantRecord } from './tenant-service.js';
+import type { TenantRecord } from './schemas.js';
 
 /**
  * Combines `decide` with the tenant's replicated rows (PLAN 18.2). Fails

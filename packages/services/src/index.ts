@@ -20,7 +20,7 @@ export { KvBrowser } from './kv-browser/kv-browser.js';
 export * from './kv-browser/schemas.js';
 export type { AdminServiceDeps } from './admin/admin-service.js';
 export { AdminService } from './admin/admin-service.js';
-export type { TenantRecord } from './tenants/tenant-service.js';
+export type { TenantRecord } from './tenants/schemas.js';
 export { TenantService } from './tenants/tenant-service.js';
 export type { ExportState } from './tenants/tenant-service.js';
 export type { TenantPurgerDeps } from './tenants/tenant-purger.js';

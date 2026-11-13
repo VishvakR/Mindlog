@@ -19,6 +19,11 @@ import { SettingsPage } from '@/pages/settings-page';
 import { TenantsPage } from '@/pages/tenants-page';
 import { TimeTravelPage } from '@/pages/time-travel-page';
 
+/** Members (one tenant) start on Memory; the overview is node-wide, for superusers. */
+function Home() {
+  return session.tenant() === null ? <OverviewPage /> : <Navigate to="/memory" replace />;
+}
+
 /** Pages behind login; the token is checked by the API on every call. */
 function RequireSession() {
   return session.token() ? <Outlet /> : <Navigate to="/login" replace />;
@@ -33,7 +38,7 @@ export const router = createBrowserRouter(
         {
           element: <AppShell />,
           children: [
-            { index: true, element: <OverviewPage /> },
+            { index: true, element: <Home /> },
             { path: 'cluster', element: <ClusterPage /> },
             { path: 'memory', element: <MemoryPage /> },
             { path: 'recall', element: <RecallPage /> },

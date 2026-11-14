@@ -1,0 +1,13 @@
+$schema: https://api.gitbook.com/gitbook-docs.yaml
+version: 1
+site:
+  title: Mindlog
+  structure:
+    # One book: docs/ has a single SUMMARY.md and cross-folder links, so it stays one space.
+    - type: space
+      key: space-docs
+      title: Mindlog docs
+      path: docs
+      default: true
+      content:
+        directory: ./docs

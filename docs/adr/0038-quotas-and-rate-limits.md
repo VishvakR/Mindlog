@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-11-09
 - PLAN: 18.3, 20 (runaway tenant), 24 phase 10
-- References: [tikv-pd.md](../references/tikv-pd.md), [ADR-0036](0036-tenants-and-rbac.md)
+- References: tikv-pd.md, [ADR-0036](0036-tenants-and-rbac.md)
 
 ## Context
 

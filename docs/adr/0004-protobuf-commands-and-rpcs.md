@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-11
 - PLAN: 6.1 (command envelope), 7.2, 14.3 (model service API), 15.4, 19.5 (upgrades), 23.3
-- References: [etcd-raft.md](../references/etcd-raft.md) (`raftpb`), [resp3-spec.md](../references/resp3-spec.md), [node-redis.md](../references/node-redis.md)
+- References: etcd-raft.md (`raftpb`), resp3-spec.md, node-redis.md
 
 ## Context
 

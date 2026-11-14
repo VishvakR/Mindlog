@@ -1,6 +1,6 @@
 # Architecture decision records
 
-Why each significant decision was made. New ones copy [`0000-template.md`](0000-template.md). Numbers are never reused; 0019 was not needed.
+Why each significant decision was made. New ones copy [`0000-template.md`](https://github.com/VishvakR/Mindlog/blob/main/docs/adr/0000-template.md). Numbers are never reused; 0019 was not needed.
 
 | ADR | Decision |
 |---|---|

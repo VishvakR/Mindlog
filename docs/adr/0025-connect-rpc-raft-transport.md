@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-16
 - PLAN: 3.3 (internal port 7000), 4.2 (`@mindlog/transport`), 7.2 (messages), 18.4 (mTLS)
-- References: [hashicorp-raft.md](../references/hashicorp-raft.md), [etcd-raft.md](../references/etcd-raft.md)
+- References: hashicorp-raft.md, etcd-raft.md
 
 ## Context
 

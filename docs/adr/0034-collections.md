@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-11-03
 - PLAN: 5.1 (key families; amended), 6.1 (commands 50–52), 16.1–16.2, 16.7–16.8, 19.5
-- References: [pocketbase.md](../references/pocketbase.md), [ADR-0031](0031-memory-key-layout-and-scope-placement.md), [ADR-0009](0009-range-size-split-and-merge-policy.md)
+- References: pocketbase.md, [ADR-0031](0031-memory-key-layout-and-scope-placement.md), [ADR-0009](0009-range-size-split-and-merge-policy.md)
 
 ## Context
 

@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-17
 - PLAN: 8.1, 8.2 (store, coalesced heartbeats, quiescence, batched Ready), 6.2 (idempotency)
-- References: [tikv.md](../references/tikv.md), [cockroach-multiraft.md](../references/cockroach-multiraft.md)
+- References: tikv.md, cockroach-multiraft.md
 - Amends: ADR-0005, ADR-0026 (keys), ADR-0025 (peer addressing)
 
 ## Context

@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-12
 - PLAN: 15.3 (REST), 17.3 (dashboard security), 18, 24 phase 2
-- References: [pocketbase.md](../references/pocketbase.md) (`core/record_tokens.go`,
+- References: pocketbase.md (`core/record_tokens.go`,
   `apis/record_auth_with_password.go`, `apis/base.go` `Static`)
 
 ## Context

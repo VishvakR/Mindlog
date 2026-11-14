@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-11
 - PLAN: 3.2 (processes), 14 (model service), 20.2 (Node.js practices), 23.1–23.2
-- References: [node-redis.md](../references/node-redis.md), [letta.md](../references/letta.md), [graphiti.md](../references/graphiti.md), [classic-level.md](../references/classic-level.md)
+- References: node-redis.md, letta.md, graphiti.md, classic-level.md
 
 ## Context
 

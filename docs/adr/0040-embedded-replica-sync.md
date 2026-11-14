@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-11-12
 - PLAN: 13.10 (embedded replicas; amended), 15.5 (SDKs), 24 phase 10
-- References: [turso-embedded.md](../references/turso-embedded.md), [ADR-0039](0039-semantic-split.md)
+- References: turso-embedded.md, [ADR-0039](0039-semantic-split.md)
 
 ## Context
 

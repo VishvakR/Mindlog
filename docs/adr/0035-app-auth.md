@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-11-03
 - PLAN: 16.4 (authentication; amended), 16.8 (hooks), 18 (principal and actor)
-- References: [pocketbase.md](../references/pocketbase.md) (`core/record_tokens.go`, `apis/record_auth_*.go`), [ADR-0024](0024-http-adapter-and-superusers.md)
+- References: pocketbase.md (`core/record_tokens.go`, `apis/record_auth_*.go`), [ADR-0024](0024-http-adapter-and-superusers.md)
 
 ## Context
 

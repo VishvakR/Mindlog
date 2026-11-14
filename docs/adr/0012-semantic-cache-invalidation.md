@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-29
 - PLAN: 13.9 (memory-aware semantic cache, **changed**), 6.1 (commands 40–41), 19.5 (cluster version)
-- References: [gptcache.md](../references/gptcache.md)
+- References: gptcache.md
 
 ## Context
 

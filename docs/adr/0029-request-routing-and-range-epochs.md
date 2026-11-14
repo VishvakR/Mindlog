@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-17
 - PLAN: 8.4 (routing), 8.1 (epochs), 9.1 (single-range transactions), 15 (RESP)
-- References: [cockroach-multiraft.md](../references/cockroach-multiraft.md), [tikv-pd.md](../references/tikv-pd.md)
+- References: cockroach-multiraft.md, tikv-pd.md
 
 ## Context
 

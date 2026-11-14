@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-11
 - PLAN: 2 (principles 1, 4), 6 (command envelope, apply rules, change stream), 7.3, 7.5, 13 (log-native features)
-- References: [etcd-raft.md](../references/etcd-raft.md), [graphiti.md](../references/graphiti.md), [a-mem.md](../references/a-mem.md), [letta.md](../references/letta.md), [classic-level.md](../references/classic-level.md)
+- References: etcd-raft.md, graphiti.md, a-mem.md, letta.md, classic-level.md
 
 ## Context
 

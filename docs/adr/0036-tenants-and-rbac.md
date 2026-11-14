@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-11-09
 - PLAN: 18.2, 18.3 (roles, policies, tenants), 24 phase 10
-- References: [opa.md](../references/opa.md), [ADR-0024](0024-http-adapter-and-superusers.md), [ADR-0035](0035-app-auth.md)
+- References: opa.md, [ADR-0024](0024-http-adapter-and-superusers.md), [ADR-0035](0035-app-auth.md)
 
 ## Context
 

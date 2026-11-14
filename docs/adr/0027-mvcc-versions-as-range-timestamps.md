@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-17
 - PLAN: 10.2 (MVCC), 9.2 (Percolator), 9.3 (snapshot reads), 13.3 (ASOF)
-- References: [tikv.md](../references/tikv.md), [cockroach-multiraft.md](../references/cockroach-multiraft.md), [hlc.md](../references/hlc.md)
+- References: tikv.md, cockroach-multiraft.md, hlc.md
 - Amends: PLAN 10.2 ("version = commit index"), ADR-0026 (store format 2 → 3)
 
 ## Context

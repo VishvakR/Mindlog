@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-11
 - PLAN: 2 (principles 2, 3, 10), 4.1–4.3 (layers, packages, ports), 23.1, 23.6
-- References: [pocketbase.md](../references/pocketbase.md), [etcd-raft.md](../references/etcd-raft.md), [letta.md](../references/letta.md), [node-redis.md](../references/node-redis.md), ANALYSIS.md "Cross-cutting conclusions"
+- References: pocketbase.md, etcd-raft.md, letta.md, node-redis.md, ANALYSIS.md "Cross-cutting conclusions"
 
 ## Context
 

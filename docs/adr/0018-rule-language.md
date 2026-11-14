@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-11-03
 - PLAN: 16.3 (rules engine), 16.6 (realtime filtering), 22 (fuzzing, property tests)
-- References: [pocketbase.md](../references/pocketbase.md) (`tools/search/filter.go`, `identifier_macros.go`, `token_functions.go`, `core/record_field_resolver*.go`)
+- References: pocketbase.md (`tools/search/filter.go`, `identifier_macros.go`, `token_functions.go`, `core/record_field_resolver*.go`)
 
 ## Context
 

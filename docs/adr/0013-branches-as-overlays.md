@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-30
 - PLAN: 13.1 (branching memory), 13.3 (ASOF), 6.1 (commands 30–32), 10.2 (MVCC GC), 19.5 (cluster version)
-- References: [dolt-neon.md](../references/dolt-neon.md), [automerge.md](../references/automerge.md), [letta.md](../references/letta.md)
+- References: dolt-neon.md, automerge.md, letta.md
 
 ## Context
 

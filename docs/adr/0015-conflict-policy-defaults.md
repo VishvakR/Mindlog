@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-30
 - PLAN: 13.2 (semantic conflict detection), 13.4 (provenance and quarantine), 12.3 (stage 10), 6.1 (commands 24–25)
-- References: [graphiti.md](../references/graphiti.md), [cognee.md](../references/cognee.md)
+- References: graphiti.md, cognee.md
 
 ## Context
 

@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-11-09
 - PLAN: 18.5, 24 phase 10
-- References: [opa.md](../references/opa.md), [ADR-0036](0036-tenants-and-rbac.md)
+- References: opa.md, [ADR-0036](0036-tenants-and-rbac.md)
 
 ## Context
 

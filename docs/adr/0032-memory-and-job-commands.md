@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-18
 - PLAN: 6.1 (command envelope), 6.2 (apply rules), 12.3, 12.7, 19.5 (cluster version)
-- References: [mem0.md](../references/mem0.md), [cognee.md](../references/cognee.md)
+- References: mem0.md, cognee.md
 
 ## Context
 

@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-12
 - PLAN: 5.2 (Redis value encoding), 10.2 (MVCC, GC)
-- References: [valkey.md](../references/valkey.md) (lazyfree `UNLINK`), [cockroach-encoding.md](../references/cockroach-encoding.md)
+- References: valkey.md (lazyfree `UNLINK`), cockroach-encoding.md
 
 ## Context
 

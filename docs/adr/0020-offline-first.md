@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-18
 - PLAN: 1 (goals), 14.2, 14.6, 24 phase 5 exit gate
-- References: [gliner.md](../references/gliner.md)
+- References: gliner.md
 
 ## Context
 

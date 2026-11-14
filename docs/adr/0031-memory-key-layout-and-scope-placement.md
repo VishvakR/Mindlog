@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-18
 - PLAN: 5.1 (key families; amended), 5.3–5.5, 8.5 (scope placement), 11.1–11.3, 12.7
-- References: [mem0.md](../references/mem0.md), [redis-agent-memory.md](../references/redis-agent-memory.md)
+- References: mem0.md, redis-agent-memory.md
 
 ## Context
 

@@ -1,6 +1,6 @@
 # RESP compatibility
 
-Mindlog speaks RESP2 and RESP3 on port 6379 (PLAN 15.1), so Redis clients such as ioredis, node-redis, redis-py, `redis-cli` and `redis-benchmark` work unchanged for the commands below. Behaviour and error messages follow Valkey unless listed under [Differences](#differences). Command metadata (`COMMAND`, `COMMAND DOCS`) comes from the JSON specs in `packages/adapter-resp/commands/`.
+Mindlog speaks RESP2 and RESP3 on port 6379 (PLAN 15.1), so Redis clients such as ioredis, node-redis, redis-py, `redis-cli` and `redis-benchmark` work unchanged for the commands below. Behaviour and error messages follow Valkey unless listed under [Differences](#differences). Command metadata (`COMMAND`, `COMMAND DOCS`) comes from the JSON specs in [`packages/adapter-resp/commands/`](https://github.com/VishvakR/Mindlog/tree/main/packages/adapter-resp/commands). Full syntax of the Mindlog commands is in [Memory, cache and cluster commands](../reference/resp-extensions.md).
 
 Every write is appended to the durable log and applied before it is acknowledged (ADR-0005, ADR-0021). A `+OK` therefore survives `kill -9`.
 
@@ -46,7 +46,7 @@ Every write is appended to the durable log and applied before it is acknowledged
 
 ## Errors
 
-Error prefixes come from the single error table in `@mindlog/core` (`ERROR_CODES`): `ERR`, `WRONGTYPE`, `NOAUTH`, `WRONGPASS`, `EXECABORT`, `NOPROTO`, `BUSY` (backpressure, retry), `TRYAGAIN` (no leader known, or leadership could not be confirmed; retry), `TIMEOUT` (a write was not applied in time and may still be applied), `MOVED` (phase 4).
+Error prefixes come from the single error table in `@mindlog/core` (`ERROR_CODES`): `ERR`, `WRONGTYPE`, `NOAUTH`, `WRONGPASS`, `EXECABORT`, `NOPROTO`, `BUSY` (backpressure, retry), `TRYAGAIN` (no leader known, or leadership could not be confirmed; retry), `TIMEOUT` (a write was not applied in time and may still be applied), `MOVED` (the range moved; clients of a single endpoint never see it, because nodes forward requests), `CROSSSLOT` (keys in different ranges without `features.crossRangeTxn`), `QUOTA` (a tenant quota is exhausted), `NOPERM` (the API key's role does not allow the command). The full table is in [Errors](../reference/errors.md).
 
 ## Differences
 
@@ -68,4 +68,4 @@ Error prefixes come from the single error table in `@mindlog/core` (`ERROR_CODES
 | Replication | Every node of a cluster accepts reads and writes: writes are forwarded to the Raft leader, and reads wait for a lease or ReadIndex check (ADR-0007), so any node returns linearizable results | Primary accepts writes; replicas serve possibly stale reads |
 | JSON | Path subset: `$`, `.`, dotted, `['k']`, `[i]`; no wildcards or filters | RedisJSON / valkey-json |
 
-Not yet supported: pub/sub, Lua and functions, streams, blocking commands (`BLPOP`, ...), bitmaps, HyperLogLog, geo, `OBJECT`, `DUMP`/`RESTORE`, `MONITOR`, client tracking, `CLIENT KILL`/`PAUSE`, ACL users (phase 10) and Redis Cluster commands (`CLUSTER SLOTS`, ...; phase 4 brings `MOVED` routing). They return `-ERR unknown command`.
+Not yet supported: pub/sub, Lua and functions, streams, blocking commands (`BLPOP`, ...), bitmaps, HyperLogLog, geo, `OBJECT`, `DUMP`/`RESTORE`, `MONITOR`, client tracking, `CLIENT KILL`/`PAUSE`, ACL users (Mindlog uses API keys with roles instead: `AUTH mlk_…`) and Redis Cluster commands (`CLUSTER SLOTS`, ...; any Mindlog node accepts any key and forwards it). They return `-ERR unknown command`.

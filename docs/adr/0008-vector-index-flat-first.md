@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-18
 - PLAN: 11.1 (amended for phase 5), 12.4, 1 (recall p95 < 150 ms at 10K memories)
-- References: [mem0.md](../references/mem0.md)
+- References: mem0.md
 
 ## Context
 

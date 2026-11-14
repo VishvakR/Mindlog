@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-18
 - PLAN: 12.2 (async mode), 12.7, CLAUDE.md rule 8
-- References: [redis-agent-memory.md](../references/redis-agent-memory.md), [letta.md](../references/letta.md)
+- References: redis-agent-memory.md, letta.md
 
 ## Context
 

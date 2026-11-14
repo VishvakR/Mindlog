@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-12
 - PLAN: 6.1 (command envelope), 6.2 (apply rules), 9.1 (single-range transactions), 15.1
-- References: [valkey.md](../references/valkey.md), [resp3-spec.md](../references/resp3-spec.md)
+- References: valkey.md, resp3-spec.md
 
 ## Context
 

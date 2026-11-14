@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-16
 - PLAN: 5.1 (key encoding), 7.3 (persistence rules), 10.3 (snapshots), 21 (failure handling)
-- References: [etcd-raft.md](../references/etcd-raft.md), [hashicorp-raft.md](../references/hashicorp-raft.md), [classic-level.md](../references/classic-level.md)
+- References: etcd-raft.md, hashicorp-raft.md, classic-level.md
 - Amends: ADR-0005 (keys of the log store)
 
 ## Context

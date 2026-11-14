@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-17
 - PLAN: 8.3 (placement driver), 8.6 (node lifecycle), 9.2 (TSO), 19.5 (cluster versions), 21 (PD unavailable)
-- References: [tikv-pd.md](../references/tikv-pd.md)
+- References: tikv-pd.md
 
 ## Context
 

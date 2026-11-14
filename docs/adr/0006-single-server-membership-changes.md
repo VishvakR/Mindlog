@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-16
 - PLAN: 7.1 (learners, membership changes, leadership transfer), 8.6 (node lifecycle)
-- References: [raft-thesis.md](../references/raft-thesis.md), [etcd-raft.md](../references/etcd-raft.md), [hashicorp-raft.md](../references/hashicorp-raft.md)
+- References: raft-thesis.md, etcd-raft.md, hashicorp-raft.md
 
 ## Context
 

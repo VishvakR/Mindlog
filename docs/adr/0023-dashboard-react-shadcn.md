@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-12
 - PLAN: 17.1 (technology), 24 phase 2, 4.2 (`web` package)
-- References: [pocketbase.md](../references/pocketbase.md) (embedded admin UI served at `/_/`)
+- References: pocketbase.md (embedded admin UI served at `/_/`)
 
 ## Context
 

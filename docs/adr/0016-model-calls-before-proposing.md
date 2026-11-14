@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-18
 - PLAN: 4.5, 12.2–12.3, 14, 21
-- References: [mem0.md](../references/mem0.md), [redis-agent-memory.md](../references/redis-agent-memory.md)
+- References: mem0.md, redis-agent-memory.md
 
 ## Context
 

@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-17
 - PLAN: 8.1 (ranges), 8.2 (store), 8.5 (placement modes), 20 (scalability)
-- References: [tikv.md](../references/tikv.md), [cockroach-multiraft.md](../references/cockroach-multiraft.md), [tikv-pd.md](../references/tikv-pd.md)
+- References: tikv.md, cockroach-multiraft.md, tikv-pd.md
 
 ## Context
 

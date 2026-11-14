@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-29
 - PLAN: 11.3 (PPR), 12.4 (recall pipeline), 12.5 (final scoring), 13.6 (packing)
-- References: [hipporag.md](../references/hipporag.md), [lightrag.md](../references/lightrag.md), [mem0.md](../references/mem0.md), [graphiti.md](../references/graphiti.md)
+- References: hipporag.md, lightrag.md, mem0.md, graphiti.md
 
 ## Context
 

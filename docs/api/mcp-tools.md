@@ -1,6 +1,6 @@
 # MCP tool reference
 
-Mindlog serves the [Model Context Protocol](https://modelcontextprotocol.io) on its own listener, `listen.mcp.http` (default `127.0.0.1:8765/mcp`, Streamable HTTP). Hosts that only speak stdio launch `mindlog-server mcp --api-key mlk_…`, a relay to a running node (setup: [`docs/demo/claude-desktop.md`](../demo/claude-desktop.md)).
+Mindlog serves the [Model Context Protocol](https://modelcontextprotocol.io) on its own listener, `listen.mcp.http` (default `127.0.0.1:8765/mcp`, Streamable HTTP). Hosts that only speak stdio launch `mindlog-server mcp --api-key mlk_…`, a relay to a running node (setup: [Connect an AI agent](../getting-started/connect-an-agent.md)).
 
 Every request carries an API key (`Authorization: Bearer mlk_…`), created with `mindlog-server apikey create --tenant <t> --user <u> --name <n>` or on the dashboard. The key fixes the tenant and, by default, the user scope; RBAC (ADR-0036) decides what each tool may touch.
 

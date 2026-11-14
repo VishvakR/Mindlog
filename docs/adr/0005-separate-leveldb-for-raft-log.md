@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-12
 - PLAN: 7.3 (persistence rules), 10.1 (engine), 10.3 (snapshots)
-- References: [classic-level.md](../references/classic-level.md), [etcd-raft.md](../references/etcd-raft.md)
+- References: classic-level.md, etcd-raft.md
 
 ## Context
 

@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-10-17
 - PLAN: 9.2 (cross-range transactions), 9.3 (snapshot consistency), 22 (simulator)
-- References: [percolator.md](../references/percolator.md), [tikv.md](../references/tikv.md)
+- References: percolator.md, tikv.md
 
 ## Context
 

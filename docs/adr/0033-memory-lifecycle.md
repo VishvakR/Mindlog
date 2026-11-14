@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-11-01
 - PLAN: 12.6 (consolidation workers), 12.4 stage 10 (RecordRecall), 13.7 (forgetting curve), 10.4 (tiered storage), 13.11 (memory cubes), 6.1 (commands 21, 23), 19.5 (cluster version)
-- References: [letta.md](../references/letta.md), [a-mem.md](../references/a-mem.md), [memorybank.md](../references/memorybank.md), [cognee.md](../references/cognee.md), [leiden.md](../references/leiden.md)
+- References: letta.md, a-mem.md, memorybank.md, cognee.md, leiden.md
 
 ## Context
 

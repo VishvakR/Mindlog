@@ -11,3 +11,5 @@ The model service downloads pretrained models at build time (`python/model_servi
 - `onnx-community/gliner_small-v2.1`.
 
 Container images that bake the models in carry the models under those licenses.
+
+The documentation diagrams embed **Excalifont** (`docs/diagrams/excalifont-latin.woff2`, also inlined in the SVGs under `docs/.gitbook/assets/`), the hand-drawn font of the Excalidraw project, © Excalidraw contributors, licensed under the SIL Open Font License 1.1 (https://openfontlicense.org). Only its Latin subset is included.

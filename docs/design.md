@@ -1,6 +1,6 @@
 # Mindlog — System Design
 
-This is the architecture of Mindlog as a whole system: what it is for, how it is deployed, how requests flow through it, how data is replicated and stored, how the AI memory engine works, and how it behaves when things fail. [`PLAN.md`](PLAN.md) holds the full specifications (section numbers are cited as "PLAN n"), and [`adr/`](adr) records why each major decision was made. Section 18 lists what exists in the code today.
+This is the architecture of Mindlog as a whole system: what it is for, how it is deployed, how requests flow through it, how data is replicated and stored, how the AI memory engine works, and how it behaves when things fail. [`PLAN.md`](https://github.com/VishvakR/Mindlog/blob/main/docs/PLAN.md) holds the full specifications (section numbers are cited as "PLAN n"), and [`adr/`](adr/README.md) records why each major decision was made. Section 18 lists what exists in the code today.
 
 **Contents**
 
@@ -60,17 +60,7 @@ Full Redis Cluster protocol, Lua, RDB/AOF compatibility, SQL, multi-region geo-r
 
 ## 2. System context
 
-```mermaid
-flowchart LR
-  app["Backend apps<br/>(any Redis client)"] -- RESP3 :6379 --> M
-  agent["AI agents<br/>(Claude, LangGraph, custom)"] -- "MCP stdio / Streamable HTTP :8765" --> M
-  web["Web & mobile apps"] -- "REST + SSE :8090" --> M
-  svc["Services / SDKs"] -- "gRPC :9090" --> M
-  human["Operators"] -- "Dashboard /_/ :8090" --> M
-  M["Mindlog cluster"]
-  M -- "/metrics, OTLP" --> obs["Prometheus / OTel collector"]
-  M -- "blobs, cold tier, backups" --> s3["Object store (optional)"]
-```
+<figure><img src=".gitbook/assets/system-context.svg" alt="Clients connect to a Mindlog cluster over RESP, MCP, REST and the dashboard."><figcaption><p>System context.</p></figcaption></figure>
 
 One system replaces a typical agent stack of Redis + vector DB + graph DB + app database + memory library. Every surface is a standard protocol (RESP3, MCP, REST/SSE, gRPC, OpenTelemetry, Prometheus), so nothing requires a bespoke client.
 
@@ -87,23 +77,7 @@ One system replaces a typical agent stack of Redis + vector DB + graph DB + app 
 | `mindlog-models` | Python 3.12 | 1 sidecar per server | Embeddings, NER, NLI, reranking, fact extraction |
 | Object store | MinIO / S3 / local disk | optional | Files, cold memory tier, backups |
 
-```mermaid
-flowchart TB
-  subgraph node1["Node 1"]
-    s1["mindlog-server"] -- "gRPC :50051 (localhost)" --> m1["mindlog-models"]
-  end
-  subgraph node2["Node 2"]
-    s2["mindlog-server"] -- ":50051" --> m2["mindlog-models"]
-  end
-  subgraph node3["Node 3"]
-    s3["mindlog-server"] -- ":50051" --> m3["mindlog-models"]
-  end
-  s1 <-- "Raft, snapshots, forwarding<br/>gRPC + mTLS :7000" --> s2
-  s2 <-- ":7000" --> s3
-  s1 <-- ":7000" --> s3
-  pd["mindlog-pd ×3<br/>(own Raft group)"]
-  s1 & s2 & s3 -- "heartbeats, TSO, range map<br/>gRPC + mTLS :7100" --> pd
-```
+<figure><img src=".gitbook/assets/deployment.svg" alt="Three nodes with model sidecars, Raft on :7000 and a placement driver on :7100."><figcaption><p>Deployment topology.</p></figcaption></figure>
 
 **Single-node mode** runs one server with an embedded single-member PD and one sidecar (`docker compose --profile dev up`). The cluster profile adds 3 nodes, 3 PD members, MinIO, Prometheus, Grafana and Jaeger.
 
@@ -129,30 +103,7 @@ These defaults come from `@mindlog/core`'s config schema and can be overridden b
 
 Mindlog is a hexagonal (ports and adapters) system split into one package per module (ADR-0002). Imports point only downward. ESLint boundary rules, madge and TypeScript project references enforce this in CI, and an architecture test proves that the rules fire.
 
-```mermaid
-flowchart TB
-  subgraph L1["Interfaces — wire protocols only"]
-    resp["adapter-resp"]; mcp["adapter-mcp"]; http["adapter-http<br/>(REST, SSE, dashboard)"]; grpc["adapter-grpc"]
-  end
-  subgraph L2["Application — auth, routing, use-case facades"]
-    auth["auth"]; router["router"]; services["KvService · MemoryService<br/>CollectionService · AdminService"]
-  end
-  subgraph L3["Domain — business rules, pure where possible"]
-    memory["memory"]; consolidation["consolidation"]; branching["branching"]; cache["cache"]
-    collections["collections"]; rules["rules"]; txn["txn"]; kv["kv"]; jobs["jobs"]; mc["models-client (ports)"]
-  end
-  subgraph L4["Replication"]
-    raft["raft (pure)"]; multiraft["multiraft"]; sm["statemachine"]; transport["transport"]; pd["pd"]
-  end
-  subgraph L5["Storage and indexes — behind ports"]
-    storage["storage (KvStore)"]; blob["blob"]; iv["index-vector"]; it["index-text"]; ig["index-graph"]
-  end
-  subgraph L6["Core — shared foundations"]
-    core["core"]; proto["proto"]; eventbus["eventbus"]
-  end
-  L1 --> L2 --> L3 --> L4 --> L5 --> L6
-  root["server (composition root)<br/>wires adapters to ports"] -.-> L1 & L2 & L3 & L4 & L5 & L6
-```
+<figure><img src=".gitbook/assets/layers.svg" alt="Six layers from interfaces to core, with the server package as the composition root."><figcaption><p>Layers; imports point down.</p></figcaption></figure>
 
 | Layer | Owns | Must not |
 |---|---|---|
@@ -182,16 +133,7 @@ Extensible concepts (retrievers, pipeline stages, model providers, field types, 
 
 ### 4.3 The central rule: the log is the source of truth
 
-```mermaid
-flowchart LR
-  subgraph leader["Leader, before proposing (non-deterministic allowed)"]
-    req["request"] --> ids["ids (ULID), HLC"] --> models["model inference<br/>(embeddings, facts, NLI)"] --> cmd["Command<br/>(all outputs embedded)"]
-  end
-  cmd -- "Raft log" --> apply1["apply() on replica 1"]
-  cmd -- "Raft log" --> apply2["apply() on replica 2"]
-  cmd -- "Raft log" --> apply3["apply() on replica 3"]
-  apply1 & apply2 & apply3 --> state["identical state:<br/>KV · memory · indexes · graph · cache"]
-```
+<figure><img src=".gitbook/assets/log-truth.svg" alt="Non-deterministic work on the leader before proposing; replicas apply to identical state."><figcaption><p>The log is the source of truth.</p></figcaption></figure>
 
 `apply(command, index)` is a pure function of the committed log (ADR-0003). It does not read the clock (it uses `cmd.hlc`), use ambient randomness (seeds come from the index or ids), call the network, or call models. Lint bans these in `statemachine/**` and `*/apply/**`. Every write carries a `requestId` for idempotency. Environmental errors in apply crash the replica (fail-stop) rather than skipping an entry. Expiry, GC, leases and job leasing are themselves commands.
 
@@ -244,35 +186,7 @@ Facts are never overwritten. A newer fact supersedes an older one by setting `va
 
 Example: an agent calls `remember` (MCP) or `MEM.ADD` (RESP) for scope `acme/alice`.
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant C as Client (agent)
-  participant A as Adapter (MCP/RESP)
-  participant Z as Authorizer
-  participant R as Router
-  participant L as Leader: MemoryService
-  participant M as Model sidecar
-  participant P as Proposer / Raft leader
-  participant F as Followers
-  participant S as State machine (each replica)
-  participant E as EventBus
-  C->>A: remember(scope, text, requestId)
-  A->>Z: principal may write scope?
-  Z-->>A: allowed
-  A->>R: route by scope key
-  R->>L: range leader (forward over :7000 if remote)
-  L->>M: embed, extract facts, NER, NLI (deadline + circuit breaker)
-  M-->>L: model outputs
-  L->>L: link entities, score importance, detect conflicts, assemble MemoryCommit
-  L->>P: propose(Command{requestId, principal, hlc, body})
-  P->>F: AppendEntries (pipelined, batched)
-  F-->>P: ack after fsync
-  P->>S: committed at index i
-  S->>S: idempotency check, one WriteBatch: records + indexes + appliedIndex
-  S->>E: CommandApplied, MemoryCommitted
-  P-->>C: ids, conflicts, degraded flag
-```
+<figure><img src=".gitbook/assets/write-path.svg" alt="Sequence of a remember call through adapter, leader, model service and replicas."><figcaption><p>The write path of one remember call.</p></figcaption></figure>
 
 - **Fast acknowledgment**: with `async: true`, step 6 is skipped. The raw episode is committed immediately and an `enrich` job finishes the pipeline later, proposing a `MemoryEvolve`.
 - **Degraded mode**: if the sidecar is down, extraction stages are skipped, raw episodic memory is stored, enrichment is queued, and the reply carries `degraded: true`.
@@ -291,16 +205,12 @@ sequenceDiagram
 | `snapshot(t)` | Consistent view at a time or index | MVCC read at a version | `ASOF`, exports, backups |
 | `session` | Read-your-writes, monotonic reads | Client carries last-seen index per range | SDKs, embedded replicas |
 
-```mermaid
-flowchart LR
-  q["read request"] --> lvl{"consistency level"}
-  lvl -- lease --> lease["leader: lease valid?"] -- yes --> local["read local state"]
-  lease -- no --> ri["ReadIndex round"] --> wait["wait applied ≥ readIndex"] --> local
-  lvl -- linearizable --> ri
-  lvl -- bounded_staleness --> fol["nearest replica:<br/>applied HLC fresh enough?"] -- yes --> local
-  fol -- no --> ri
-  lvl -- "snapshot(t)" --> mvcc["map HLC→index, MVCC read at ~index"]
-```
+| Level | Path |
+|---|---|
+| `lease` | The leader checks its lease; if valid it reads local state, otherwise it falls back to a ReadIndex round |
+| `linearizable` | ReadIndex round with a quorum, then wait until applied ≥ readIndex, then read local state |
+| `bounded_staleness` | The nearest replica reads locally if its applied HLC is fresh enough, otherwise ReadIndex |
+| `snapshot(t)` | Map the HLC to a version and do an MVCC read at it |
 
 Recall reads several indexes. They are all updated inside the same apply, so a recall at index *i* sees one consistent version of records, vectors, postings and edges.
 
@@ -319,14 +229,7 @@ Recall reads several indexes. They are all updated inside the same apply, so a r
 
 `@mindlog/raft` is a **pure state machine** modelled on etcd raft: inputs are `tick`, `step(msg)`, `propose`, `readIndex`; the output is a `Ready` batch. The host performs I/O in a fixed order, which is what makes Raft testable in a deterministic simulator.
 
-```mermaid
-flowchart LR
-  tick["tick / step / propose"] --> core["Raft core (pure)"] --> ready["Ready{hardState, entries,<br/>snapshot, messages, committed}"]
-  ready --> persist["1. persist hardState + entries<br/>(fsync, one batch for all ranges)"]
-  persist --> send["2. send messages"]
-  send --> apply["3. apply committed entries in order"]
-  apply --> adv["4. advance()"] --> core
-```
+<figure><img src=".gitbook/assets/raft-loop.svg" alt="The Raft core emits Ready; the replica persists, sends, applies and advances."><figcaption><p>The replica loop.</p></figcaption></figure>
 
 Features: PreVote, CheckQuorum, pipelined AppendEntries with flow control (Probe / Replicate / Snapshot progress states), ReadIndex, leader leases, follower reads, chunked snapshots, learners, single-server membership changes (ADR-0006), leadership transfer, proposal forwarding. Election timeouts come from the seeded `Random` port, not a global RNG.
 
@@ -353,18 +256,7 @@ Invariants are asserted in tests and debug builds: election safety, leader appen
 
 A **range** is a contiguous key span with its own Raft group (3 replicas by default), described by `{rangeId, startKey, endKey, epoch, replicas, placement}`.
 
-```mermaid
-stateDiagram-v2
-  [*] --> Active
-  Active --> Quiescent: idle (stop ticking)
-  Quiescent --> Active: proposal arrives
-  Active --> Splitting: > 64 MiB or hot for 60 s
-  Splitting --> Active: SplitTrigger applied (two ranges)
-  Active --> Merging: adjacent ranges < 16 MiB and cold
-  Merging --> Active: MergeTrigger applied
-  Active --> Moving: PD operator (add learner → promote → transfer leader → remove)
-  Moving --> Active
-```
+<figure><img src=".gitbook/assets/range-states.svg" alt="Range states: active, quiescent, splitting, merging, moving."><figcaption><p>Range lifecycle.</p></figcaption></figure>
 
 - **One `Store` per node** drives all replicas: one Ready loop, one fsync per turn across ranges, and **coalesced heartbeats** per node pair (10,000 ranges ≠ 10,000 heartbeats).
 - **Placement modes**: *key range* for Redis data and collections; *scope* for memory, where the key starts with (tenant, user) so one user's memory lives in one range and recall is single-range; *semantic split* for a scope that outgrows a range (k-means on embeddings, and recall fans out to the nearest 2 clusters).
@@ -391,18 +283,7 @@ Every node runs a **hybrid logical clock** (48-bit ms + 16-bit counter in one `u
 
 ## 9. Storage engine
 
-```mermaid
-flowchart TB
-  subgraph node["Per node"]
-    rl["LevelDB #1 — Raft logs + hard state<br/>sync: true (fsync before acks)"]
-    st["LevelDB #2 — state machine data (MVCC)<br/>no fsync per write; appliedIndex in same batch"]
-    mem["In-memory indexes (HNSW per scope)<br/>checkpointed to v/ segments"]
-    blob["Blob store — files, cold tier, backups"]
-  end
-  rl -- "replay from appliedIndex+1 on restart" --> st
-  st --> mem
-  st -- "low-retention memories" --> blob
-```
+<figure><img src=".gitbook/assets/storage.svg" alt="Two LevelDB instances, in-memory indexes and a blob store per node."><figcaption><p>Storage on one node.</p></figcaption></figure>
 
 - **Two LevelDB instances** (classic-level, behind the `KvStore` port; ADR-005). The log instance fsyncs. The state instance can skip fsync because it can be rebuilt from the log: `appliedIndex` is written in the same batch, and a restart re-applies from `appliedIndex + 1`. Therefore **the log is never compacted past an index until the state store has been flushed with `sync` at or beyond it** (CLAUDE.md rule 7).
 - **MVCC**: the version is a per-range HLC timestamp, `max(cmd.hlc, lastVersion + 1)` assigned in apply (ADR-0027), stored inverted after the `0x40` marker. A read at version V seeks to `key@~V`. Deletes write tombstones. GC is a replicated `GcThreshold` command (7 days for KV, 30 for memory by default), and branch fork points pin their versions.
@@ -432,12 +313,7 @@ The memory engine is a set of small components behind ports. It knows nothing ab
 
 ### 11.1 Ingestion (`remember`)
 
-```mermaid
-flowchart LR
-  n["Normalize"] --> r["Redact (PII, optional)"] --> ch["Chunk"] --> ex["ExtractFacts<br/>(local LLM, JSON schema,<br/>add-only)"]
-  ex --> ner["RecognizeEntities<br/>(GLiNER)"] --> le["LinkEntities"] --> em["Embed"] --> imp["ScoreImportance"]
-  imp --> ln["LinkNotes<br/>(top-5 ≥ 0.75)"] --> tr["ClassifyTrust"] --> dc["DetectConflicts<br/>(NLI)"] --> as["AssembleCommit"] --> pr["Propose"]
-```
+<figure><img src=".gitbook/assets/ingest.svg" alt="Remember pipeline: prepare, enrich, decide, MemoryCommit."><figcaption><p>Ingestion stages.</p></figcaption></figure>
 
 - Stages declare `needsModel`, `optional`, `timeoutMs` and `batchSize`, and return `Result<O, StageError>`. A **retryable** error is retried, a **skippable** one falls back to the stage's declared output, and a **fatal** one aborts.
 - All outputs (facts, vectors, entities, links, conflicts) go into **one `MemoryCommit` command**, so followers never re-run models.
@@ -447,18 +323,7 @@ flowchart LR
 
 ### 11.2 Recall
 
-```mermaid
-flowchart LR
-  pq["ParseQuery<br/>(entities, time, breadth)"] --> cc{"CheckCache"}
-  cc -- hit, deps unchanged --> out["answer"]
-  cc -- miss --> ret
-  subgraph ret["Retrieve (parallel)"]
-    v["vector k=50"]; k["BM25 k=50"]; e["entity"]; p["PPR"]; t["theme"]
-  end
-  ret --> fu["Fuse (RRF, k=60,<br/>weighted)"] --> fi["Filter (scope, branch,<br/>trust, ASOF, validity)"] --> rr["Rerank (optional)"]
-  rr --> sc["Score"] --> dv["Diversify (MMR λ=0.7)"] --> pk["Pack (token budget)"] --> out
-  pk -.-> rs["RecordRecall (batched)"]
-```
+<figure><img src=".gitbook/assets/recall.svg" alt="Recall pipeline: parse, retrieve, fuse, filter, rerank, score, diversify, pack."><figcaption><p>Recall stages.</p></figcaption></figure>
 
 Final score (per-tenant weights, tuned on evals):
 
@@ -484,15 +349,7 @@ What is built (phase 6, ADR-0011):
 
 Leader-only background workers (`@mindlog/consolidation`) run as durable jobs in the scope's range. All of them write through normal commands (`MemoryMaintain`, `MemoryCommit`, `MemoryForget`, branch commands), are idempotent per attempt, and checkpoint in their own commands so a leader change resumes them. A per-tenant, node-local model-time budget defers work instead of failing it.
 
-```mermaid
-flowchart LR
-  W[main commit] -->|enqueue if none scheduled| T[tick job]
-  T -->|planTick: state + clock| D{due?}
-  D --> S[sleep] & E[evolve] & X[dedup] & H[themes] & N[entities] & F[forget] & R[reembed] & C[cache]
-  T -->|next tick while work remains| T
-  F -->|1 put segment| B[(blob store)]
-  F -->|2 MemoryMaintain tier cold| L[(Raft log)]
-```
+<figure><img src=".gitbook/assets/consolidation.svg" alt="Memory writes enqueue a per-scope tick job that runs the due workers."><figcaption><p>Consolidation tick and workers.</p></figcaption></figure>
 
 | Worker | Trigger (from `ScopeLifecycle` at `m/(user,'cs')`) | Output |
 |---|---|---|
@@ -523,27 +380,13 @@ These follow directly from the replicated log. Prior art exists for each one on 
 | **Change streams** | Each applied memory command yields events `{cursor: rangeId:index, type, user, branch?, ids, principal}`. RESP `MEM.WATCH` (push messages), SSE `/api/realtime` and MCP `subscriptions/listen` (resource updates) resume from a cursor out of a 1,000-event tail per range; an older cursor gets `resync` |
 | **Semantic cache** | Two-stage lookup (cosine candidate, then a pluggable evaluator), with an L1 per-node exact-prompt map and L2 entries replicated in the user scope's range. Entries record the memories they depend on; the apply that forgets a memory drops its entries in the same batch, and a store naming a forgotten memory is refused (ADR-0012) |
 | **Token-budget packing** | Greedy by score per token with an MMR penalty and one improvement pass; per-group caps (facts, episodes, themes, procedures) |
-| **Embedded replicas** | The SDK keeps a local LevelDB of subscribed scopes: a snapshot plus the change stream, session consistency, and an offline write queue with request ids |
+| **Embedded replicas** | The SDK keeps a local SQLite copy of subscribed scopes (ADR-0040): a snapshot plus the change stream, session consistency, and an offline write queue with request ids |
 
 ---
 
 ### 12.1 Full-stack collections (phase 9)
 
-```mermaid
-sequenceDiagram
-  participant C as App (SDK)
-  participant H as Node taking the request
-  participant L as Leader of the collection's range
-  participant B as Blob store
-  C->>H: POST /api/collections/todos/records
-  H->>H: identity, rules as the requester, modifiers, password hash, embedding
-  H->>B: put uploaded files (only after the rules passed)
-  H->>L: RecordWrite (fenced by the version read) + jobs
-  L->>L: apply: validate, unique claims, index rows, enqueue jobs
-  L-->>H: versions
-  H-->>C: the record, as the requester may see it
-  L--)C: realtime event, checked against the rule as each subscriber
-```
+<figure><img src=".gitbook/assets/collections-write.svg" alt="Sequence of a record create through the node, the range leader and the blob store."><figcaption><p>Creating a record.</p></figcaption></figure>
 
 - **One key prefix per collection** (ADR-0034): schema, records, index rows, unique claims and jobs live under `c/(collection, …)`, so a split never separates them and a unique check is one apply.
 - **Rules run where the request is**, as the requester, with relations and `@collection` rows read through the router. A list plans an index from the top-level conjuncts and re-checks the whole rule on every candidate.

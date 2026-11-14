@@ -1,0 +1,6 @@
+# GitBook Git Sync: the book lives in docs/ (navigation in docs/SUMMARY.md).
+root: ./docs/
+
+structure:
+  readme: README.md
+  summary: SUMMARY.md

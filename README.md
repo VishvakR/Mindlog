@@ -19,6 +19,7 @@ Every change is a command in a Raft log, copied to several machines before it is
 ## Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Quick start](#quick-start)
 - [Ways to connect](#ways-to-connect)
 - [How it works](#how-it-works)
@@ -62,6 +63,31 @@ Every change is a command in a Raft log, copied to several machines before it is
 - TLS and mTLS with hot reload, encryption at rest, full backups with `verify` and `restore`.
 - Prometheus metrics, OpenTelemetry traces, structured logs, 11 runbooks.
 - A React dashboard: data browser, console, memory, recall, graph, conflicts, branches, jobs, cluster, tenants and more.
+
+---
+
+## Screenshots
+
+The dashboard at `http://localhost:8090/_/`, on a single node with a few memories about one user.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/.gitbook/assets/dashboard-recall.png" alt="Recall playground: ranked memories with the vector, BM25, entity, PPR, rerank, recency, importance and retention signals behind each score."></td>
+    <td width="50%"><img src="docs/.gitbook/assets/dashboard-conflicts.png" alt="Conflicts page: an existing fact and a contradicting new fact, the new one quarantined, with Keep a, Keep b and Keep both actions."></td>
+  </tr>
+  <tr>
+    <td><b>Recall</b>: the same pipeline agents use, with every signal behind each score.</td>
+    <td><b>Conflicts</b>: a contradiction caught at commit time; the new fact waits in quarantine for review.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/.gitbook/assets/dashboard-graph.png" alt="Knowledge graph page: entities extracted from memories, centred on the person Ana, with two hops of relations."></td>
+    <td width="50%"><img src="docs/.gitbook/assets/dashboard-overview.png" alt="Overview page: key count, connected clients, applied Raft index, memory use and node details."></td>
+  </tr>
+  <tr>
+    <td><b>Graph</b>: the people, places and things the memories mention, and how they relate.</td>
+    <td><b>Overview</b>: node health, the applied Raft index and listeners.</td>
+  </tr>
+</table>
 
 ---
 
@@ -186,7 +212,7 @@ const { context } = await memory.recall('Where is Ana travelling?', { k: 3 });
 - **Decisions happen at commit time.** Conflict checks, trust classification and cache invalidation are part of the same write, the same on every replica.
 - **Layered packages.** Interfaces → application → domain → replication → storage → core; imports only point downward, enforced by lint and tests.
 
-More: [Architecture overview](docs/architecture/overview.md), [System design](docs/design.md), [41 architecture decision records](docs/adr/README.md).
+More: [Architecture overview](docs/architecture/overview.md), [System design](docs/design.md), [40 architecture decision records](docs/adr/README.md).
 
 ---
 

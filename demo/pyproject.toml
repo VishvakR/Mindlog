@@ -1,0 +1,12 @@
+[project]
+name = "mindlog-chat-demo"
+version = "0.1.0"
+description = "A terminal chatbot whose only state is Mindlog, with a local Ollama model"
+requires-python = ">=3.12"
+dependencies = ["redis>=8.1.0"]
+
+[dependency-groups]
+dev = ["pytest>=9.1.1"]
+
+[tool.uv]
+package = false
